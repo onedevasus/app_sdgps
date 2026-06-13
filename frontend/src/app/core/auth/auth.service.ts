@@ -10,7 +10,7 @@ import {AuthResponse, RegisterPayload, UserRole} from '../../features/auth/model
  *              À remplacer par l'URL réelle de votre backend Django.
  *              Utilisation d'une constante pour faciliter la maintenabilité.
  */
-const API_URL = 'http://localhost:8000/api/auth'; // TODO: Remplacer par l'URL de votre backend Django
+const API_URL = 'http://localhost:8085/api/auth'; // TODO: Remplacer par l'URL de votre backend Django
 
 /**
  * @injectable
