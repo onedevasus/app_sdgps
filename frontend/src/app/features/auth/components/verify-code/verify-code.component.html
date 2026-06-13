@@ -1,0 +1,59 @@
+<div class="verify-code-container">
+  <h2>Vérification du code</h2>
+  <p class="subtitle">Entrez le code à 6 chiffres envoyé à <strong>{{ email }}</strong></p>
+  
+  <form [formGroup]="verifyForm" (ngSubmit)="onSubmit()">
+    <!-- Champ Code -->
+    <div class="form-group">
+      <label for="code">Code de vérification :</label>
+      <input 
+        id="code" 
+        type="text" 
+        formControlName="code" 
+        placeholder="000000"
+        maxlength="6"
+        autocomplete="one-time-code"
+      >
+      <div *ngIf="verifyForm.get('code')?.errors?.['required'] && verifyForm.get('code')?.touched" class="error-message">
+        Le code est requis.
+      </div>
+      <div *ngIf="verifyForm.get('code')?.errors?.['minlength'] || verifyForm.get('code')?.errors?.['maxlength']" class="error-message">
+        Le code doit contenir exactement 6 chiffres.
+      </div>
+    </div>
+
+    <!-- Message de succès -->
+    <div *ngIf="successMessage" class="success-message">
+      {{ successMessage }}
+    </div>
+
+    <!-- Message d'erreur -->
+    <div *ngIf="errorMessage" class="error-message-global">
+      {{ errorMessage }}
+    </div>
+
+    <!-- Bouton de soumission -->
+    <button type="submit" [disabled]="verifyForm.invalid || isLoading">
+      <span *ngIf="!isLoading">Vérifier le code</span>
+      <span *ngIf="isLoading">Vérification...</span>
+    </button>
+  </form>
+
+  <!-- Renvoyer le code -->
+  <p class="resend-link">
+    Vous n'avez pas reçu le code ?
+    <button 
+      [disabled]="resendDisabled" 
+      (click)="resendCode()"
+      class="btn-link"
+    >
+      <span *ngIf="!resendDisabled">Renvoyer le code</span>
+      <span *ngIf="resendDisabled">Renvoyer dans {{ countdown }}s</span>
+    </button>
+  </p>
+
+  <!-- Lien retour -->
+  <p class="back-link">
+    <a routerLink="/auth/forgot-password">← Retour</a>
+  </p>
+</div>

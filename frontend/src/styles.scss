@@ -1,0 +1,63 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* ========================================
+   DESIGN SYSTEM - GEOPORTAIL V2.8
+   Thème Sombre par défaut avec toggle Clair
+   ======================================== */
+
+:root {
+  // Dimensions layout
+  --sidebar-width-expanded: 280px;
+  --sidebar-width-collapsed: 60px;
+  --header-height: 60px;
+  --tabs-height: 40px;
+
+  // Thème Sombre (Défaut - inspiré geoportail v2.8)
+  --primary-color: #1a1a1a;              // Sidebar BG
+  --secondary-color: #2d2d2d;            // Header BG, Tabs BG
+  --accent-color: #cc5858;               // Boutons, Liens actifs (rouge/corail)
+  --text-color: #ecf0f1;                 // Texte principal (blanc cassé)
+  --text-muted: #95a5a6;                 // Texte secondaire (gris clair)
+  --background-color: #121212;           // Body BG (noir doux)
+  --content-bg: #1a1a1a;                 // Fond du viewer
+  --border-color: #404040;               // Bordures (gris foncé)
+  --hover-bg: rgba(255, 255, 255, 0.05); // Survol (blanc très transparent)
+  --active-bg: rgba(255, 255, 255, 0.05);// Actif léger
+  --submenu-bg: rgba(0, 0, 0, 0.3);      // Sous-menu (noir semi-transparent)
+  --shadow-color: rgba(0, 0, 0, 0.2);    // Ombres subtiles
+  --breadcrumb-bg: #555;                 // Fil d'Ariane inactif
+  --breadcrumb-hover: #666;              // Fil d'Ariane survol
+}
+
+// Thème Clair (activé via [data-theme="light"] sur body)
+[data-theme="light"] {
+  --primary-color: #ffffff;              // Sidebar BG blanc
+  --secondary-color: #f8f9fa;            // Header BG gris très clair
+  --text-color: #2c3e50;                 // Texte sombre
+  --text-muted: #7f8c8d;                 // Texte secondaire gris
+  --background-color: #e9ecef;           // Body BG gris clair
+  --content-bg: #f0f2f5;                 // Fond du viewer
+  --border-color: #dee2e6;               // Bordures claires
+  --hover-bg: rgba(0, 0, 0, 0.05);       // Survol sombre léger
+  --active-bg: rgba(0, 0, 0, 0.05);      // Actif léger
+  --submenu-bg: rgba(0, 0, 0, 0.03);     // Sous-menu
+  --shadow-color: rgba(0, 0, 0, 0.1);    // Ombres légères
+  --breadcrumb-bg: #e9ecef;              // Fil d'Ariane inactif
+  --breadcrumb-hover: #dee2e6;           // Fil d'Ariane survol
+}
+
+/* Styles globaux de l'application */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  overflow: hidden;
+  height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}

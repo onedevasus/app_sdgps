@@ -1,0 +1,73 @@
+<div class="sidebar" [class.collapsed]="(sidebarState$ | async)?.isCollapsed" [class.hidden]="!(sidebarState$ | async)?.isVisible">
+  
+  <!-- Header: Logo + Titre -->
+  <div class="sidebar-header">
+    <div class="logo-container">
+      <img src="assets/images/logo_mi.png" alt="Logo SDGPS" class="logo-img">
+    </div>
+    <div class="title-container">
+      <span class="logo-text">SDGPS</span>
+    </div>
+    <div class="toggle-container">
+      <button 
+        (click)="layoutService.toggleSidebarCollapse()" 
+        class="toggle-btn" 
+        title="Réduire/Agrandir le menu">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Menu Items -->
+  <ul class="sidebar-menu">
+    <ng-container *ngFor="let item of menuItems$ | async">
+      
+      <!-- Menu sans enfants -->
+      <li *ngIf="!item.children || item.children.length === 0" class="menu-item">
+        <a 
+          [routerLink]="item.route" 
+          routerLinkActive="active current-page"
+          class="menu-link"
+          [title]="item.description || item.title">
+          
+          <i *ngIf="item.icon" [class]="item.icon + ' menu-icon'"></i>
+          <span class="menu-text">{{ item.title }}</span>
+          
+          <!-- Badge optionnel -->
+          <span *ngIf="item.badge" class="badge" [style.background-color]="item.badge.color">
+            {{ item.badge.text }}
+          </span>
+        </a>
+      </li>
+
+      <!-- Menu avec sous-menu -->
+      <li *ngIf="item.children && item.children.length > 0" class="menu-item has-children">
+        <a 
+          (click)="toggleSubmenu(item.id)"
+          class="menu-link"
+          [title]="item.description || item.title">
+          
+          <i *ngIf="item.icon" [class]="item.icon + ' menu-icon'"></i>
+          <span class="menu-text">{{ item.title }}</span>
+          <i class="fas fa-chevron-down submenu-toggle-icon" [class.rotated]="isExpanded(item.id)"></i>
+        </a>
+
+        <!-- Sous-menu -->
+        <ul class="submenu" [class.open]="isExpanded(item.id)">
+          <li *ngFor="let child of item.children" class="menu-item">
+            <a 
+              [routerLink]="child.route" 
+              routerLinkActive="active"
+              class="menu-link submenu-link"
+              [title]="child.description || child.title">
+              
+              <i *ngIf="child.icon" [class]="child.icon + ' type-icon'"></i>
+              <span class="menu-text">{{ child.title }}</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+
+    </ng-container>
+  </ul>
+</div>

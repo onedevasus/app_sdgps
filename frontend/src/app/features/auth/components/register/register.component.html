@@ -1,0 +1,163 @@
+<div class="register-container">
+    <h2>Créer un compte</h2>
+    <form (ngSubmit)="onSubmit()" [formGroup]="registerForm">
+
+        <!-- Champ Prénom -->
+        <div class="form-group">
+            <label for="firstName">Prénom :</label>
+            <input formControlName="firstName" id="firstName" placeholder="Votre prénom" type="text">
+            <div *ngIf="shouldShowError('firstName')" class="error-message">
+                <div *ngIf="registerForm.get('firstName')?.errors?.['required']">Le prénom est requis.</div>
+            </div>
+        </div>
+
+        <!-- Champ Nom -->
+        <div class="form-group">
+            <label for="lastName">Nom :</label>
+            <input formControlName="lastName" id="lastName" placeholder="Votre nom" type="text">
+            <div *ngIf="shouldShowError('lastName')" class="error-message">
+                <div *ngIf="registerForm.get('lastName')?.errors?.['required']">Le nom est requis.</div>
+            </div>
+        </div>
+
+        <!-- Champ Nom Société -->
+        <div class="form-group">
+            <label for="companyName">Nom de la société :</label>
+            <input formControlName="companyName" id="companyName" placeholder="Nom de votre société" type="text">
+            <div *ngIf="shouldShowError('companyName')" class="error-message">
+                <div *ngIf="registerForm.get('companyName')?.errors?.['required']">Le nom de la société est requis.
+                </div>
+            </div>
+        </div>
+
+        <!-- Champ Code d'Organisation (RBAC) -->
+        <div class="form-group">
+            <label for="organizationCode">
+                Code d'organisation :
+                <span class="optional-badge">Optionnel</span>
+            </label>
+            <input
+                    class="org-code-input"
+                    formControlName="organizationCode"
+                    id="organizationCode"
+                    placeholder="Laissez vide pour créer votre organisation"
+                    type="text"
+            >
+            <div class="field-help">
+                <span class="help-icon">💡</span>
+                <span class="help-text">
+                    Vous avez un code d'invitation ? Saisissez-le ici pour rejoindre une organisation existante.
+                    Sinon, laissez ce champ vide pour créer votre propre organisation.
+                </span>
+            </div>
+            <div *ngIf="registerForm.get('organizationCode')?.touched && registerForm.get('organizationCode')?.errors"
+                 class="error-message">
+                <div *ngIf="registerForm.get('organizationCode')?.errors?.['pattern']">
+                    Le code d'organisation doit contenir uniquement des lettres et des chiffres.
+                </div>
+            </div>
+        </div>
+
+        <!-- Champ Email -->
+        <div class="form-group">
+            <label for="email">Email :</label>
+            <input formControlName="email" id="email" placeholder="Votre adresse email" type="email">
+            <div *ngIf="shouldShowError('email')" class="error-message">
+                <div *ngIf="registerForm.get('email')?.errors?.['required']">L'email est requis.</div>
+                <div *ngIf="registerForm.get('email')?.errors?.['email']">Veuillez entrer un email valide.</div>
+            </div>
+        </div>
+
+        <!-- Champ Mot de passe -->
+        <div class="form-group">
+            <label for="password">Mot de passe :</label>
+            <div class="password-input-wrapper">
+                <input
+                        [type]="showPassword ? 'text' : 'password'"
+                        formControlName="password"
+                        id="password"
+                        placeholder="Votre mot de passe"
+                >
+                <button
+                        (click)="togglePasswordVisibility()"
+                        [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                        class="toggle-password-btn"
+                        tabindex="-1"
+                        type="button"
+                >
+                    <span class="toggle-icon">{{ showPassword ? '🙈' : '👁️' }}</span>
+                </button>
+            </div>
+            <div *ngIf="shouldShowError('password')" class="error-message">
+                <div *ngIf="registerForm.get('password')?.errors?.['required']">Le mot de passe est requis.</div>
+                <div *ngIf="registerForm.get('password')?.errors?.['minlength']">Le mot de passe doit contenir au moins
+                    8 caractères.
+                </div>
+                <div *ngIf="registerForm.get('password')?.errors?.['pattern']">Le mot de passe doit contenir au moins
+                    une majuscule, une minuscule, un chiffre et un caractère spécial.
+                </div>
+            </div>
+
+            <!-- Validation visuelle en temps réel des critères du mot de passe -->
+            <div *ngIf="registerForm.get('password')?.value" class="password-criteria">
+                <div class="criteria-title">Critères de sécurité :</div>
+                <ul class="criteria-list">
+                    <li *ngFor="let criterion of passwordCriteria"
+                        [class.invalid]="!criterion.valid"
+                        [class.valid]="criterion.valid">
+                        <span class="criteria-icon">{{ criterion.valid ? '✓' : '✗' }}</span>
+                        <span class="criteria-text">{{ criterion.label }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Champ Confirmation Mot de passe -->
+        <div class="form-group">
+            <label for="confirmPassword">Confirmer le mot de passe :</label>
+            <div class="password-input-wrapper">
+                <input
+                        [type]="showConfirmPassword ? 'text' : 'password'"
+                        formControlName="confirmPassword"
+                        id="confirmPassword"
+                        placeholder="Confirmez votre mot de passe"
+                >
+                <button
+                        (click)="toggleConfirmPasswordVisibility()"
+                        [attr.aria-label]="showConfirmPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                        class="toggle-password-btn"
+                        tabindex="-1"
+                        type="button"
+                >
+                    <span class="toggle-icon">{{ showConfirmPassword ? '🙈' : '👁️' }}</span>
+                </button>
+            </div>
+            <div *ngIf="shouldShowError('confirmPassword') || (registerForm.get('confirmPassword')?.touched && registerForm.errors?.['mismatch'])"
+                 class="error-message">
+                <div *ngIf="registerForm.get('confirmPassword')?.errors?.['required']">La confirmation du mot de passe
+                    est requise.
+                </div>
+                <div *ngIf="registerForm.errors?.['mismatch']">Les mots de passe ne correspondent pas.</div>
+            </div>
+        </div>
+
+        <!-- Message de succès -->
+        <div *ngIf="successMessage" class="success-message">
+            {{ successMessage }}
+        </div>
+
+        <!-- Message d'erreur général du backend -->
+        <div *ngIf="errorMessage" class="error-message-global">
+            {{ errorMessage }}
+        </div>
+
+        <!-- Bouton de soumission -->
+        <button [disabled]="registerForm.invalid || isLoading" type="submit">
+            <span *ngIf="!isLoading">S'inscrire</span>
+            <span *ngIf="isLoading">Inscription en cours...</span>
+        </button>
+    </form>
+
+    <!-- Lien vers la page de connexion -->
+    <p class="login-link">Vous avez déjà un compte ? <a routerLink="/auth/login">Connectez-vous ici</a></p>
+</div>

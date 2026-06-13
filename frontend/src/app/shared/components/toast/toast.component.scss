@@ -1,0 +1,151 @@
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+
+  .toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    min-width: 350px;
+    max-width: 450px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    pointer-events: auto;
+    animation: slideInRight 0.3s ease-out;
+    position: relative;
+    overflow: hidden;
+
+    // Types de toast
+    &.success {
+      border-left: 4px solid #27ae60;
+
+      .toast-icon {
+        color: #27ae60;
+      }
+    }
+
+    &.error {
+      border-left: 4px solid #e74c3c;
+
+      .toast-icon {
+        color: #e74c3c;
+      }
+    }
+
+    &.warning {
+      border-left: 4px solid #f39c12;
+
+      .toast-icon {
+        color: #f39c12;
+      }
+    }
+
+    &.info {
+      border-left: 4px solid #3498db;
+
+      .toast-icon {
+        color: #3498db;
+      }
+    }
+
+    .toast-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .toast-content {
+      flex: 1;
+
+      .toast-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #2c3e50;
+        margin-bottom: 4px;
+      }
+
+      .toast-message {
+        font-size: 13px;
+        color: #7f8c8d;
+        line-height: 1.4;
+      }
+    }
+
+    .toast-close {
+      background: transparent;
+      border: none;
+      color: #95a5a6;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+
+      i {
+        font-size: 14px;
+      }
+
+      &:hover {
+        color: #2c3e50;
+        transform: scale(1.1);
+      }
+    }
+
+    // Barre de progression
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: currentColor;
+      opacity: 0.3;
+      animation: progressShrink linear forwards;
+
+      .success & {
+        background: #27ae60;
+      }
+
+      .error & {
+        background: #e74c3c;
+      }
+
+      .warning & {
+        background: #f39c12;
+      }
+
+      .info & {
+        background: #3498db;
+      }
+    }
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes progressShrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

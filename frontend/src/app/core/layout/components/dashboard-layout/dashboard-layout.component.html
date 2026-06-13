@@ -1,0 +1,18 @@
+<div class="app-container" [class.sidebar-hidden]="!(sidebarState$ | async)?.isVisible">
+  
+  <!-- Sidebar -->
+  <app-sidebar></app-sidebar>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Top Bar -->
+    <app-topbar></app-topbar>
+
+    <!-- Router Outlet pour les composants enfants -->
+    <div class="content-wrapper">
+      <router-outlet></router-outlet>
+    </div>
+
+  </main>
+</div>

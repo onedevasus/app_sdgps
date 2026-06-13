@@ -1,0 +1,441 @@
+import uuid
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
+from datetime import timedelta
+from .managers import OrganizationManager
+
+
+class Organization(models.Model):
+    """
+    Modèle central pour les organisations (Cabinets privés et Entités publiques).
+    
+    Supporte deux types :
+    - PRIVATE: Cabinets privés (SARL, SA, Auto-entrepreneur, etc.)
+    - PUBLIC: Entités publiques (Directions, Divisions, Services, etc.)
+    """
+    
+    # Types d'organisations
+    class OrgType(models.TextChoices):
+        PRIVATE = 'PRIVATE', 'Cabinet Privé / Entreprise'
+        PUBLIC = 'PUBLIC', 'Entité Publique / Administration'
+    
+    # Rôles disponibles dans l'organisation (hiérarchie)
+    ROLE_CHOICES = [
+        ('OWNER', 'Propriétaire / Chef de service'),
+        ('ADMIN', 'Administrateur'),
+        ('MANAGER', 'Gestionnaire'),
+        ('USER', 'Utilisateur'),
+    ]
+
+    # Identifiants
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Manager personnalisé pour filtrage automatique des données de test
+    objects = OrganizationManager()
+    
+    # Manager sans filtrage (pour accès complet si besoin)
+    all_objects = models.Manager()
+    code = models.CharField(
+        max_length=50, 
+        unique=True, 
+        db_index=True, 
+        verbose_name="Code Organisation",
+        help_text="Code unique d'identification de l'organisation (ex: CAB-001, DIR-FIN)"
+    )
+    name = models.CharField(
+        max_length=255, 
+        verbose_name="Nom de l'organisation",
+        help_text="Nom officiel ou raison sociale de l'organisation"
+    )
+    type = models.CharField(
+        max_length=10, 
+        choices=OrgType.choices, 
+        default=OrgType.PRIVATE,
+        verbose_name="Type d'organisation",
+        help_text="Catégorie : Cabinet privé/entreprise ou entité publique/administration"
+    )
+
+    # Informations légales / Structurelles
+    legal_id = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Identifiant légal (RC/ICE/Décret)",
+        help_text="Numéro de registre de commerce pour les privés ou numéro de décret pour les publics"
+    )
+    
+    # Adresse et Contact
+    address = models.TextField(
+        blank=True, 
+        verbose_name="Adresse physique",
+        help_text="Adresse postale complète de l'organisation"
+    )
+    phone = models.CharField(
+        max_length=20, 
+        blank=True, 
+        verbose_name="Téléphone",
+        help_text="Numéro de téléphone principal de contact"
+    )
+    email = models.EmailField(
+        blank=True, 
+        verbose_name="Email officiel",
+        help_text="Adresse email principale pour les communications officielles"
+    )
+    website = models.URLField(
+        blank=True, 
+        verbose_name="Site web",
+        help_text="URL du site internet de l'organisation"
+    )
+
+    # Logo et Branding
+    logo = models.ImageField(
+        upload_to='org_logos/%Y/%m/', 
+        blank=True, 
+        null=True, 
+        verbose_name="Logo",
+        help_text="Image du logo de l'organisation (formats: PNG, JPG)"
+    )
+
+    # Gestion Hiérarchique (Pour les entités publiques : Direction > Division > Service)
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='children',
+        verbose_name="Organisation parente",
+        help_text="Organisation de niveau supérieur dans la hiérarchie (ex: Ministère pour une Direction)"
+    )
+
+    # Métadonnées
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name="Statut",
+        help_text="Indique si l'organisation est active et accessible dans le système"
+    )
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name="Supprimée (logique)",
+        help_text="Indique si l'organisation a été supprimée logiquement (soft delete). Ne plus l'afficher dans l'application."
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de suppression",
+        help_text="Date et heure de la suppression logique de l'organisation"
+    )
+    is_test_data = models.BooleanField(
+        default=False,
+        verbose_name="Données de test",
+        help_text="Indique si cette organisation est une donnée de test (True) ou réelle (False)"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Date de création",
+        help_text="Date et heure de création de l'organisation dans le système"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Dernière modification",
+        help_text="Date et heure de la dernière modification des informations"
+    )
+    created_by = models.ForeignKey(
+        'CustomUser', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='created_organizations',
+        verbose_name="Créé par",
+        help_text="Utilisateur ayant créé cette organisation"
+    )
+    modified_by = models.ForeignKey(
+        'CustomUser', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='modified_organizations',
+        verbose_name="Modifié par",
+        help_text="Utilisateur ayant effectué la dernière modification de cette organisation"
+    )
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Organisation"
+        verbose_name_plural = "Organisations"
+        indexes = [
+            models.Index(fields=['type']),
+            models.Index(fields=['code']),
+            models.Index(fields=['is_test_data']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_type_display()})"
+
+    def get_full_path(self):
+        """
+        Retourne le chemin hiérarchique complet.
+        Exemple: Ministère de l'Économie > Direction Générale > Division Financière
+        """
+        if self.parent:
+            return f"{self.parent.get_full_path()} > {self.name}"
+        return self.name
+
+    def get_member_count(self):
+        """Retourne le nombre de membres actifs dans l'organisation"""
+        return self.members.filter(is_active=True).count()
+
+
+class Membership(models.Model):
+    """
+    Table de liaison entre les Utilisateurs et les Organisations.
+    
+    Permet à un utilisateur d'appartenir à plusieurs organisations 
+    avec des rôles différents (Multi-tenancy).
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.CASCADE,
+        related_name='memberships',
+        verbose_name="Utilisateur"
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='members',
+        verbose_name="Organisation"
+    )
+    role = models.CharField(
+        max_length=10,
+        choices=Organization.ROLE_CHOICES,
+        default='USER',
+        verbose_name="Rôle"
+    )
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name="Date d'adhésion")
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+
+    class Meta:
+        unique_together = ('user', 'organization')  # Un utilisateur n'a qu'un seul rôle par org
+        verbose_name = "Adhésion"
+        verbose_name_plural = "Adhésions"
+        ordering = ['-joined_at']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.organization.name} ({self.get_role_display()})"
+
+    def is_admin_or_higher(self):
+        """Vérifie si l'utilisateur a un rôle admin ou supérieur"""
+        return self.role in ['OWNER', 'ADMIN']
+
+
+class CustomUser(AbstractUser):
+    """
+    Modèle utilisateur personnalisé avec support RBAC multi-organisations.
+    Hérite de AbstractUser pour compatibilité Django Auth.
+    
+    Champs standards Django utilisés:
+    - first_name: Prénom de l'utilisateur
+    - last_name: Nom de famille de l'utilisateur
+    - email: Adresse email (identifiant unique)
+    """
+    
+    # Champ personnalisé : Nom de société
+    nom_societe = models.CharField(max_length=200, blank=True)
+    
+    # Email comme identifiant principal (au lieu de username)
+    email = models.EmailField(unique=True, verbose_name="Adresse email")
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []  # Username n'est plus requis
+    
+    # Champs pour gestion sécurité mot de passe
+    must_change_password = models.BooleanField(
+        default=False,
+        verbose_name="Doit changer le mot de passe",
+        help_text="L'utilisateur doit changer son mot de passe à la prochaine connexion"
+    )
+    password_changed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date dernier changement MDP"
+    )
+    
+    # Champ pour suivi dernière connexion
+    last_connection_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière connexion",
+        help_text="Date et heure de la dernière connexion réussie"
+    )
+    
+    # Photo de profil
+    profile_picture = models.ImageField(
+        upload_to='profile_pictures/%Y/%m/',
+        blank=True,
+        null=True,
+        verbose_name="Photo de profil",
+        help_text="Image de profil de l'utilisateur"
+    )
+    
+    def __str__(self):
+        return self.email
+    
+    def get_primary_organization(self):
+        """Retourne l'organisation principale de l'utilisateur (première adhésion active)."""
+        membership = self.memberships.filter(is_active=True).order_by('joined_at').first()
+        return membership.organization if membership else None
+    
+    def get_role_in_organization(self, organization):
+        """Retourne le rôle de l'utilisateur dans une organisation spécifique."""
+        try:
+            membership = self.memberships.get(organization=organization, is_active=True)
+            return membership.role
+        except Membership.DoesNotExist:
+            return None
+    
+    def has_role_in_any_org(self, role):
+        """Vérifie si l'utilisateur a un rôle spécifique dans au moins une organisation."""
+        return self.memberships.filter(role=role, is_active=True).exists()
+    
+    def is_admin_in_any_org(self):
+        """Vérifie si l'utilisateur est administrateur dans au moins une organisation."""
+        return self.has_role_in_any_org('ADMIN')
+    
+    def requires_password_change(self):
+        """
+        Vérifie si l'utilisateur doit changer son mot de passe.
+        
+        Returns:
+            bool: True si changement requis, False sinon
+        """
+        # Si flag must_change_password est activé
+        if self.must_change_password:
+            return True
+        
+        # Si jamais changé (première connexion)
+        if not self.password_changed_at:
+            return False  # On ne force que si explicitement demandé
+        
+        # Optionnel: Forcer rotation tous les 90 jours
+        # from django.utils import timezone
+        # from datetime import timedelta
+        # return (timezone.now() - self.password_changed_at) > timedelta(days=90)
+        
+        return False
+    
+    def mark_password_changed(self):
+        """
+        Marque le mot de passe comme changé (après succès du changement).
+        """
+        from django.utils import timezone
+        self.must_change_password = False
+        self.password_changed_at = timezone.now()
+        self.save(update_fields=['must_change_password', 'password_changed_at'])
+    
+    def update_last_connection(self):
+        """
+        Met à jour la date et heure de dernière connexion.
+        À appeler après chaque connexion réussie.
+        """
+        from django.utils import timezone
+        self.last_connection_at = timezone.now()
+        self.save(update_fields=['last_connection_at'])
+    
+    def get_primary_role(self):
+        """
+        Retourne le rôle principal de l'utilisateur (rôle dans la première organisation active).
+        Pour le Super Admin, retourne 'superadmin'.
+        """
+        # Vérifier si c'est un superuser Django
+        if self.is_superuser:
+            return 'superadmin'
+        
+        # Sinon, récupérer le rôle de la première organisation
+        membership = self.memberships.filter(is_active=True).order_by('joined_at').first()
+        if membership:
+            return membership.role.lower()  # 'ADMIN' → 'admin', etc.
+        
+        return 'user'  # Rôle par défaut
+    
+    def get_primary_role_display(self):
+        """
+        Retourne l'affichage du rôle principal.
+        """
+        role = self.get_primary_role()
+        role_map = {
+            'superadmin': 'Super Administrateur',
+            'admin': 'Administrateur',
+            'manager': 'Gestionnaire',
+            'user': 'Utilisateur',
+        }
+        return role_map.get(role, role.title())
+
+
+class PasswordResetToken(models.Model):
+    """
+    Modèle pour gérer les tokens de réinitialisation de mot de passe.
+    Utilisé pour la première connexion du super admin et les resets de mot de passe.
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='reset_tokens',
+        verbose_name="Utilisateur"
+    )
+    token = models.CharField(max_length=255, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Token de Réinitialisation'
+        verbose_name_plural = 'Tokens de Réinitialisation'
+    
+    def __str__(self):
+        return f"Token pour {self.user.email} - {'Utilisé' if self.used else 'Actif'}"
+    
+    def is_valid(self):
+        """Vérifie si le token est encore valide (non expiré et non utilisé)."""
+        return not self.used and timezone.now() < self.expires_at
+    
+    def invalidate(self):
+        """Invalide le token (marque comme utilisé)."""
+        self.used = True
+        self.save(update_fields=['used'])
+    
+    @staticmethod
+    def create_token(user, expiration_hours=24):
+        """
+        Crée un nouveau token pour un utilisateur.
+        
+        Args:
+            user: L'utilisateur pour qui créer le token
+            expiration_hours: Durée de validité en heures (défaut: 24h)
+        
+        Returns:
+            PasswordResetToken: Le token créé
+        """
+        # Invalider tous les anciens tokens actifs de cet utilisateur
+        PasswordResetToken.objects.filter(
+            user=user,
+            used=False,
+            expires_at__gt=timezone.now()
+        ).update(used=True)
+        
+        # Générer un token sécurisé
+        import secrets
+        token_value = secrets.token_urlsafe(32)  # 256 bits de sécurité
+        
+        # Créer le token
+        reset_token = PasswordResetToken.objects.create(
+            user=user,
+            token=token_value,
+            expires_at=timezone.now() + timedelta(hours=expiration_hours)
+        )
+        
+        return reset_token

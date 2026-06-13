@@ -1,0 +1,1 @@
+// Interface pour la réponse d'authentification (ex: token)

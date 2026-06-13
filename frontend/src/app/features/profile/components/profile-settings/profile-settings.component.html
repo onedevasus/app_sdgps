@@ -1,0 +1,399 @@
+<div class="profile-settings-container">
+  
+  <!-- Header -->
+  <div class="page-header">
+    <h1>
+      <i class="fas fa-user-cog"></i>
+      Gestion de mon Profil
+    </h1>
+    <p class="subtitle">Consultez et modifiez vos informations personnelles et paramètres de sécurité</p>
+  </div>
+  
+  <!-- Loading Spinner -->
+  <div *ngIf="isLoading && !userProfile" class="loading-container">
+    <div class="spinner"></div>
+    <p>Chargement du profil...</p>
+  </div>
+  
+  <!-- Contenu principal -->
+  <div *ngIf="userProfile" class="profile-content">
+    
+    <!-- Section Photo de Profil -->
+    <div class="profile-picture-section card">
+      <h2><i class="fas fa-user-circle"></i> Photo de Profil</h2>
+      
+      <div class="avatar-display-container">
+        <!-- Photo ou Avatar avec initiales -->
+        <div class="avatar-wrapper">
+          <!-- Afficher la photo si disponible -->
+          <img *ngIf="userProfile.profile_picture_url" 
+               [src]="userProfile.profile_picture_url" 
+               alt="Photo de profil"
+               class="profile-image"
+               (error)="onImageError($event)">
+          
+          <!-- Sinon afficher l'avatar avec initiales -->
+          <div *ngIf="!userProfile.profile_picture_url" class="avatar-circle large">
+            {{ getInitials() }}
+          </div>
+          
+          <!-- Overlay pour actions -->
+          <div class="avatar-overlay">
+            <button (click)="triggerFileInput()" class="btn-icon" title="Changer la photo">
+              <i class="fas fa-camera"></i>
+            </button>
+            <button *ngIf="userProfile.profile_picture_url" 
+                    (click)="deleteProfilePicture()" 
+                    class="btn-icon btn-delete" 
+                    title="Supprimer la photo">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Input file caché -->
+        <input #fileInput 
+               type="file" 
+               accept="image/*" 
+               (change)="onFileSelected($event)"
+               style="display: none;">
+        
+        <!-- Informations -->
+        <div class="avatar-info">
+          <h3>{{ userProfile.full_name }}</h3>
+          <p class="role-badge">{{ userProfile.role_display }}</p>
+          <p class="help-text" *ngIf="!userProfile.profile_picture_url">
+            <i class="fas fa-info-circle"></i>
+            Cliquez sur l'icône caméra pour ajouter une photo
+          </p>
+          <p class="help-text" *ngIf="userProfile.profile_picture_url">
+            <i class="fas fa-check-circle"></i>
+            Photo de profil active
+          </p>
+          <p class="upload-hint">
+            Formats acceptés: JPG, PNG, GIF • Taille max: 5MB
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Informations Personnelles -->
+    <div class="personal-info-section card">
+      <h2><i class="fas fa-id-card"></i> Informations Personnelles</h2>
+      
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+        <div class="form-grid">
+          
+          <!-- Prénom -->
+          <div class="form-group">
+            <label for="first_name">
+              <i class="fas fa-user"></i> Prénom
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="first_name"
+              formControlName="first_name"
+              placeholder="Votre prénom"
+              [class.error]="profileForm.get('first_name')?.invalid && profileForm.get('first_name')?.touched">
+            
+            <div class="error-message" *ngIf="profileForm.get('first_name')?.errors?.['required'] && profileForm.get('first_name')?.touched">
+              Le prénom est requis
+            </div>
+            <div class="error-message" *ngIf="profileForm.get('first_name')?.errors?.['minlength'] && profileForm.get('first_name')?.touched">
+              Minimum 2 caractères
+            </div>
+          </div>
+          
+          <!-- Nom -->
+          <div class="form-group">
+            <label for="last_name">
+              <i class="fas fa-user"></i> Nom
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="last_name"
+              formControlName="last_name"
+              placeholder="Votre nom"
+              [class.error]="profileForm.get('last_name')?.invalid && profileForm.get('last_name')?.touched">
+            
+            <div class="error-message" *ngIf="profileForm.get('last_name')?.errors?.['required'] && profileForm.get('last_name')?.touched">
+              Le nom est requis
+            </div>
+            <div class="error-message" *ngIf="profileForm.get('last_name')?.errors?.['minlength'] && profileForm.get('last_name')?.touched">
+              Minimum 2 caractères
+            </div>
+          </div>
+          
+          <!-- Email (Lecture seule) -->
+          <div class="form-group">
+            <label for="email">
+              <i class="fas fa-envelope"></i> Email
+            </label>
+            <input 
+              type="email" 
+              id="email"
+              formControlName="email"
+              readonly
+              class="readonly-field">
+            <p class="field-help">
+              <i class="fas fa-lock"></i> Email non modifiable
+            </p>
+          </div>
+          
+          <!-- Nom de Société -->
+          <div class="form-group">
+            <label for="nom_societe">
+              <i class="fas fa-building"></i> Nom de Société
+            </label>
+            <input 
+              type="text" 
+              id="nom_societe"
+              formControlName="nom_societe"
+              placeholder="Nom de votre organisation">
+            
+            <div class="error-message" *ngIf="profileForm.get('nom_societe')?.errors?.['minlength'] && profileForm.get('nom_societe')?.touched">
+              Minimum 2 caractères
+            </div>
+          </div>
+          
+        </div>
+        
+        <!-- Bouton Sauvegarder -->
+        <div class="form-actions">
+          <button 
+            type="submit"
+            [disabled]="profileForm.invalid || isLoading"
+            class="btn btn-primary btn-lg">
+            <i class="fas fa-save" *ngIf="!isLoading"></i>
+            <div class="spinner-small" *ngIf="isLoading"></div>
+            {{ isLoading ? 'Sauvegarde...' : 'Sauvegarder les modifications' }}
+          </button>
+        </div>
+        
+      </form>
+    </div>
+    
+    <!-- Section Sécurité -->
+    <div class="security-section card">
+      <h2><i class="fas fa-shield-alt"></i> Sécurité</h2>
+      
+      <div class="security-info">
+        <div class="info-item">
+          <i class="fas fa-calendar-alt"></i>
+          <div>
+            <strong>Membre depuis</strong>
+            <p>{{ userProfile.date_joined | date:'dd MMMM yyyy à HH:mm' }}</p>
+          </div>
+        </div>
+        
+        <div class="info-item" *ngIf="userProfile.last_connection_at">
+          <i class="fas fa-clock"></i>
+          <div>
+            <strong>Dernière connexion</strong>
+            <p>{{ userProfile.last_connection_at | date:'dd/MM/yyyy à HH:mm:ss' }}</p>
+          </div>
+        </div>
+        
+        <div class="info-item" *ngIf="!userProfile.last_connection_at">
+          <i class="fas fa-info-circle"></i>
+          <div>
+            <strong>Dernière connexion</strong>
+            <p class="text-muted">Aucune connexion enregistrée</p>
+          </div>
+        </div>
+        
+        <div class="info-item" *ngIf="userProfile.password_changed_at">
+          <i class="fas fa-key"></i>
+          <div>
+            <strong>Dernière modification du mot de passe</strong>
+            <p>{{ userProfile.password_changed_at | date:'dd/MM/yyyy à HH:mm:ss' }}</p>
+          </div>
+        </div>
+        
+        <div class="info-item" *ngIf="!userProfile.password_changed_at">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <strong>Dernière modification du mot de passe</strong>
+            <p class="text-muted">Jamais modifié</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="security-actions">
+        <button (click)="openPasswordModal()" class="btn btn-warning">
+          <i class="fas fa-key"></i>
+          Changer le mot de passe
+        </button>
+      </div>
+    </div>
+    
+    <!-- Section Préférences -->
+    <div class="preferences-section card">
+      <h2><i class="fas fa-cog"></i> Préférences</h2>
+      
+      <div class="preference-item">
+        <div class="preference-info">
+          <i class="fas fa-moon"></i>
+          <div>
+            <strong>Mode Sombre</strong>
+            <p>Basculer entre le thème clair et sombre</p>
+          </div>
+        </div>
+        
+        <button (click)="toggleTheme()" class="btn btn-toggle">
+          <i class="fas" [class.fa-sun]="(layoutService.theme$ | async) === 'light'" 
+                      [class.fa-moon]="(layoutService.theme$ | async) === 'dark'"></i>
+          {{ (layoutService.theme$ | async) === 'dark' ? 'Thème sombre' : 'Thème clair' }}
+        </button>
+      </div>
+    </div>
+    
+  </div>
+  
+</div>
+
+<!-- Modal Changement Mot de Passe -->
+<div class="modal-overlay" *ngIf="showPasswordModal" (click)="closePasswordModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    
+    <div class="modal-header">
+      <h2><i class="fas fa-key"></i> Changer le Mot de Passe</h2>
+      <button (click)="closePasswordModal()" class="close-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+        
+        <!-- Mot de passe actuel -->
+        <div class="form-group">
+          <label for="current_password">
+            <i class="fas fa-lock"></i> Mot de passe actuel
+            <span class="required">*</span>
+          </label>
+          <div class="password-input-container">
+            <input 
+              [type]="showCurrentPassword ? 'text' : 'password'" 
+              id="current_password"
+              formControlName="current_password"
+              placeholder="Entrez votre mot de passe actuel"
+              [class.error]="passwordForm.get('current_password')?.invalid && passwordForm.get('current_password')?.touched">
+            
+            <button 
+              type="button"
+              (click)="toggleCurrentPasswordVisibility()"
+              class="password-toggle-btn"
+              title="{{ showCurrentPassword ? 'Masquer' : 'Afficher' }} le mot de passe">
+              <i class="fas" [class.fa-eye]="!showCurrentPassword" [class.fa-eye-slash]="showCurrentPassword"></i>
+            </button>
+          </div>
+          
+          <div class="error-message" *ngIf="passwordForm.get('current_password')?.errors?.['required'] && passwordForm.get('current_password')?.touched">
+            Le mot de passe actuel est requis
+          </div>
+        </div>
+        
+        <!-- Nouveau mot de passe -->
+        <div class="form-group">
+          <label for="new_password">
+            <i class="fas fa-key"></i> Nouveau mot de passe
+            <span class="required">*</span>
+          </label>
+          <div class="password-input-container">
+            <input 
+              [type]="showNewPassword ? 'text' : 'password'" 
+              id="new_password"
+              formControlName="new_password"
+              placeholder="Nouveau mot de passe"
+              [class.error]="passwordForm.get('new_password')?.invalid && passwordForm.get('new_password')?.touched">
+            
+            <button 
+              type="button"
+              (click)="toggleNewPasswordVisibility()"
+              class="password-toggle-btn"
+              title="{{ showNewPassword ? 'Masquer' : 'Afficher' }} le mot de passe">
+              <i class="fas" [class.fa-eye]="!showNewPassword" [class.fa-eye-slash]="showNewPassword"></i>
+            </button>
+          </div>
+          
+          <div class="error-message" *ngIf="passwordForm.get('new_password')?.errors?.['required'] && passwordForm.get('new_password')?.touched">
+            Le nouveau mot de passe est requis
+          </div>
+          
+          <!-- Critères de validation du mot de passe -->
+          <div class="password-criteria">
+            <p class="criteria-title">
+              <i class="fas fa-shield-alt"></i> Critères de sécurité :
+            </p>
+            <ul class="criteria-list">
+              <li *ngFor="let criterion of passwordCriteria" 
+                  [class.valid]="criterion.valid" 
+                  [class.invalid]="!criterion.valid">
+                <i class="fas" 
+                   [class.fa-check-circle]="criterion.valid" 
+                   [class.fa-times-circle]="!criterion.valid"></i>
+                <span>{{ criterion.label }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Confirmation mot de passe -->
+        <div class="form-group">
+          <label for="confirm_password">
+            <i class="fas fa-check-circle"></i> Confirmer le mot de passe
+            <span class="required">*</span>
+          </label>
+          <div class="password-input-container">
+            <input 
+              [type]="showConfirmPassword ? 'text' : 'password'" 
+              id="confirm_password"
+              formControlName="confirm_password"
+              placeholder="Confirmez le nouveau mot de passe"
+              [class.error]="passwordForm.get('confirm_password')?.invalid && passwordForm.get('confirm_password')?.touched">
+            
+            <button 
+              type="button"
+              (click)="toggleConfirmPasswordVisibility()"
+              class="password-toggle-btn"
+              title="{{ showConfirmPassword ? 'Masquer' : 'Afficher' }} le mot de passe">
+              <i class="fas" [class.fa-eye]="!showConfirmPassword" [class.fa-eye-slash]="showConfirmPassword"></i>
+            </button>
+          </div>
+          
+          <div class="error-message" *ngIf="passwordForm.get('confirm_password')?.errors?.['required'] && passwordForm.get('confirm_password')?.touched">
+            La confirmation est requise
+          </div>
+          <div class="error-message" *ngIf="passwordForm.errors?.['passwordMismatch'] && passwordForm.get('confirm_password')?.touched">
+            Les mots de passe ne correspondent pas
+          </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="modal-actions">
+          <button 
+            type="button"
+            (click)="closePasswordModal()"
+            class="btn btn-secondary">
+            <i class="fas fa-times"></i>
+            Annuler
+          </button>
+          
+          <button 
+            type="submit"
+            [disabled]="passwordForm.invalid || isPasswordLoading"
+            class="btn btn-primary">
+            <i class="fas fa-save" *ngIf="!isPasswordLoading"></i>
+            <div class="spinner-small" *ngIf="isPasswordLoading"></div>
+            {{ isPasswordLoading ? 'Modification...' : 'Changer le mot de passe' }}
+          </button>
+        </div>
+        
+      </form>
+    </div>
+    
+  </div>
+</div>

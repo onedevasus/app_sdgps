@@ -1,0 +1,59 @@
+<div class="login-container">
+    <h2>Connexion</h2>
+    <form (ngSubmit)="onSubmit()" [formGroup]="loginForm">
+
+        <!-- Champ Email -->
+        <div class="form-group">
+            <label for="email">Email :</label>
+            <input formControlName="email" id="email" placeholder="Votre adresse email" type="email">
+            <div *ngIf="shouldShowError('email')" class="error-message">
+                <div *ngIf="loginForm.get('email')?.errors?.['required']">L'email est requis.</div>
+                <div *ngIf="loginForm.get('email')?.errors?.['email']">Veuillez entrer un email valide.</div>
+            </div>
+        </div>
+
+        <!-- Champ Mot de passe -->
+        <div class="form-group">
+            <label for="password">Mot de passe :</label>
+            <div class="password-input-wrapper">
+                <input
+                        [type]="showPassword ? 'text' : 'password'"
+                        formControlName="password"
+                        id="password"
+                        placeholder="Votre mot de passe"
+                >
+                <button
+                        (click)="togglePasswordVisibility()"
+                        [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                        class="toggle-password-btn"
+                        tabindex="-1"
+                        type="button"
+                >
+                    <span class="toggle-icon">{{ showPassword ? '🙈' : '👁️' }}</span>
+                </button>
+            </div>
+            <div *ngIf="shouldShowError('password')" class="error-message">
+                <div *ngIf="loginForm.get('password')?.errors?.['required']">Le mot de passe est requis.</div>
+                <div *ngIf="loginForm.get('password')?.errors?.['minlength']">Le mot de passe doit contenir au moins 6
+                    caractères.
+                </div>
+            </div>
+        </div>
+
+        <!-- Message d'erreur général du backend -->
+        <div *ngIf="errorMessage" class="error-message-global">
+            {{ errorMessage }}
+        </div>
+
+        <!-- Bouton de soumission -->
+        <button [disabled]="loginForm.invalid || isLoading" type="submit">
+            <span *ngIf="!isLoading">Se connecter</span>
+            <span *ngIf="isLoading">Connexion en cours...</span>
+        </button>
+    </form>
+
+    <!-- Lien vers la page d'inscription -->
+    <p class="register-link">Pas encore de compte ? <a routerLink="/auth/register">Créer un compte</a></p>
+    <!-- Lien pour mot de passe oublié (à implémenter plus tard) -->
+    <p class="forgot-password-link"><a routerLink="/auth/forgot-password">Mot de passe oublié ?</a></p>
+</div>

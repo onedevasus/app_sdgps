@@ -1,0 +1,1446 @@
+<div class="organization-list-container">
+  <!-- En-tête avec titre et actions -->
+  <div class="list-header">
+    <h2>Liste des Organisations — <span class="status-info small-font"><strong>Total : </strong><strong>{{ organizations.length }}</strong> | <strong>Filtrés : </strong><strong>{{ filteredOrganizations.length }}</strong> | <strong>Sélectionnés : </strong><strong>{{ selectedOrganizations.size }}</strong></span></h2>
+    
+    <div class="header-actions">
+      <!-- Groupe gauche : Filtres et outils -->
+      <div class="toolbar-left">
+        <!-- Filtre par type -->
+        <select 
+          [value]="typeFilter" 
+          (change)="onTypeFilterChange($event)" 
+          class="filter-select">
+          <option value="all">Tous les types</option>
+          <option value="PRIVATE">Cabinets Privés</option>
+          <option value="PUBLIC">Entités Publiques</option>
+        </select>
+
+        <!-- Boutons d'action -->
+        <button 
+          class="btn btn-secondary" 
+          (click)="selectAll()"
+          title="Sélectionner tout">
+          <i class="fas fa-check-double"></i>
+        </button>
+
+        <button 
+          class="btn btn-secondary" 
+          (click)="deselectAll()"
+          title="Désélectionner tout">
+          <i class="fas fa-times"></i>
+        </button>
+
+        <button 
+          class="btn btn-secondary" 
+          (click)="invertSelection()"
+          title="Inverser la sélection">
+          <i class="fas fa-exchange-alt"></i>
+        </button>
+
+        <button 
+          class="btn btn-secondary" 
+          (click)="moveSelectionToTop()"
+          [disabled]="selectedOrganizations.size === 0"
+          title="Déplacer la sélection en haut">
+          <i class="fas fa-arrow-up"></i>
+        </button>
+
+        <!-- Bouton Export avec menu -->
+        <div class="dropdown-container" [class.open]="showExportMenu">
+          <button 
+            class="btn btn-secondary"
+            (click)="$event.stopPropagation(); toggleExportMenu()"
+            title="Exporter les données">
+            <i class="fas fa-file-export"></i> Exporter
+            <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+          </button>
+          
+          <div class="dropdown-menu" [hidden]="!showExportMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); exportToExcel(false); toggleExportMenu()">
+              <i class="fas fa-file-excel"></i>
+              <span>Toutes les organisations</span>
+            </div>
+            <div class="dropdown-item" 
+                 (click)="$event.stopPropagation(); exportToExcel(true); toggleExportMenu()"
+                 [class.disabled]="selectedOrganizations.size === 0">
+              <i class="fas fa-check-square"></i>
+              <span>Organisations sélectionnées</span>
+              <span *ngIf="selectedOrganizations.size > 0" class="badge-count">{{ selectedOrganizations.size }}</span>
+            </div>
+          </div>
+        </div>
+
+        <button 
+          class="btn btn-secondary" 
+          (click)="toggleColumnConfig()"
+          title="Organiser les colonnes">
+          <i class="fas fa-columns"></i>
+        </button>
+
+        <button 
+          class="btn btn-danger" 
+          (click)="openBulkDeleteConfirmation()"
+          [disabled]="selectedOrganizations.size === 0"
+          title="Supprimer la sélection">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+
+      <!-- Groupe droit : Ajouter et Recherche -->
+      <div class="toolbar-right">
+        <!-- Bouton Ajouter une organisation -->
+        <button 
+          class="btn btn-success btn-add-org"
+          (click)="openAddOrganizationModal()"
+          title="Ajouter une nouvelle organisation">
+          <i class="fas fa-plus-circle"></i>
+          <span>Ajouter</span>
+        </button>
+
+        <!-- Séparateur visuel -->
+        <div class="toolbar-separator"></div>
+
+        <!-- Barre de recherche -->
+        <div class="search-box-right">
+          <i class="fas fa-search"></i>
+          <input 
+            type="text" 
+            [value]="searchQuery"
+            (input)="onSearchInput($event)"
+            placeholder="Rechercher une organisation..."
+          >
+          <button 
+            *ngIf="searchQuery && searchQuery.length > 0"
+            class="btn-clear-search"
+            (click)="clearSearch()"
+            title="Effacer la recherche">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tableau des organisations -->
+  <div class="table-wrapper" *ngIf="!loading; else loadingTemplate">
+    <!-- Conteneur du tableau avec scroll -->
+    <div class="table-container">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <!-- Checkbox pour tout sélectionner -->
+            <th class="checkbox-col">
+              <input 
+                type="checkbox" 
+                [checked]="isAllSelected()"
+                (change)="toggleSelectAll()"
+              >
+            </th>
+
+            <!-- Colonnes dynamiques -->
+            <th 
+              *ngFor="let col of getVisibleColumns()" 
+              [class.sortable]="true"
+              (click)="sort(col.field)"
+              (contextmenu)="onColumnHeaderRightClick($event, col)"
+              [title]="getFieldDescription(col.field)"
+            >
+              <span>{{ col.label }}</span>
+              <i [class]="getSortIcon(col.field)"></i>
+            </th>
+
+            <!-- Colonne Actions -->
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <!-- Lignes de données -->
+          <tr 
+            *ngFor="let org of paginatedOrganizations" 
+            [class.selected]="selectedOrganizations.has(org.id)"
+            (contextmenu)="onRowRightClick($event, org)"
+          >
+            <!-- Checkbox -->
+            <td class="checkbox-col">
+              <input 
+                type="checkbox" 
+                [checked]="selectedOrganizations.has(org.id)"
+                (change)="toggleSelection(org.id)"
+              >
+            </td>
+
+            <!-- Données dynamiques -->
+            <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onCellRightClick($event, org, col.field)">
+              <!-- Type avec badge -->
+              <span *ngIf="col.field === 'type_display'" [class]="getTypeBadgeClass(org.type)">
+                {{ org[col.field] }}
+              </span>
+
+              <!-- Statut avec badge -->
+              <span *ngIf="col.field === 'is_active'" [class]="getStatusBadgeClass(org.is_active)">
+                {{ getStatusText(org.is_active) }}
+              </span>
+
+              <!-- Type de données (test/réel) avec badge -->
+              <span *ngIf="col.field === 'is_test_data'" [class]="getTestDataBadgeClass(org.is_test_data)">
+                {{ getTestDataText(org.is_test_data) }}
+              </span>
+
+              <!-- Dates formatées -->
+              <span *ngIf="col.field === 'created_at' || col.field === 'updated_at'">
+                {{ formatDate(org[col.field]) }}
+              </span>
+
+              <!-- Autres champs -->
+              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_test_data' && col.field !== 'created_at' && col.field !== 'updated_at'">
+                {{ org[col.field] || '-' }}
+              </span>
+            </td>
+
+            <!-- Actions -->
+            <td class="actions-col">
+              <button class="btn-icon" (click)="openOrganizationDetail(org)" title="Voir les détails">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn-icon" (click)="openEditOrganization(org)" title="Modifier">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-icon btn-icon-danger" (click)="openDeleteConfirmation(org)" title="Supprimer">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+
+          <!-- Message si aucun résultat -->
+          <tr *ngIf="filteredOrganizations.length === 0">
+            <td [attr.colspan]="getVisibleColumns().length + 2" class="no-data">
+              <i class="fas fa-inbox"></i>
+              <p>Aucune organisation trouvée</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Barre d'état et Pagination (toujours visibles) -->
+    <div class="table-footer">
+      <!-- Barre d'état du tableau -->
+      <div class="table-statusbar">
+      <div class="statusbar-left">
+        <!-- Menu de filtrage -->
+        <div class="dropdown-container" [class.open]="showFilterMenu">
+          <button 
+            class="btn-statusbar"
+            (click)="$event.stopPropagation(); toggleFilterMenu()"
+            title="Options d'affichage">
+            <i class="fas fa-filter"></i>
+            <span>{{ buttonLabel }}</span>
+            <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+          </button>
+          
+          <div class="dropdown-menu dropdown-menu-left" [hidden]="!showFilterMenu">
+            <div class="dropdown-item" 
+                 (click)="$event.stopPropagation(); setDisplayMode('all'); toggleFilterMenu()"
+                 [class.active]="displayMode === 'all'">
+                <i class="fas fa-list"></i>
+                <span>Afficher toutes les organisations</span>
+            </div>
+            <div class="dropdown-item" 
+                 (click)="$event.stopPropagation(); setDisplayMode('selected'); toggleFilterMenu()"
+                 [class.disabled]="selectedOrganizations.size === 0"
+                 [class.active]="displayMode === 'selected'">
+                <i class="fas fa-check-square"></i>
+                <span>N'afficher que les organisations sélectionnées</span>
+                <span *ngIf="selectedOrganizations.size > 0" class="badge-count">{{ selectedOrganizations.size }}</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            
+            <!-- Option Filtre de champs avec sous-menu -->
+            <div class="dropdown-item has-submenu" 
+                 [class.active]="showFieldFilterMenu"
+                 (mouseenter)="showFieldFilterMenu = true"
+                 (mouseleave)="onFieldFilterMenuLeave()">
+              <i class="fas fa-columns"></i>
+              <span>Filtre de champs</span>
+              <i class="fas fa-chevron-right submenu-arrow"></i>
+            </div>
+
+            <!-- Sous-menu des champs -->
+            <div class="submenu field-filter-submenu" [hidden]="!showFieldFilterMenu"
+                 (mouseenter)="showFieldFilterMenu = true"
+                 (mouseleave)="onFieldFilterMenuLeave()">
+              <div class="submenu-header">
+                <i class="fas fa-filter"></i>
+                <span>Sélectionnez un champ</span>
+              </div>
+              <div class="submenu-items">
+                <div class="submenu-item" 
+                     *ngFor="let column of columns"
+                     (click)="$event.stopPropagation(); selectFieldForFilter(column.field, column.label)">
+                  <i class="fas fa-tag"></i>
+                  <span>{{ column.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar-right">
+        <!-- Zone de filtre par champ -->
+        <div class="field-filter-box" *ngIf="activeFieldFilter">
+          <i class="fas fa-filter"></i>
+          <span class="filter-label">{{ activeFieldFilterLabel }}:</span>
+          <input 
+            type="text" 
+            [value]="fieldFilterValue"
+            (input)="onFieldFilterInput($event)"
+            placeholder="Filtrer..."
+            class="field-filter-input"
+          >
+          <button class="btn-clear-filter" (click)="clearFieldFilter()" title="Supprimer le filtre">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-group" *ngIf="totalPages > 1">
+      <div class="pagination-info">
+        Affichage de {{ (currentPage - 1) * pageSize + 1 }} à {{ Math.min(currentPage * pageSize, filteredOrganizations.length) }} sur {{ filteredOrganizations.length }} organisations
+      </div>
+
+      <div class="pagination-controls">
+        <button
+          class="btn-pagination"
+          (click)="prevPage()"
+          [disabled]="currentPage === 1"
+          title="Page précédente">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <button
+          *ngFor="let page of getPageNumbers()"
+          class="btn-pagination"
+          [class.active]="page === currentPage"
+          (click)="goToPage(page)">
+          {{ page }}
+        </button>
+
+        <button
+          class="btn-pagination"
+          (click)="nextPage()"
+          [disabled]="currentPage === totalPages"
+          title="Page suivante">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Template de chargement -->
+  <ng-template #loadingTemplate>
+    <div class="loading-spinner">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Chargement des organisations...</p>
+    </div>
+  </ng-template>
+
+  <!-- Modal de configuration des colonnes -->
+  <div class="modal-overlay" *ngIf="showColumnConfig" (click)="toggleColumnConfig()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <h3>Organiser les colonnes</h3>
+          <span class="modal-stats">
+            — Total: {{ getColumnStats().total }} | Visibles : {{ getColumnStats().visible }} | Masquées : {{ getColumnStats().hidden }}
+          </span>
+        </div>
+        <div class="modal-header-right">
+          <!-- Bouton de filtre avec menu -->
+          <div class="dropdown-container" [class.open]="showColumnFilterMenu">
+            <button 
+              type="button"
+              class="btn btn-filter-toggle"
+              (click)="toggleColumnFilterMenu($event)"
+              [title]="getColumnFilterLabel()">
+              <i class="fas fa-filter"></i>
+              {{ getColumnFilterLabel() }}
+              <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+            </button>
+            
+            <div class="dropdown-menu dropdown-menu-column-filter" [hidden]="!showColumnFilterMenu">
+              <div class="dropdown-item" 
+                   (click)="$event.stopPropagation(); applyColumnFilter('all')"
+                   [class.active]="columnFilter === 'all'">
+                <i class="fas fa-eye"></i>
+                <span>Afficher toutes les colonnes</span>
+                <i class="fas fa-check" *ngIf="columnFilter === 'all'"></i>
+              </div>
+              <div class="dropdown-item" 
+                   (click)="$event.stopPropagation(); applyColumnFilter('visible')"
+                   [class.active]="columnFilter === 'visible'">
+                <i class="fas fa-eye-slash"></i>
+                <span>Afficher uniquement les colonnes visibles</span>
+                <i class="fas fa-check" *ngIf="columnFilter === 'visible'"></i>
+              </div>
+            </div>
+          </div>
+          
+          <button class="close-btn" (click)="toggleColumnConfig()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <ul class="column-list">
+          <li 
+            *ngFor="let col of getFilteredColumns(); let i = index" 
+            class="column-item"
+            [class.dragging]="draggedColumnIndex === columns.indexOf(col)"
+            [class.drag-over]="dragOverIndex === columns.indexOf(col)"
+            draggable="true"
+            (dragstart)="onDragStart(columns.indexOf(col))"
+            (dragover)="onDragOver($event, columns.indexOf(col))"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop(columns.indexOf(col))"
+            (dragend)="onDragEnd()"
+          >
+            <div class="column-row">
+              <!-- Checkbox -->
+              <input 
+                type="checkbox" 
+                [checked]="col.visible"
+                (change)="toggleColumnVisibility(col.field)"
+              >
+              
+              <!-- Colonne des boutons de réorganisation -->
+              <div class="column-reorder-buttons">
+                <button 
+                  type="button"
+                  class="btn-reorder" 
+                  [disabled]="i === 0"
+                  (click)="moveColumnToTop(i)"
+                  title="Déplacer en première position">
+                  <i class="fas fa-angle-double-up"></i>
+                </button>
+                <button 
+                  type="button"
+                  class="btn-reorder" 
+                  [disabled]="i === 0"
+                  (click)="moveColumnUp(i)"
+                  title="Monter d'une position">
+                  <i class="fas fa-angle-up"></i>
+                </button>
+                <button 
+                  type="button"
+                  class="btn-reorder" 
+                  [disabled]="i === columns.length - 1"
+                  (click)="moveColumnDown(i)"
+                  title="Descendre d'une position">
+                  <i class="fas fa-angle-down"></i>
+                </button>
+                <button 
+                  type="button"
+                  class="btn-reorder" 
+                  [disabled]="i === columns.length - 1"
+                  (click)="moveColumnToBottom(i)"
+                  title="Déplacer en dernière position">
+                  <i class="fas fa-angle-double-down"></i>
+                </button>
+              </div>
+              
+              <!-- Type et nom de la colonne -->
+              <label>
+                <span class="column-type">{{ getTypeLabel(col.type) }}</span>
+                <span class="column-name">{{ col.label }}</span>
+                <i 
+                  class="fas fa-info-circle column-info-icon" 
+                  *ngIf="getFieldDescription(col.field)"
+                  [title]="getFieldDescription(col.field)">
+                </i>
+              </label>
+              <div class="column-description-cell" *ngIf="getFieldDescription(col.field)">
+                {{ getFieldDescription(col.field) }}
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="modal-footer">
+        <div class="footer-actions">
+          <button class="btn btn-action" (click)="selectAllColumns()">
+            <i class="fas fa-check-double"></i>
+            Sélectionner tout
+          </button>
+          <button class="btn btn-action" (click)="deselectAllColumns()">
+            <i class="fas fa-times"></i>
+            Désélectionner tout
+          </button>
+          <button class="btn btn-action" (click)="invertColumnSelection()">
+            <i class="fas fa-exchange-alt"></i>
+            Inverser
+          </button>
+        </div>
+        <div class="footer-buttons">
+          <button class="btn btn-cancel" (click)="cancelColumnConfig()">
+            <i class="fas fa-times"></i>
+            Annuler
+          </button>
+          <button class="btn btn-confirm" (click)="confirmColumnConfig()">
+            <i class="fas fa-check"></i>
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu contextuel pour les en-têtes de colonnes -->
+  <div 
+    class="context-menu" 
+    *ngIf="showColumnContextMenu"
+    [style.top.px]="contextMenuPosition.y"
+    [style.left.px]="contextMenuPosition.x"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="context-menu-item" (click)="hideColumnFromContext()">
+      <i class="fas fa-eye-slash"></i>
+      <span>Masquer la colonne</span>
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" (click)="openColumnConfigFromContext()">
+      <i class="fas fa-columns"></i>
+      <span>Organiser les colonnes</span>
+    </div>
+  </div>
+
+  <!-- Menu contextuel pour les lignes -->
+  <div 
+    class="context-menu" 
+    *ngIf="showRowContextMenu"
+    [style.top.px]="contextMenuPosition.y"
+    [style.left.px]="contextMenuPosition.x"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="context-menu-item" (click)="toggleRowSelectionFromContext()">
+      <i class="fas" [class.fa-check-square]="selectedRowForContext && selectedOrganizations.has(selectedRowForContext.id)" [class.fa-square]="!selectedRowForContext || !selectedOrganizations.has(selectedRowForContext.id)"></i>
+      <span>{{ selectedRowForContext && selectedOrganizations.has(selectedRowForContext.id) ? 'Désélectionner cette ligne' : 'Sélectionner cette ligne' }}</span>
+    </div>
+    <div class="context-menu-item" (click)="selectAllFromContext()">
+      <i class="fas fa-check-double"></i>
+      <span>Sélectionner tout</span>
+    </div>
+    <div class="context-menu-divider" *ngIf="selectedCellForContext"></div>
+    <div class="context-menu-item" *ngIf="selectedCellForContext" (click)="copyCellValueFromContext()">
+      <i class="fas fa-copy"></i>
+      <span>Copier la valeur de la cellule</span>
+    </div>
+  </div>
+
+  <!-- Modal d'ajout d'organisation -->
+  <div class="modal-overlay" *ngIf="showAddOrgModal" (click)="closeAddOrganizationModal()">
+    <div class="modal-content modal-add-org" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <h3><i class="fas fa-plus-circle"></i> Ajouter une Organisation</h3>
+        </div>
+        <button class="close-btn" (click)="closeAddOrganizationModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form [formGroup]="addOrgForm" (ngSubmit)="onSubmitAddOrganization()">
+        <div class="modal-body">
+          <!-- Section: Informations de base -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="fas fa-info-circle"></i>
+              Informations de base
+            </h4>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="org-name">
+                  <i class="fas fa-building"></i>
+                  Nom de l'organisation <span class="required">*</span>
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('name') || 'Nom officiel ou raison sociale de l organisation'">
+                  </i>
+                </label>
+                <input 
+                  type="text" 
+                  id="org-name"
+                  formControlName="name"
+                  placeholder="Ex: Ministère de l'Économie"
+                  [class.error]="addOrgForm.get('name')?.invalid && addOrgForm.get('name')?.touched"
+                >
+                <div class="error-message" *ngIf="addOrgForm.get('name')?.errors?.['required'] && addOrgForm.get('name')?.touched">
+                  Le nom est requis
+                </div>
+                <div class="error-message" *ngIf="addOrgForm.get('name')?.errors?.['minlength'] && addOrgForm.get('name')?.touched">
+                  Minimum 3 caractères
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="org-code">
+                  <i class="fas fa-hashtag"></i>
+                  Code <span class="required">*</span>
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('code') || 'Code unique d identification de l organisation (ex: CAB-001, DIR-FIN)'">
+                  </i>
+                </label>
+                <input 
+                  type="text" 
+                  id="org-code"
+                  formControlName="code"
+                  placeholder="Ex: MIN-ECON-001"
+                  [class.error]="addOrgForm.get('code')?.invalid && addOrgForm.get('code')?.touched"
+                >
+                <div class="error-message" *ngIf="addOrgForm.get('code')?.errors?.['required'] && addOrgForm.get('code')?.touched">
+                  Le code est requis
+                </div>
+                <div class="error-message" *ngIf="addOrgForm.get('code')?.errors?.['pattern'] && addOrgForm.get('code')?.touched">
+                  Format invalide (lettres, chiffres, tirets uniquement)
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="org-type">
+                  <i class="fas fa-tag"></i>
+                  Type <span class="required">*</span>
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('type') || 'Catégorie : Cabinet privé/entreprise ou entité publique/administration'">
+                  </i>
+                </label>
+                <select 
+                  id="org-type"
+                  formControlName="type"
+                  [class.error]="addOrgForm.get('type')?.invalid && addOrgForm.get('type')?.touched"
+                >
+                  <option value="">-- Sélectionnez un type --</option>
+                  <option value="PRIVATE">Cabinet Privé / Entreprise</option>
+                  <option value="PUBLIC">Entité Publique / Administration</option>
+                </select>
+                <div class="error-message" *ngIf="addOrgForm.get('type')?.errors?.['required'] && addOrgForm.get('type')?.touched">
+                  Le type est requis
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="org-legal-id">
+                  <i class="fas fa-id-card"></i>
+                  ID Légal
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('legal_id') || 'Numéro de registre de commerce pour les privés ou numéro de décret pour les publics'">
+                  </i>
+                </label>
+                <input 
+                  type="text" 
+                  id="org-legal-id"
+                  formControlName="legal_id"
+                  placeholder="RC, ICE ou N° Décret"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Contact -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="fas fa-address-book"></i>
+              Coordonnées
+            </h4>
+            
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="org-address">
+                  <i class="fas fa-map-marker-alt"></i>
+                  Adresse
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('address') || 'Adresse postale complete de l organisation (rue, ville, code postal)'">
+                  </i>
+                </label>
+                <textarea 
+                  id="org-address"
+                  formControlName="address"
+                  rows="2"
+                  placeholder="Adresse complète de l'organisation"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="org-phone">
+                  <i class="fas fa-phone"></i>
+                  Téléphone
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('phone') || 'Numéro de téléphone principal de contact (format international recommandé)'">
+                  </i>
+                </label>
+                <input 
+                  type="tel" 
+                  id="org-phone"
+                  formControlName="phone"
+                  placeholder="+212 5XX XX XX XX"
+                  [class.error]="addOrgForm.get('phone')?.invalid && addOrgForm.get('phone')?.touched"
+                >
+                <div class="error-message" *ngIf="addOrgForm.get('phone')?.errors?.['pattern'] && addOrgForm.get('phone')?.touched">
+                  Format de téléphone invalide
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="org-email">
+                  <i class="fas fa-envelope"></i>
+                  Email
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('email') || 'Adresse email de contact principale ou generique de l organisation'">
+                  </i>
+                </label>
+                <input 
+                  type="email" 
+                  id="org-email"
+                  formControlName="email"
+                  placeholder="contact@organisation.ma"
+                  [class.error]="addOrgForm.get('email')?.invalid && addOrgForm.get('email')?.touched"
+                >
+                <div class="error-message" *ngIf="addOrgForm.get('email')?.errors?.['email'] && addOrgForm.get('email')?.touched">
+                  Format d'email invalide
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="org-website">
+                  <i class="fas fa-globe"></i>
+                  Site Web
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('website') || 'URL du site web officiel de l organisation (doit commencer par http:// ou https://)'">
+                  </i>
+                </label>
+                <input 
+                  type="url" 
+                  id="org-website"
+                  formControlName="website"
+                  placeholder="https://www.organisation.ma"
+                  [class.error]="addOrgForm.get('website')?.invalid && addOrgForm.get('website')?.touched"
+                >
+                <div class="error-message" *ngIf="addOrgForm.get('website')?.errors?.['pattern'] && addOrgForm.get('website')?.touched">
+                  URL invalide (doit commencer par http:// ou https://)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Statut -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="fas fa-toggle-on"></i>
+              Statut
+            </h4>
+            
+            <div class="form-row">
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    formControlName="is_active"
+                  >
+                  <span class="checkmark"></span>
+                  <span class="checkbox-text">
+                    <i class="fas fa-check-circle"></i>
+                    Organisation active
+                  </span>
+                </label>
+                <p class="help-text">
+                  Une organisation inactive ne sera pas accessible dans le système
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button 
+            type="button"
+            class="btn btn-cancel" 
+            (click)="closeAddOrganizationModal()"
+            [disabled]="submitting"
+          >
+            <i class="fas fa-times"></i>
+            Annuler
+          </button>
+          <button 
+            type="submit"
+            class="btn btn-primary btn-submit"
+            [disabled]="addOrgForm.invalid || submitting"
+          >
+            <i class="fas" [class.fa-spinner]="submitting" [class.fa-spin]="submitting" [class.fa-save]="!submitting"></i>
+            {{ submitting ? 'Creation en cours...' : "Creer l'organisation" }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de confirmation de suppression -->
+  <div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteConfirmation()">
+    <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+      <div class="modal-header modal-header-danger">
+        <div class="modal-header-left">
+          <h3><i class="fas fa-exclamation-triangle"></i> Confirmation de Suppression</h3>
+        </div>
+        <button class="close-btn" (click)="closeDeleteConfirmation()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="delete-warning">
+          <div class="warning-icon">
+            <i class="fas fa-trash-alt"></i>
+          </div>
+          <div class="warning-content">
+            <h4>Êtes-vous sûr de vouloir supprimer cette organisation ?</h4>
+            <p class="org-name">"{{ organizationToDelete?.name }}"</p>
+            <p class="warning-text">
+              Cette action est <strong>irréversible</strong>. Toutes les données associées à cette organisation seront définitivement supprimées.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button 
+          type="button"
+          class="btn btn-cancel" 
+          (click)="closeDeleteConfirmation()"
+          [disabled]="deleting"
+        >
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button 
+          type="button"
+          class="btn btn-danger btn-delete-confirm"
+          (click)="confirmDelete()"
+          [disabled]="deleting"
+        >
+          <i class="fas" [class.fa-spinner]="deleting" [class.fa-spin]="deleting" [class.fa-trash]="!deleting"></i>
+          {{ deleting ? 'Suppression...' : 'Oui, Supprimer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmation de suppression en groupe -->
+  <div class="modal-overlay" *ngIf="showBulkDeleteModal" (click)="closeBulkDeleteConfirmation()">
+    <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+      <div class="modal-header modal-header-danger">
+        <div class="modal-header-left">
+          <h3><i class="fas fa-exclamation-triangle"></i> Confirmation de Suppression en Groupe</h3>
+        </div>
+        <button class="close-btn" (click)="closeBulkDeleteConfirmation()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="delete-warning">
+          <div class="warning-icon">
+            <i class="fas fa-trash-alt"></i>
+          </div>
+          <div class="warning-content">
+            <h4>Êtes-vous sûr de vouloir supprimer {{ selectedOrganizations.size }} organisation(s) ?</h4>
+            <p class="warning-text">
+              Cette action est <strong>irréversible</strong>. Seules les organisations sans membres actifs seront supprimées.
+            </p>
+            <div class="org-list-preview" *ngIf="getSelectedOrganizationsList().length > 0">
+              <p class="org-list-title">Organisations sélectionnées :</p>
+              <ul class="org-list">
+                <li *ngFor="let org of getSelectedOrganizationsList() | slice:0:5">
+                  <i class="fas fa-building"></i>
+                  {{ org.name }}
+                </li>
+                <li *ngIf="getSelectedOrganizationsList().length > 5" class="more-items">
+                  <i class="fas fa-ellipsis-h"></i>
+                  et {{ getSelectedOrganizationsList().length - 5 }} autre(s)
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button 
+          type="button"
+          class="btn btn-cancel" 
+          (click)="closeBulkDeleteConfirmation()"
+          [disabled]="bulkDeleting"
+        >
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button 
+          type="button"
+          class="btn btn-danger btn-delete-confirm"
+          (click)="confirmBulkDelete()"
+          [disabled]="bulkDeleting"
+        >
+          <i class="fas" [class.fa-spinner]="bulkDeleting" [class.fa-spin]="bulkDeleting" [class.fa-trash]="!bulkDeleting"></i>
+          {{ bulkDeleting ? 'Suppression en cours...' : 'Oui, Supprimer tout' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de détails d'organisation -->
+  <div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetailModal()">
+    <div class="modal-content modal-detail-org" (click)="$event.stopPropagation()">
+      <div class="modal-header modal-header-info">
+        <div class="modal-header-left">
+          <h3><i class="fas fa-eye"></i> Détails de l'Organisation</h3>
+        </div>
+        <button class="close-btn" (click)="closeDetailModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" *ngIf="organizationToView">
+        <!-- Section: Informations de base -->
+        <div class="detail-section">
+          <h4 class="section-title">
+            <i class="fas fa-info-circle"></i>
+            Informations de base
+          </h4>
+          
+          <div class="detail-row">
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-building"></i>
+                Nom de l'organisation
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('name') || 'Nom officiel ou raison sociale de l\'organisation'">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.name }}</div>
+            </div>
+
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-hashtag"></i>
+                Code
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('code') || 'Code unique d\'identification de l\'organisation'">
+                </i>
+              </label>
+              <div class="detail-value code-value">{{ organizationToView.code }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-tag"></i>
+                Type
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('type') || 'Catégorie de l\'organisation'">
+                </i>
+              </label>
+              <div class="detail-value">
+                <span [class]="getTypeBadgeClass(organizationToView.type)">
+                  {{ organizationToView.type_display || getTypeLabel(organizationToView.type) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-id-card"></i>
+                ID Légal
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('legal_id') || 'Identifiant légal (RC/ICE/Décret)'">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.legal_id || 'Non renseigné' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Contact -->
+        <div class="detail-section">
+          <h4 class="section-title">
+            <i class="fas fa-address-book"></i>
+            Coordonnées
+          </h4>
+          
+          <div class="detail-row">
+            <div class="detail-field full-width">
+              <label>
+                <i class="fas fa-map-marker-alt"></i>
+                Adresse
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('address') || 'Adresse physique complète'">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.address || 'Non renseignée' }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-phone"></i>
+                Téléphone
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('phone') || 'Numéro de téléphone principal'">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.phone || 'Non renseigné' }}</div>
+            </div>
+
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-envelope"></i>
+                Email
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('email') || 'Adresse email officielle'">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.email || 'Non renseigné' }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-field full-width">
+              <label>
+                <i class="fas fa-globe"></i>
+                Site Web
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('website') || 'URL du site internet'">
+                </i>
+              </label>
+              <div class="detail-value">
+                <a *ngIf="organizationToView.website" [href]="organizationToView.website" target="_blank" class="website-link">
+                  {{ organizationToView.website }}
+                  <i class="fas fa-external-link-alt"></i>
+                </a>
+                <span *ngIf="!organizationToView.website">Non renseigné</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Statut et Métadonnées -->
+        <div class="detail-section">
+          <h4 class="section-title">
+            <i class="fas fa-chart-line"></i>
+            Statut et Métadonnées
+          </h4>
+          
+          <div class="detail-row">
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-toggle-on"></i>
+                Statut
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('is_active') || 'Statut d\'activité de l\'organisation'">
+                </i>
+              </label>
+              <div class="detail-value">
+                <span [class]="getStatusBadgeClass(organizationToView.is_active)">
+                  {{ getStatusText(organizationToView.is_active) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-users"></i>
+                Nombre de membres
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  title="Nombre total de membres actifs dans l\'organisation">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.member_count || 0 }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-calendar-plus"></i>
+                Date de création
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('created_at') || 'Date de création dans le système'">
+                </i>
+              </label>
+              <div class="detail-value">{{ formatDate(organizationToView.created_at) }}</div>
+            </div>
+
+            <div class="detail-field">
+              <label>
+                <i class="fas fa-calendar-check"></i>
+                Dernière modification
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('updated_at') || 'Date de la dernière modification'">
+                </i>
+              </label>
+              <div class="detail-value">{{ formatDate(organizationToView.updated_at) }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row" *ngIf="organizationToView.created_by_email">
+            <div class="detail-field full-width">
+              <label>
+                <i class="fas fa-user-plus"></i>
+                Créé par
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  title="Utilisateur ayant créé cette organisation">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.created_by_email }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row" *ngIf="organizationToView.modified_by_email">
+            <div class="detail-field full-width">
+              <label>
+                <i class="fas fa-user-edit"></i>
+                Modifié par
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('modified_by_email') || 'Utilisateur ayant effectué la dernière modification de cette organisation'">
+                </i>
+              </label>
+              <div class="detail-value">{{ organizationToView.modified_by_email }}</div>
+            </div>
+          </div>
+
+          <!-- Type de données (test/réel) -->
+          <div class="detail-row" *ngIf="organizationToView.is_test_data !== undefined">
+            <div class="detail-field full-width">
+              <label>
+                <i class="fas fa-database"></i>
+                Type de données
+                <i 
+                  class="fas fa-info-circle field-info-icon" 
+                  [title]="getFieldDescription('is_test_data') || 'Indique si cette organisation est une donnée de test (True) ou réelle (False). En production, les données de test sont automatiquement masquées.'">
+                </i>
+              </label>
+              <div class="detail-value">
+                <span [class]="getTestDataBadgeClass(organizationToView.is_test_data)">
+                  {{ getTestDataText(organizationToView.is_test_data) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button 
+          type="button"
+          class="btn btn-primary" 
+          (click)="closeDetailModal()"
+        >
+          <i class="fas fa-times"></i>
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal d'édition d'organisation -->
+  <div class="modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
+    <div class="modal-content modal-edit-org" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <h3><i class="fas fa-edit"></i> Modifier l'Organisation</h3>
+        </div>
+        <button class="close-btn" (click)="closeEditModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form [formGroup]="editOrgForm" (ngSubmit)="onSubmitEditOrganization()">
+        <div class="modal-body">
+          <!-- Section: Informations de base -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="fas fa-info-circle"></i>
+              Informations de base
+            </h4>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-org-name">
+                  <i class="fas fa-building"></i>
+                  Nom de l'organisation <span class="required">*</span>
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('name') || 'Nom officiel ou raison sociale de l organisation'">
+                  </i>
+                </label>
+                <input 
+                  type="text" 
+                  id="edit-org-name"
+                  formControlName="name"
+                  placeholder="Ex: Ministère de l'Économie"
+                  [class.error]="editOrgForm.get('name')?.invalid && editOrgForm.get('name')?.touched"
+                >
+                <div class="error-message" *ngIf="editOrgForm.get('name')?.errors?.['required'] && editOrgForm.get('name')?.touched">
+                  Le nom est requis
+                </div>
+                <div class="error-message" *ngIf="editOrgForm.get('name')?.errors?.['minlength'] && editOrgForm.get('name')?.touched">
+                  Minimum 3 caractères
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-org-code">
+                  <i class="fas fa-hashtag"></i>
+                  Code <span class="required">*</span>
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('code') || 'Code unique d identification de l organisation (ex: CAB-001, DIR-FIN)'">
+                  </i>
+                </label>
+                <input 
+                  type="text" 
+                  id="edit-org-code"
+                  formControlName="code"
+                  placeholder="Ex: MIN-ECON-001"
+                  [class.error]="editOrgForm.get('code')?.invalid && editOrgForm.get('code')?.touched"
+                >
+                <div class="error-message" *ngIf="editOrgForm.get('code')?.errors?.['required'] && editOrgForm.get('code')?.touched">
+                  Le code est requis
+                </div>
+                <div class="error-message" *ngIf="editOrgForm.get('code')?.errors?.['pattern'] && editOrgForm.get('code')?.touched">
+                  Format invalide (lettres, chiffres, tirets uniquement)
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-org-type">
+                  <i class="fas fa-tag"></i>
+                  Type <span class="required">*</span>
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('type') || 'Catégorie : Cabinet privé/entreprise ou entité publique/administration'">
+                  </i>
+                </label>
+                <select 
+                  id="edit-org-type"
+                  formControlName="type"
+                  [class.error]="editOrgForm.get('type')?.invalid && editOrgForm.get('type')?.touched"
+                >
+                  <option value="">-- Sélectionnez un type --</option>
+                  <option value="PRIVATE">Cabinet Privé / Entreprise</option>
+                  <option value="PUBLIC">Entité Publique / Administration</option>
+                </select>
+                <div class="error-message" *ngIf="editOrgForm.get('type')?.errors?.['required'] && editOrgForm.get('type')?.touched">
+                  Le type est requis
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-org-legal-id">
+                  <i class="fas fa-id-card"></i>
+                  ID Légal
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('legal_id') || 'Numéro de registre de commerce pour les privés ou numéro de décret pour les publics'">
+                  </i>
+                </label>
+                <input 
+                  type="text" 
+                  id="edit-org-legal-id"
+                  formControlName="legal_id"
+                  placeholder="RC, ICE ou N° Décret"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Contact -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="fas fa-address-book"></i>
+              Coordonnées
+            </h4>
+            
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="edit-org-address">
+                  <i class="fas fa-map-marker-alt"></i>
+                  Adresse
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('address') || 'Adresse postale complete de l organisation (rue, ville, code postal)'">
+                  </i>
+                </label>
+                <textarea 
+                  id="edit-org-address"
+                  formControlName="address"
+                  rows="2"
+                  placeholder="Adresse complète de l'organisation"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-org-phone">
+                  <i class="fas fa-phone"></i>
+                  Téléphone
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('phone') || 'Numéro de téléphone principal de contact (format international recommandé)'">
+                  </i>
+                </label>
+                <input 
+                  type="tel" 
+                  id="edit-org-phone"
+                  formControlName="phone"
+                  placeholder="+212 5XX XX XX XX"
+                  [class.error]="editOrgForm.get('phone')?.invalid && editOrgForm.get('phone')?.touched"
+                >
+                <div class="error-message" *ngIf="editOrgForm.get('phone')?.errors?.['pattern'] && editOrgForm.get('phone')?.touched">
+                  Format de téléphone invalide
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-org-email">
+                  <i class="fas fa-envelope"></i>
+                  Email
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('email') || 'Adresse email de contact principale ou generique de l organisation'">
+                  </i>
+                </label>
+                <input 
+                  type="email" 
+                  id="edit-org-email"
+                  formControlName="email"
+                  placeholder="contact@organisation.ma"
+                  [class.error]="editOrgForm.get('email')?.invalid && editOrgForm.get('email')?.touched"
+                >
+                <div class="error-message" *ngIf="editOrgForm.get('email')?.errors?.['email'] && editOrgForm.get('email')?.touched">
+                  Format d'email invalide
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="edit-org-website">
+                  <i class="fas fa-globe"></i>
+                  Site Web
+                  <i 
+                    class="fas fa-info-circle field-info-icon" 
+                    [title]="getFieldDescription('website') || 'URL du site web officiel de l organisation (doit commencer par http:// ou https://)'">
+                  </i>
+                </label>
+                <input 
+                  type="url" 
+                  id="edit-org-website"
+                  formControlName="website"
+                  placeholder="https://www.organisation.ma"
+                  [class.error]="editOrgForm.get('website')?.invalid && editOrgForm.get('website')?.touched"
+                >
+                <div class="error-message" *ngIf="editOrgForm.get('website')?.errors?.['pattern'] && editOrgForm.get('website')?.touched">
+                  URL invalide (doit commencer par http:// ou https://)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Statut -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="fas fa-toggle-on"></i>
+              Statut
+            </h4>
+            
+            <div class="form-row">
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    formControlName="is_active"
+                  >
+                  <span class="checkmark"></span>
+                  <span class="checkbox-text">
+                    <i class="fas fa-check-circle"></i>
+                    Organisation active
+                  </span>
+                </label>
+                <p class="help-text">
+                  Une organisation inactive ne sera pas accessible dans le système
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button 
+            type="button"
+            class="btn btn-cancel" 
+            (click)="closeEditModal()"
+            [disabled]="editing"
+          >
+            <i class="fas fa-times"></i>
+            Annuler
+          </button>
+          <button 
+            type="submit"
+            class="btn btn-info btn-submit"
+            [disabled]="editOrgForm.invalid || editing"
+          >
+            <i class="fas" [class.fa-spinner]="editing" [class.fa-spin]="editing" [class.fa-save]="!editing"></i>
+            {{ editing ? 'Modification en cours...' : "Enregistrer les modifications" }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

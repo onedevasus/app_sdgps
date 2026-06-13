@@ -1,0 +1,102 @@
+<header class="top-bar">
+  <div class="left-controls">
+    <!-- Bouton Hamburger (style geoportail v2.8) -->
+    <button 
+      (click)="toggleSidebarVisibility()" 
+      class="icon-btn" 
+      [title]="(sidebarState$ | async)?.isVisible ? 'Masquer le menu' : 'Afficher le menu'">
+      <i [class]="(sidebarState$ | async)?.isVisible ? 'fas fa-outdent' : 'fas fa-indent'"></i>
+    </button>
+
+    <!-- Fil d'Ariane (Breadcrumb) -->
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li *ngFor="let crumb of breadcrumbs; let last = last" 
+            class="breadcrumb-item"
+            [class.active]="last">
+          
+          <a *ngIf="!last && crumb.route" 
+             [routerLink]="crumb.route" 
+             class="breadcrumb-link">
+            {{ crumb.label }}
+          </a>
+          
+          <span *ngIf="last">{{ crumb.label }}</span>
+        </li>
+      </ol>
+    </nav>
+  </div>
+
+  <div class="right-controls">
+    <!-- Bouton Thème -->
+    <button 
+      (click)="toggleTheme()" 
+      class="icon-btn theme-toggle" 
+      title="Basculer mode sombre/clair">
+      <i *ngIf="(theme$ | async) === 'light'" class="fas fa-moon"></i>
+      <i *ngIf="(theme$ | async) === 'dark'" class="fas fa-sun"></i>
+    </button>
+
+    <!-- Menu Utilisateur -->
+    <div class="user-menu-container" (clickOutside)="closeUserMenu()">
+      <!-- Bouton Avatar (seulement l'avatar visible par défaut) -->
+      <button 
+        (click)="toggleUserMenu()" 
+        class="user-profile-btn"
+        [title]="(userProfile$ | async)?.first_name + ' ' + (userProfile$ | async)?.last_name || 'Menu utilisateur'">
+        
+        <!-- Photo de profil si disponible -->
+        <img *ngIf="(userProfile$ | async)?.avatar" 
+             [src]="(userProfile$ | async)?.avatar" 
+             alt="Photo de profil"
+             class="avatar-image"
+             (error)="onImageError($event)">
+        
+        <!-- Sinon avatar avec initiales -->
+        <div class="avatar-circle" [style.display]="(userProfile$ | async)?.avatar ? 'none' : 'flex'">
+          {{ getUserInitials(userProfile$ | async) }}
+        </div>
+      </button>
+
+      <!-- Dropdown Menu -->
+      <div class="user-dropdown" [class.show]="showUserMenu">
+        <div class="dropdown-header">
+          <!-- Photo de profil si disponible -->
+          <img *ngIf="(userProfile$ | async)?.avatar" 
+               [src]="(userProfile$ | async)?.avatar" 
+               alt="Photo de profil"
+               class="avatar-image large"
+               (error)="onImageError($event)">
+          
+          <!-- Sinon avatar avec initiales -->
+          <div class="avatar-circle large" [style.display]="(userProfile$ | async)?.avatar ? 'none' : 'flex'">
+            {{ getUserInitials(userProfile$ | async) }}
+          </div>
+          
+          <div class="user-info" *ngIf="userProfile$ | async as user">
+            <div class="user-fullname">{{ user.first_name }} {{ user.last_name }}</div>
+            <div class="user-email">{{ user.email }}</div>
+            <div class="user-role badge-role">{{ user.role }}</div>
+          </div>
+        </div>
+
+        <div class="dropdown-divider"></div>
+
+        <ul class="dropdown-menu-list">
+          <li>
+            <a (click)="goToProfile()" class="dropdown-item">
+              <i class="fas fa-user"></i>
+              <span>Voir profil</span>
+            </a>
+          </li>
+          <li>
+            <a (click)="logout()" class="dropdown-item logout-item">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Déconnexion</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</header>
