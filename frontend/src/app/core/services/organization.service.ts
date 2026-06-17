@@ -3,12 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Organization } from '../models/organization.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class OrganizationService {
-  private apiUrl = 'http://localhost:8000/api/v1/organizations/'; // À adapter selon votre config
+  private apiUrl = `${environment.apiUrl}/v1/organizations/`;
 
   constructor(private http: HttpClient) { }
 

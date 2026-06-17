@@ -69,7 +69,8 @@ export class OrganizationListComponent implements OnInit {
 
   // Pagination
   currentPage: number = 1;
-  pageSize: number = 10;
+  pageSize: number = 5;
+  pageSizeOptions: number[] = [5, 8, 10, 20, 50];
 
   // UI
   showColumnConfig: boolean = false;
@@ -166,8 +167,8 @@ export class OrganizationListComponent implements OnInit {
 
   private handleClickOutside(event: Event): void {
     const target = event.target as HTMLElement;
-    // Fermer seulement si le clic n'est PAS dans un dropdown-container ou un context-menu
-    if (!target.closest('.dropdown-container') && !target.closest('.context-menu')) {
+    // Fermer seulement si le clic n'est PAS dans un menu de filtrage ou un context-menu
+    if (!target.closest('.filter-menu-wrapper') && !target.closest('.context-menu')) {
       this.closeAllMenus();
       this.closeAllContextMenus();
       // Fermer aussi le menu de filtre des colonnes
@@ -178,7 +179,7 @@ export class OrganizationListComponent implements OnInit {
   loadOrganizations(): void {
     this.loading = true;
     console.log('🔄 Début du chargement des organisations...');
-    console.log('URL API:', 'http://localhost:8000/api/v1/organizations/');
+    console.log('Chargement des organisations API...');
     
     this.organizationService.getOrganizations().subscribe({
       next: (data: Organization[]) => {
@@ -654,6 +655,27 @@ export class OrganizationListComponent implements OnInit {
     this.closeAllContextMenus();
   }
 
+  openOrganizationDetailFromContext(): void {
+    if (this.selectedRowForContext) {
+      this.openOrganizationDetail(this.selectedRowForContext);
+    }
+    this.closeAllContextMenus();
+  }
+
+  openEditOrganizationFromContext(): void {
+    if (this.selectedRowForContext) {
+      this.openEditOrganization(this.selectedRowForContext);
+    }
+    this.closeAllContextMenus();
+  }
+
+  openDeleteConfirmationFromContext(): void {
+    if (this.selectedRowForContext) {
+      this.openDeleteConfirmation(this.selectedRowForContext);
+    }
+    this.closeAllContextMenus();
+  }
+
   // --- Tri ---
   sort(column: keyof Organization): void {
     if (this.sortColumn === column) {
@@ -676,7 +698,6 @@ export class OrganizationListComponent implements OnInit {
     this.showExportMenu = !this.showExportMenu;
     if (this.showExportMenu) {
       this.showFilterMenu = false;
-      setTimeout(() => this.positionDropdown('export'), 0);
     }
   }
 
@@ -684,35 +705,6 @@ export class OrganizationListComponent implements OnInit {
     this.showFilterMenu = !this.showFilterMenu;
     if (this.showFilterMenu) {
       this.showExportMenu = false;
-      setTimeout(() => this.positionDropdown('filter'), 0);
-    }
-  }
-
-  private positionDropdown(type: 'export' | 'filter'): void {
-    const button = document.querySelector(`.${type === 'export' ? 'btn-secondary' : 'btn-statusbar'}`);
-    const dropdown = document.querySelector(`.${type === 'export' ? '' : 'dropdown-menu-left'}`);
-    
-    if (button && dropdown) {
-      const rect = button.getBoundingClientRect();
-      const dropdownElement = dropdown as HTMLElement;
-      
-      // Positionner AU-DESSUS du bouton
-      const spacing = 10; // Espace entre le bouton et le menu
-      const menuHeight = dropdownElement.offsetHeight || 200; // Hauteur estimée si pas encore rendu
-      const topPosition = rect.top - menuHeight - spacing;
-      
-      dropdownElement.style.top = `${topPosition}px`;
-      dropdownElement.style.left = `${rect.left}px`;
-      
-      // Animation d'entrée
-      dropdownElement.style.opacity = '0';
-      dropdownElement.style.transform = 'translateY(10px) scale(0.95)';
-      
-      requestAnimationFrame(() => {
-        dropdownElement.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-        dropdownElement.style.opacity = '1';
-        dropdownElement.style.transform = 'translateY(0) scale(1)';
-      });
     }
   }
 
@@ -1103,6 +1095,12 @@ export class OrganizationListComponent implements OnInit {
     return type === 'PRIVATE' ? 'badge badge-primary' : 'badge badge-info';
   }
 
+  formatTypeDisplay(typeValue: string | undefined, fullLabel: string): string {
+    if (typeValue === 'PUBLIC') return 'Administration';
+    if (typeValue === 'PRIVATE') return 'Entreprise';
+    return fullLabel;
+  }
+
   getTestDataBadgeClass(isTestData: boolean | undefined): string {
     return isTestData ? 'badge badge-warning' : 'badge badge-secondary';
   }
@@ -1140,6 +1138,14 @@ export class OrganizationListComponent implements OnInit {
     }
   }
 
+  goToFirstPage(): void {
+    this.goToPage(1);
+  }
+
+  goToLastPage(): void {
+    this.goToPage(this.totalPages);
+  }
+
   nextPage(): void {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
@@ -1150,6 +1156,11 @@ export class OrganizationListComponent implements OnInit {
     if (this.currentPage > 1) {
       this.currentPage--;
     }
+  }
+
+  setPageSize(size: number): void {
+    this.pageSize = size;
+    this.currentPage = 1;
   }
 
   getPageNumbers(): number[] {

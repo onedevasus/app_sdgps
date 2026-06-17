@@ -4,6 +4,36 @@
 
 ---
 
+## Sommaire
+
+- **0. [Introduction et Contexte](#0-introduction-et-contexte)**
+  - [Contexte institutionnel](#contexte-institutionnel)
+  - [Constat actuel](#constat-actuel)
+  - [Périmètre du projet](#périmètre-du-projet)
+- **I. [Objectifs du Projet](#i-objectifs-du-projet)**
+  - [1.1 Objectifs fonctionnels](#11-objectifs-fonctionnels)
+  - [1.2 Objectifs techniques](#12-objectifs-techniques)
+- **II. [Acteurs et Rôles](#ii-acteurs-et-rôles)**
+  - [Administrateur de l'application (ROLE_APP_ADMIN)](#administrateur-de-lapplication-role_app_admin)
+  - [Responsable Admin d'une organisation (ROLE_ORGANISATION_ADMIN)](#responsable-admin-dune-organisation-role_organisation_admin)
+  - [Agent d'une organisation (ROLE_ORGANISATION_AGENT)](#agent-dune-organisation-role_organisation_agent)
+- **III. [Description des Fonctionnalités](#iii-description-des-fonctionnalités)**
+  - [3.1 Espace Administration — ROLE_APP_ADMIN](#31-espace-administration--role_app_admin)
+  - [3.2 Responsable Admin d'une organisation — ROLE_ORGANISATION_ADMIN](#32-responsable-admin-dune-organisation--role_organisation_admin)
+  - [3.3 Espace Agent d'une organisation — ROLE_ORGANISATION_AGENT](#33-espace-agent-dune-organisation--role_organisation_agent)
+  - [3.4 Fonctionnalités Innovantes](#34-fonctionnalités-innovantes)
+- **IV. [Spécifications Techniques](#iv-spécifications-techniques)**
+  - [4.1 Stack technologique obligatoire](#41-stack-technologique-obligatoire)
+  - [4.2 Architecture applicative](#42-architecture-applicative)
+  - [4.3 Sécurité](#43-sécurité)
+  - [4.4 Exigences non fonctionnelles](#44-exigences-non-fonctionnelles)
+- **VI. [Contraintes et Consignes Importantes](#vi-contraintes-et-consignes-importantes)**
+  - [6.1 Contraintes de développement](#61-contraintes-de-développement)
+  - [6.2 Consignes de sécurité](#62-consignes-de-sécurité)
+- **VII. [Glossaire](#vii-glossaire)**
+
+---
+
 ## 0. Introduction et Contexte
 
 ### Contexte institutionnel

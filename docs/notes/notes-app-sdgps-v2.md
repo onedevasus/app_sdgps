@@ -23,7 +23,7 @@ Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour
 
 ----------------------------------
 
-
+commit changes dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app
 
 
 ## Teste de la version actuelle de l'app
@@ -120,3 +120,86 @@ Agent d'une organisation (ROLE_ORGANISATION_AGENT):
     Saisie et import des donnees
     Generation des rapports
 
+## Phase : Developement de l'app
+
+### Fonctionnalites Espace Admin : Gestion des organisations
+
+#### Prompte n1
+
+Je veux maintenant, ajouter les fonctionnalites suivantes dans le tableau de la liste des organisations dans la page "/admin/organisations/liste" : 
+
+dans le footer du tableau a gauche les outils de filtres (afficher toutes les organisations, Afficher uniquement les organisations selectionnees, filtrer par champs) et dans la partie droite les outils de paginations.
+
+Le tout en s'inspirant tres grandement du tableau deja present dans le code et qui contient toutes ces fonctionnalites (tableau de la "Liste des tranches des grilles tarifaires des corridors" dans la page "/admin/devises-pays" onglet "Grilles Tarifaires") du projet dont le code source est dans le dossier suivant "D:\BOULMANE\SMAHAN BOULMANE\PROJET-ATLAS-OKAN-TRANSFERT" . Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+#### Prompte n2
+
+le style des outils de filtrage et de pagination du tableau de la liste des organisations est tres moche. corrige le style en utilisant un style élégant, pro et conforme au design System de l'app.
+
+#### Prompte n3
+
+corrige les points suivants : 
+    - la ligne des noms des colonnes du tableau de la liste des organisations doit etre figee lors du scroll vertical.
+    - L'espace reserve a l'affichage des lignes du tableau doit etre le plus grand possible, le footer du tableau doit etre figee en bas de la page, pour accordee le plus d'espace possible pour l'affiche des donnees du tableau.
+    - au chargement de la page "/admin/organisations/liste" par defaut seulement 5 organisations qui doivent s'afficher dans le tableau.
+    - L'entete de la colonne action ne reste pas figee lors du scroll vertical.surtout lorsque le nombre d'elements par page selectionne est > nombre elements qu'une page peut afficher sans activer scroll vertical (dans mon ecran = 5 lignes)
+    - la colonne type doit afficher seulement "Administration" pour les organisations de type "Entité Publique / Administration" et "Entreprise" pour les organisations de type "Cabinet Privé / Entreprise".
+    - Maintenant lorsque une ligne est selectionnee ou bien survoler la colonne action est non incluse dans cette selection/survole.
+    - Ajouter les options de la colonne actions : voir details, modifier, supprimer dans la fenetre contextuel du clique droit sur une ligne.
+    - je ne comprend pas pourquoi le style de la fenetre modifier une organisation est cassee
+    - corrige le style de la fenetre "Organiser les colonnes" en utilisant un style élégant, pro et conforme au design System de l'app.
+    - lorsque je survole le nom d'une colonne le background devient transparent. corrige ce probleme
+    - toujours lorsque le scroll vertical est active et que je scroll verticalement puis apres survole du nom d'une colonne la ligne en dessous s'affiche car le fond de cette colonne est transparent. corrige ce probleme.
+
+### Fonctionnalites Espace Admin : Gestion des utilisateurs
+
+#### Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs
+
+L'objectif maintenant est de developper la fonctionnalite de gestion des utilisateurs de l'app.
+
+La plateforme distingue trois profils utilisateurs, chacun disposant de droits et responsabilités spécifiques :
+
+    Administrateur de l'application (ROLE_APP_ADMIN)
+    Profil de plus haut niveau. Gère l'ensemble de la plateforme : configuration globale, gestion des utilisateurs et organisations, paramétrage système, supervision des activités et consultation des rapports consolidés.
+    L'administrateur de l'application (ROLE_APP_ADMIN) peut creer/modifier/supprimer n'importe quel utilisateur : les Administrateur de l'application (ROLE_APP_ADMIN), les Responsables Admin d'une organisation (ROLE_ORGANISATION_ADMIN) et les Agents d'une organisation (ROLE_ORGANISATION_AGENT). il peut egalement reinitialiser le mdp de n'importe quel autre utilisateur y compris ceux des Administrateurs de l'application (ROLE_APP_ADMIN)
+
+    Responsable Admin d'une organisation (ROLE_ORGANISATION_ADMIN)
+    Profil de gestion au niveau d'une organisation (service ANCFCC ou cabinet privé). Gère les agents de son organisation, valide les opérations sensibles, supervise les projets et configure les paramètres spécifiques à son organisation.
+    Le responsable Admin d'une organisation (ROLE_ORGANISATION_ADMIN) peut creer/modifier/supprimer uniquement les agents de son organisation (ROLE_ORGANISATION_AGENT). il peut egalement reinitialiser le mdp de n'importe quel agent de son organisation (ROLE_ORGANISATION_AGENT).
+
+    Agent d'une organisation (ROLE_ORGANISATION_AGENT)
+    Profil opérationnel. Assure la gestion courante des projets, la saisie et l'import des données, la génération des rapports et documents, et la configuration des pièces.
+    L'agent d'une organisation ne peut pas creer/modifier/supprimer aucun utilisateur de l'app. 
+
+Fonctionnalités à implémenter (par priorité)
+1. Liste des Utilisateurs (page admin)
+Backend : GET/DELETE /api/v1/users/ — lister, filtrer (par rôle, statut, organisation), désactiver/supprimer des utilisateurs
+Frontend : UserListComponent — tableau type organisations (checkbox, sticky actions, tri, pagination, filtre par rôle/statut/org)
+Valeur : indispensable pour F05 (CPS)
+2. Détail / Édition d'un Utilisateur
+Backend : GET/PUT/PATCH /api/v1/users/<id>/ — modifier infos, rôle, statut, reset MDP forcé
+Frontend : UserDetailComponent — formulaire avec sections (infos personnelles, rôle, organisation, statut, actions MDP)
+Valeur : nécessaire pour F05, F12
+3. Gestion des Rôles & Permissions (F06)
+Backend : endpoint GET /api/v1/roles/ + PUT /api/v1/users/<id>/role/ — modifier le rôle d'un utilisateur dans une organisation
+Frontend : RolesPermissionsComponent — visualisation des rôles avec leurs permissions, assignation par utilisateur
+Valeur : contrôle d'accès fin
+4. Membres d'une Organisation (vue org)
+Backend : déjà partiellement avec OrganizationMembersView et AddMemberView
+Frontend : OrganizationMembersComponent — intégré dans la vue détail d'organisation, lister/ajouter/retirer des membres
+Valeur : gestion quotidienne des équipes
+5. Journal des Connexions
+Backend : endpoint GET /api/v1/users/audit/ (dernières connexions, IP, date)
+Frontend : section dans l'utilisateur ou page dédiée
+Valeur : traçabilité sécurité (complémentaire aux logs d'audit déjà prévus)
+L'architecture à suivre serait cohérente avec organization-list : module dédié features/admin/users/, service core/services/user.service.ts, routes sous /admin/utilisateurs/* (déjà configurées dans le menu mais pas dans le routeur).
+
+L'objectif est de rediger le plan de dev de l'app dans docs/plans/PLAN_DEV.md. ce plan doit contenir une phase pour toutes ces fonctionnalites de gestion des utilisateurs. utilise speckit pour clarifier les points ambigues et manquantes.
+
+pour question 1 : utilise CustomUser.is_superuser = True (pas lié à une org) pour ROLE_APP_ADMIN et les profils ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT pour les valeurs de Membership.role au lieu des valeurs :  OWNER, ADMIN, MANAGER, USER. pour question n2 : cette fonctionnalite est reportée à une phase ultérieure. pour question n3 : option A.
+
+pour question n1 :  option (A) L'admin définit un mot de passe temporaire + option "forcer changement au premier login". pour question n2 : on garde les deux l'admin peut supprimer un utilisateur ( fait un soft-delete (comme pour les organisations avec is_deleted)) et encore garder l'option de Désactivation : un utilisateur peut etre desactive  via is_active. pour la question n3 : pour l'instant garder seulement les superuser presents, ne pas créer dès cette phase d'autres utilisateurs ROLE_APP_ADMIN.
+
+#### Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs
+
+passons maintenant a l'implementation de la phase 

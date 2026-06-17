@@ -123,7 +123,8 @@
   </div>
 
   <!-- Tableau des organisations -->
-  <div class="table-wrapper" *ngIf="!loading; else loadingTemplate">
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <div class="table-wrapper">
     <!-- Conteneur du tableau avec scroll -->
     <div class="table-container">
       <table class="modern-table">
@@ -175,7 +176,7 @@
             <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onCellRightClick($event, org, col.field)">
               <!-- Type avec badge -->
               <span *ngIf="col.field === 'type_display'" [class]="getTypeBadgeClass(org.type)">
-                {{ org[col.field] }}
+                {{ formatTypeDisplay(org.type, org[col.field]) }}
               </span>
 
               <!-- Statut avec badge -->
@@ -224,126 +225,79 @@
       </table>
     </div>
 
-    <!-- Barre d'état et Pagination (toujours visibles) -->
-    <div class="table-footer">
-      <!-- Barre d'état du tableau -->
-      <div class="table-statusbar">
-      <div class="statusbar-left">
-        <!-- Menu de filtrage -->
-        <div class="dropdown-container" [class.open]="showFilterMenu">
-          <button 
-            class="btn-statusbar"
-            (click)="$event.stopPropagation(); toggleFilterMenu()"
-            title="Options d'affichage">
+    <!-- Footer du tableau : Filtres à gauche, Pagination à droite -->
+    <footer class="table-footer">
+      <div class="table-footer-left">
+        <div class="filter-menu-wrapper">
+          <button class="filter-menu-trigger" (click)="$event.stopPropagation(); toggleFilterMenu()">
             <i class="fas fa-filter"></i>
-            <span>{{ buttonLabel }}</span>
-            <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+            Filtrer
+            <span class="filter-menu-badge" *ngIf="displayMode !== 'all' || activeFieldFilter"></span>
           </button>
-          
-          <div class="dropdown-menu dropdown-menu-left" [hidden]="!showFilterMenu">
-            <div class="dropdown-item" 
-                 (click)="$event.stopPropagation(); setDisplayMode('all'); toggleFilterMenu()"
-                 [class.active]="displayMode === 'all'">
-                <i class="fas fa-list"></i>
-                <span>Afficher toutes les organisations</span>
+          <div class="filter-menu-dropdown" *ngIf="showFilterMenu" (click)="$event.stopPropagation()">
+            <div class="filter-menu-item" (click)="setDisplayMode('all'); toggleFilterMenu()" [class.active]="displayMode === 'all' && !activeFieldFilter">
+              <i class="fas fa-list filter-menu-item-icon"></i>
+              <span>Afficher toutes les organisations</span>
+              <i class="fas fa-check filter-menu-check" *ngIf="displayMode === 'all' && !activeFieldFilter"></i>
             </div>
-            <div class="dropdown-item" 
-                 (click)="$event.stopPropagation(); setDisplayMode('selected'); toggleFilterMenu()"
-                 [class.disabled]="selectedOrganizations.size === 0"
-                 [class.active]="displayMode === 'selected'">
-                <i class="fas fa-check-square"></i>
-                <span>N'afficher que les organisations sélectionnées</span>
-                <span *ngIf="selectedOrganizations.size > 0" class="badge-count">{{ selectedOrganizations.size }}</span>
+            <div class="filter-menu-item" (click)="setDisplayMode('selected'); toggleFilterMenu()" [class.disabled]="selectedOrganizations.size === 0" [class.active]="displayMode === 'selected'">
+              <i class="fas fa-check-square filter-menu-item-icon"></i>
+              <span>Afficher les organisations sélectionnées</span>
+              <span class="badge-count" *ngIf="selectedOrganizations.size > 0">{{ selectedOrganizations.size }}</span>
+              <i class="fas fa-check filter-menu-check" *ngIf="displayMode === 'selected'"></i>
             </div>
-            <div class="dropdown-divider"></div>
-            
-            <!-- Option Filtre de champs avec sous-menu -->
-            <div class="dropdown-item has-submenu" 
-                 [class.active]="showFieldFilterMenu"
-                 (mouseenter)="showFieldFilterMenu = true"
-                 (mouseleave)="onFieldFilterMenuLeave()">
-              <i class="fas fa-columns"></i>
-              <span>Filtre de champs</span>
-              <i class="fas fa-chevron-right submenu-arrow"></i>
+            <div class="filter-menu-divider"></div>
+            <div class="filter-menu-item filter-menu-item-sub" (click)="showFieldFilterMenu = !showFieldFilterMenu">
+              <span>Filtrage par champs</span>
+              <i class="fas fa-chevron-right filter-menu-chevron"></i>
             </div>
-
-            <!-- Sous-menu des champs -->
-            <div class="submenu field-filter-submenu" [hidden]="!showFieldFilterMenu"
-                 (mouseenter)="showFieldFilterMenu = true"
-                 (mouseleave)="onFieldFilterMenuLeave()">
-              <div class="submenu-header">
-                <i class="fas fa-filter"></i>
-                <span>Sélectionnez un champ</span>
-              </div>
-              <div class="submenu-items">
-                <div class="submenu-item" 
-                     *ngFor="let column of columns"
-                     (click)="$event.stopPropagation(); selectFieldForFilter(column.field, column.label)">
-                  <i class="fas fa-tag"></i>
-                  <span>{{ column.label }}</span>
-                </div>
+            <div class="filter-submenu" *ngIf="showFieldFilterMenu">
+              <div class="filter-menu-item" *ngFor="let column of columns" (click)="selectFieldForFilter(column.field, column.label)">
+                <i class="fas fa-tag filter-menu-item-icon"></i>
+                <span>{{ column.label }}</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="statusbar-right">
-        <!-- Zone de filtre par champ -->
-        <div class="field-filter-box" *ngIf="activeFieldFilter">
-          <i class="fas fa-filter"></i>
-          <span class="filter-label">{{ activeFieldFilterLabel }}:</span>
-          <input 
-            type="text" 
-            [value]="fieldFilterValue"
-            (input)="onFieldFilterInput($event)"
-            placeholder="Filtrer..."
-            class="field-filter-input"
-          >
-          <button class="btn-clear-filter" (click)="clearFieldFilter()" title="Supprimer le filtre">
+        <div class="filter-field-input" *ngIf="activeFieldFilter">
+          <input type="text" class="field-filter-input" [placeholder]="'Filtrer par ' + activeFieldFilterLabel + '…'" [value]="fieldFilterValue" (input)="onFieldFilterInput($event)" />
+          <button class="input-clear-btn" (click)="clearFieldFilter()" title="Effacer le filtre">
             <i class="fas fa-times"></i>
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- Pagination -->
-    <div class="pagination-group" *ngIf="totalPages > 1">
-      <div class="pagination-info">
-        Affichage de {{ (currentPage - 1) * pageSize + 1 }} à {{ Math.min(currentPage * pageSize, filteredOrganizations.length) }} sur {{ filteredOrganizations.length }} organisations
+      <div class="table-footer-right">
+        <div class="pagination-size">
+          <span class="pagination-size-label">Éléments par page :</span>
+          <div class="pagination-size-select-wrapper">
+            <select class="pagination-size-select" [value]="pageSize" (change)="setPageSize(+$any($event.target).value)">
+              <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+            </select>
+            <i class="fas fa-chevron-down pagination-size-arrow"></i>
+          </div>
+        </div>
+        <div class="pagination-nav">
+          <button class="pagination-nav-btn" [disabled]="currentPage <= 1" (click)="goToFirstPage()" title="Première page">
+            <i class="fas fa-angle-double-left"></i>
+          </button>
+          <button class="pagination-nav-btn" [disabled]="currentPage <= 1" (click)="prevPage()" title="Page précédente">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span class="pagination-nav-label">Page {{ currentPage }} sur {{ totalPages }}</span>
+          <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="nextPage()" title="Page suivante">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="goToLastPage()" title="Dernière page">
+            <i class="fas fa-angle-double-right"></i>
+          </button>
+        </div>
       </div>
-
-      <div class="pagination-controls">
-        <button
-          class="btn-pagination"
-          (click)="prevPage()"
-          [disabled]="currentPage === 1"
-          title="Page précédente">
-          <i class="fas fa-chevron-left"></i>
-        </button>
-
-        <button
-          *ngFor="let page of getPageNumbers()"
-          class="btn-pagination"
-          [class.active]="page === currentPage"
-          (click)="goToPage(page)">
-          {{ page }}
-        </button>
-
-        <button
-          class="btn-pagination"
-          (click)="nextPage()"
-          [disabled]="currentPage === totalPages"
-          title="Page suivante">
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
+    </footer>
     </div>
-  </div>
-  </div>
+  </ng-container>
 
   <!-- Template de chargement -->
-  <ng-template #loadingTemplate>
+  <ng-template #loadingTpl>
     <div class="loading-spinner">
       <i class="fas fa-spinner fa-spin"></i>
       <p>Chargement des organisations...</p>
@@ -352,16 +306,25 @@
 
   <!-- Modal de configuration des colonnes -->
   <div class="modal-overlay" *ngIf="showColumnConfig" (click)="toggleColumnConfig()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-header-left">
-          <h3>Organiser les colonnes</h3>
-          <span class="modal-stats">
-            — Total: {{ getColumnStats().total }} | Visibles : {{ getColumnStats().visible }} | Masquées : {{ getColumnStats().hidden }}
-          </span>
+          <i class="fas fa-columns header-icon"></i>
+          <div>
+            <h3>Organiser les colonnes</h3>
+            <span class="modal-stats">
+              <i class="fas fa-table"></i>
+              Total: {{ getColumnStats().total }}
+              <span class="stat-sep">|</span>
+              <i class="fas fa-eye"></i>
+              Visibles : {{ getColumnStats().visible }}
+              <span class="stat-sep">|</span>
+              <i class="fas fa-eye-slash"></i>
+              Masquées : {{ getColumnStats().hidden }}
+            </span>
+          </div>
         </div>
         <div class="modal-header-right">
-          <!-- Bouton de filtre avec menu -->
           <div class="dropdown-container" [class.open]="showColumnFilterMenu">
             <button 
               type="button"
@@ -370,10 +333,10 @@
               [title]="getColumnFilterLabel()">
               <i class="fas fa-filter"></i>
               {{ getColumnFilterLabel() }}
-              <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+              <i class="fas fa-chevron-down"></i>
             </button>
             
-            <div class="dropdown-menu dropdown-menu-column-filter" [hidden]="!showColumnFilterMenu">
+            <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
               <div class="dropdown-item" 
                    (click)="$event.stopPropagation(); applyColumnFilter('all')"
                    [class.active]="columnFilter === 'all'">
@@ -541,6 +504,19 @@
     <div class="context-menu-item" *ngIf="selectedCellForContext" (click)="copyCellValueFromContext()">
       <i class="fas fa-copy"></i>
       <span>Copier la valeur de la cellule</span>
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" (click)="openOrganizationDetailFromContext()">
+      <i class="fas fa-eye"></i>
+      <span>Voir les détails</span>
+    </div>
+    <div class="context-menu-item" (click)="openEditOrganizationFromContext()">
+      <i class="fas fa-edit"></i>
+      <span>Modifier</span>
+    </div>
+    <div class="context-menu-item context-menu-item-danger" (click)="openDeleteConfirmationFromContext()">
+      <i class="fas fa-trash"></i>
+      <span>Supprimer</span>
     </div>
   </div>
 
@@ -973,7 +949,7 @@
               </label>
               <div class="detail-value">
                 <span [class]="getTypeBadgeClass(organizationToView.type)">
-                  {{ organizationToView.type_display || getTypeLabel(organizationToView.type) }}
+                  {{ formatTypeDisplay(organizationToView.type, organizationToView.type_display) }}
                 </span>
               </div>
             </div>

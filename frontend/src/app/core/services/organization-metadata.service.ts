@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { tap, shareReplay } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 export interface FieldMetadata {
   name: string;
@@ -20,7 +21,7 @@ export interface OrganizationMetadata {
   providedIn: 'root'
 })
 export class OrganizationMetadataService {
-  private apiUrl = 'http://localhost:8000/api/v1/organizations/metadata/';
+  private apiUrl = `${environment.apiUrl}/v1/organizations/metadata/`;
   private metadataCache: OrganizationMetadata | null = null;
   private metadata$!: Observable<OrganizationMetadata>;
 
