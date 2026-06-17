@@ -12,25 +12,26 @@
   - [1.1 Stack technologique](#11-stack-technologique)
   - [1.2 Architecture applicative](#12-architecture-applicative)
   - [1.3 Conventions](#13-conventions)
-- [2. Phases de développement](#2-phases-de-développement)
-- [3. Phase 3 — Gestion des Utilisateurs](#3-phase-3--gestion-des-utilisateurs)
-  - [3.1 Définition](#31-définition)
-  - [3.2 Modèle de données](#32-modèle-de-données)
-    - [3.2.1 Rôles — mapping CPS → schéma](#321-rôles--mapping-cps--schéma)
-    - [3.2.2 Migration des rôles existants](#322-migration-des-rôles-existants)
-    - [3.2.3 Champs ajoutés à `CustomUser`](#323-champs-ajoutés-à-customuser)
-    - [3.2.4 Champs ajoutés à `Membership`](#324-champs-ajoutés-à-membership)
-  - [3.3 Matrice des permissions RBAC](#33-matrice-des-permissions-rbac)
-  - [3.4 API Endpoints](#34-api-endpoints)
+- [2. Workflow Git](#2-workflow-git)
+- [3. Phases de développement](#3-phases-de-développement)
+- [4. Phase 3 — Gestion des Utilisateurs](#4-phase-3--gestion-des-utilisateurs)
+  - [4.1 Définition](#41-définition)
+  - [4.2 Modèle de données](#42-modèle-de-données)
+    - [4.2.1 Rôles — mapping CPS → schéma](#421-rôles--mapping-cps--schéma)
+    - [4.2.2 Migration des rôles existants](#422-migration-des-rôles-existants)
+    - [4.2.3 Champs ajoutés à `CustomUser`](#423-champs-ajoutés-à-customuser)
+    - [4.2.4 Champs ajoutés à `Membership`](#424-champs-ajoutés-à-membership)
+  - [4.3 Matrice des permissions RBAC](#43-matrice-des-permissions-rbac)
+  - [4.4 API Endpoints](#44-api-endpoints)
     - [Règles de filtrage backend](#règles-de-filtrage-backend)
-  - [3.5 Composants frontend](#35-composants-frontend)
-    - [3.5.1 Architecture des fichiers](#351-architecture-des-fichiers)
-    - [3.5.2 UserListComponent](#352-userlistcomponent)
-    - [3.5.3 UserDetailComponent](#353-userdetailcomponent)
-    - [3.5.4 RolesPermissionsComponent](#354-rolespermissionscomponent)
-  - [3.6 Mise à jour du routeur et du menu](#36-mise-à-jour-du-routeur-et-du-menu)
-    - [3.6.1 Routes à ajouter](#361-routes-à-ajouter)
-  - [3.7 Tâches d'implémentation](#37-tâches-dimplantation)
+  - [4.5 Composants frontend](#45-composants-frontend)
+    - [4.5.1 Architecture des fichiers](#451-architecture-des-fichiers)
+    - [4.5.2 UserListComponent](#452-userlistcomponent)
+    - [4.5.3 UserDetailComponent](#453-userdetailcomponent)
+    - [4.5.4 RolesPermissionsComponent](#454-rolespermissionscomponent)
+  - [4.6 Mise à jour du routeur et du menu](#46-mise-à-jour-du-routeur-et-du-menu)
+    - [4.6.1 Routes à ajouter](#461-routes-à-ajouter)
+  - [4.7 Tâches d'implémentation](#47-tâches-dimplantation)
     - [Phase 3.1 — Backend : Modèle et migration](#phase-31--backend--modèle-et-migration)
     - [Phase 3.2 — Backend : API endpoints](#phase-32--backend--api-endpoints)
     - [Phase 3.3 — Frontend : Service et modèle](#phase-33--frontend--service-et-modèle)
@@ -38,13 +39,13 @@
     - [Phase 3.5 — Frontend : UserDetailComponent](#phase-35--frontend--userdetailcomponent)
     - [Phase 3.6 — Frontend : RolesPermissionsComponent](#phase-36--frontend--rolespermissionscomponent)
     - [Phase 3.7 — Configuration des routes](#phase-37--configuration-des-routes)
-  - [3.8 Tests](#38-tests)
-- [4. Phases ultérieures (aperçu)](#4-phases-ultérieures-aperçu)
+  - [4.8 Tests](#48-tests)
+- [5. Phases ultérieures (aperçu)](#5-phases-ultérieures-aperçu)
   - [Phase 4 — Invitations des agents (F13)](#phase-4--invitations-des-agents-f13)
   - [Phase 5 — Gestion des projets (F19-F26)](#phase-5--gestion-des-projets-f19-f26)
   - [Phase 6 — Supervision et rapports (F01, F07, F09, F16, F17)](#phase-6--supervision-et-rapports-f01-f07-f09-f16-f17)
   - [Phase 7 — Fonctionnalités innovantes (F28-F30)](#phase-7--fonctionnalités-innovantes-f28-f30)
-- [5. Glossaire](#5-glossaire)
+- [6. Glossaire](#6-glossaire)
 
 ---
 
@@ -78,7 +79,57 @@
 
 ---
 
-## 2. Phases de développement
+## 2. Workflow Git
+
+### 2.1 Compte Git du projet
+
+| Champ | Valeur |
+|-------|--------|
+| Nom | `blmerio2022` |
+| Email | `120096166+blmerio2022@users.noreply.github.com` |
+| Dépôt distant | `https://github.com/blmerio2022/app_sdgps.git` |
+
+### 2.2 Branches
+
+| Branche | Usage | Protection |
+|---------|-------|------------|
+| `main` | Production — code stable livré | Merge depuis `develop` uniquement |
+| `develop` | Intégration — code validé, point de départ des feature branches | Push direct autorisé |
+| `feature/<nom>` | Développement d'une fonctionnalité (créée depuis `develop`) | Aucune |
+
+### 2.3 Cycle de développement
+
+```
+develop
+  │
+  ├── git checkout -b feature/gestion-utilisateurs
+  │       │
+  │       │   Implémentation + tests
+  │       │
+  │       └── git checkout develop
+  │           git merge feature/gestion-utilisateurs
+  │           git push origin develop
+  │
+  ├── git checkout -b feature/<prochaine-fonctionnalite>
+  │       ...
+```
+
+1. Créer une branche `feature/<nom>` depuis `develop`
+2. Implémenter la fonctionnalité dans cette branche
+3. Tester et valider
+4. Fusionner (`merge`) dans `develop`
+5. Pousser `develop` sur le dépôt distant
+6. (Plus tard) Fusionner `develop` dans `main` pour une livraison
+
+### 2.4 Conventions de commit
+
+- Utiliser des messages en anglais, format conventionnel : `type(scope): message`
+- Types : `feat`, `fix`, `refactor`, `docs`, `chore`, `test`
+- Exemple : `feat(users): add user CRUD API endpoints`
+
+---
+
+## 3. Phases de développement
 
 | Phase | Fonctionnalité | Statut |
 |-------|---------------|--------|
@@ -93,15 +144,15 @@
 
 ---
 
-## 3. Phase 3 — Gestion des Utilisateurs
+## 4. Phase 3 — Gestion des Utilisateurs
 
-### 3.1 Définition
+### 4.1 Définition
 
 Implémenter la gestion complète des utilisateurs de la plateforme conformément aux spécifications F05 et F12 du CPS, avec un contrôle d'accès strict basé sur les trois profils définis.
 
-### 3.2 Modèle de données
+### 4.2 Modèle de données
 
-#### 3.2.1 Rôles — mapping CPS → schéma
+#### 4.2.1 Rôles — mapping CPS → schéma
 
 | Profil CPS | Implémentation |
 |---|---|
@@ -109,7 +160,7 @@ Implémenter la gestion complète des utilisateurs de la plateforme conformémen
 | `ROLE_ORGANISATION_ADMIN` | `Membership.role = 'ROLE_ORGANISATION_ADMIN'` |
 | `ROLE_ORGANISATION_AGENT` | `Membership.role = 'ROLE_ORGANISATION_AGENT'` |
 
-#### 3.2.2 Migration des rôles existants
+#### 4.2.2 Migration des rôles existants
 
 Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 
@@ -120,15 +171,15 @@ Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 | `MANAGER` | `ROLE_ORGANISATION_AGENT` |
 | `USER` | `ROLE_ORGANISATION_AGENT` |
 
-#### 3.2.3 Champs ajoutés à `CustomUser`
+#### 4.2.3 Champs ajoutés à `CustomUser`
 
 - Aucun champ nouveau nécessaire à ce stade (les champs existants `first_name`, `last_name`, `email`, `is_active`, `is_superuser`, `is_deleted` couvrent les besoins)
 
-#### 3.2.4 Champs ajoutés à `Membership`
+#### 4.2.4 Champs ajoutés à `Membership`
 
 - Aucun champ nouveau — seul le choix `role` est modifié (nouvelles valeurs)
 
-### 3.3 Matrice des permissions RBAC
+### 4.3 Matrice des permissions RBAC
 
 | Action | `ROLE_APP_ADMIN` | `ROLE_ORGANISATION_ADMIN` | `ROLE_ORGANISATION_AGENT` |
 |--------|:---:|:---:|:---:|
@@ -141,7 +192,7 @@ Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 | Réinitialiser mot de passe | Tous les rôles | `ROLE_ORGANISATION_AGENT` uniquement | ❌ |
 | Voir les rôles disponibles | ✅ | ✅ | ❌ |
 
-### 3.4 API Endpoints
+### 4.4 API Endpoints
 
 Tous les endpoints sont préfixés par `/api/v1/users/`.
 
@@ -163,9 +214,9 @@ Tous les endpoints sont préfixés par `/api/v1/users/`.
 - Un `ROLE_APP_ADMIN` voit tous les utilisateurs de la plateforme.
 - Les `ROLE_ORGANISATION_AGENT` n'ont pas accès à ces endpoints.
 
-### 3.5 Composants frontend
+### 4.5 Composants frontend
 
-#### 3.5.1 Architecture des fichiers
+#### 4.5.1 Architecture des fichiers
 
 ```
 frontend/src/app/
@@ -193,7 +244,7 @@ frontend/src/app/
                 └── roles-permissions.component.scss
 ```
 
-#### 3.5.2 UserListComponent
+#### 4.5.2 UserListComponent
 
 Page `/admin/utilisateurs/liste` — reprend le patron de `OrganizationListComponent` :
 
@@ -211,7 +262,7 @@ Page `/admin/utilisateurs/liste` — reprend le patron de `OrganizationListCompo
 - **Confirmation suppression** : soft-delete avec message
 - **Menu contextuel** (clic droit) : voir détails, modifier, supprimer, réinitialiser MDP
 
-#### 3.5.3 UserDetailComponent
+#### 4.5.3 UserDetailComponent
 
 Formulaire complet avec sections :
 
@@ -220,17 +271,17 @@ Formulaire complet avec sections :
 3. **Statut & Sécurité** : booléen actif/inactif, date dernière connexion, date changement MDP
 4. **Actions administratives** : bouton "Réinitialiser le mot de passe" (génère un MDP temporaire + option "forcer changement"), bouton "Désactiver/Activer" avec confirmation
 
-#### 3.5.4 RolesPermissionsComponent
+#### 4.5.4 RolesPermissionsComponent
 
 Page `/admin/utilisateurs/roles` — page d'information et de gestion :
 
 - **Cartes des rôles** : 3 profils (ROLE_APP_ADMIN, ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT) avec description, permissions associées, nombre d'utilisateurs
-- **Tableau récapitulatif** : matrice rôles × permissions (comme la section 3.3 ci-dessus)
+- **Tableau récapitulatif** : matrice rôles × permissions (comme la section 4.3 ci-dessus)
 - **Assignation** : possibilité de modifier le rôle d'un utilisateur directement depuis cette page
 
-### 3.6 Mise à jour du routeur et du menu
+### 4.6 Mise à jour du routeur et du menu
 
-#### 3.6.1 Routes à ajouter
+#### 4.6.1 Routes à ajouter
 
 Dans `app-routing.module.ts`, sous le path `admin` :
 
@@ -241,7 +292,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 { path: 'utilisateurs/roles', component: RolesPermissionsComponent, data: { title: 'Rôles & Permissions' } },
 ```
 
-### 3.7 Tâches d'implémentation
+### 4.7 Tâches d'implémentation
 
 #### Phase 3.1 — Backend : Modèle et migration
 
@@ -296,7 +347,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 - Mettre à jour `app-routing.module.ts` avec les nouvelles routes
 - Mettre à jour le breadcrumb mapper si nécessaire
 
-### 3.8 Tests
+### 4.8 Tests
 
 - Tests unitaires backend pour chaque endpoint (DRF `APITestCase`)
 - Tests d'authentification et de permission (chaque endpoint testé avec chaque profil)
@@ -305,7 +356,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 
 ---
 
-## 4. Phases ultérieures (aperçu)
+## 5. Phases ultérieures (aperçu)
 
 ### Phase 4 — Invitations des agents (F13)
 
@@ -331,7 +382,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 
 ---
 
-## 5. Glossaire
+## 6. Glossaire
 
 | Terme | Définition |
 |-------|-----------|
