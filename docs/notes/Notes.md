@@ -20,6 +20,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -277,8 +279,8 @@ passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 
 #### correction + refonte frontend tableau de la liste des utilisateurs.
 
-Maintenant je veux corriger les points suivantes dans le tableau de la liste des utilisateurs : 
-	- correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
+Maintenant je veux corriger les points suivantes dans le tableau de la liste des utilisateurs :
+  - correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
   -	restyler/redesigner le boutton close (boutton en haut a droite de la fenetre) des modales en le mettant dans un style élégant, pro et conforme au design System de l'app.
 
 	- bouttons dans la colonne action dans une seule ligne
