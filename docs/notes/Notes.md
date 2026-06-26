@@ -16,6 +16,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -71,7 +73,7 @@ Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour
 
 ### Prompte pour commit des modifs et synchronisation avec depot distant configure
 
-commit les changements dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app
+commit les changements dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app. quand le watcher a deja commiter maj le message du commit dans le depot local et distant.
 
 
 ### promptes opencode + commandes pour controller le watcher.
@@ -275,7 +277,7 @@ passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 
 Maintenant je veux corriger les points suivantes dans le tableau de la liste des utilisateurs : 
 	- correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
-  -	restyle du boutton fermer des modales de la page "/admin/utilisateurs"
+  -	restyler le boutton close (boutton en haut a droite de la fenetre)  des modales
 
 	- bouttons dans la colonne action dans une seule ligne
 	- restyle toggle activer/desactiver un utilisateur et son modales
