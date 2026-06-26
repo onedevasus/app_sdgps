@@ -348,6 +348,35 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.applyFiltersAndSort();
   }
 
+  onSearchInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.searchText = input.value;
+    this.applyFiltersAndSort();
+  }
+
+  clearSearch(): void {
+    this.searchText = '';
+    this.applyFiltersAndSort();
+  }
+
+  onRoleFilterChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.selectedRole = select.value;
+    this.applyFiltersAndSort();
+  }
+
+  onStatusFilterChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.selectedStatus = select.value;
+    this.applyFiltersAndSort();
+  }
+
+  onOrganizationFilterChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.selectedOrganization = select.value;
+    this.applyFiltersAndSort();
+  }
+
   onFilterChange(): void {
     this.applyFiltersAndSort();
   }
@@ -405,6 +434,137 @@ export class UserListComponent implements OnInit, OnDestroy {
       }
     });
     this.isAllSelected = false;
+  }
+
+  moveSelectionToTop(): void {
+    if (this.selectedIds.size === 0) return;
+    const selected = this.users.filter(u => this.selectedIds.has(u.id));
+    const notSelected = this.users.filter(u => !this.selectedIds.has(u.id));
+    this.users = [...selected, ...notSelected];
+    this.applyFiltersAndSort();
+  }
+
+  getSelectedUsersList(): User[] {
+    return this.users.filter(u => this.selectedIds.has(u.id));
+  }
+
+  // ============================================
+  // Menu contextuel cellules (clic droit)
+  // ============================================
+
+  onCellRightClick(event: MouseEvent, user: User, field: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+    this.contextMenuUser = user;
+    this.contextMenuField = field;
+    this.selectedCellValue = field ? String((user as any)[field] ?? '') : null;
+    this.showRowContextMenu = true;
+  }
+
+  toggleRowSelectionFromContext(): void {
+    if (this.contextMenuUser) {
+      this.toggleSelection(this.contextMenuUser.id);
+    }
+    this.showRowContextMenu = false;
+  }
+
+  selectAllFromContext(): void {
+    this.selectAll();
+    this.showRowContextMenu = false;
+  }
+
+  copyCellValueFromContext(): void {
+    if (this.selectedCellValue != null) {
+      navigator.clipboard.writeText(this.selectedCellValue).then(() => {
+        this.toastService.success('Copié', 'Valeur copiée dans le presse-papier');
+      });
+    }
+    this.showRowContextMenu = false;
+  }
+
+  // ============================================
+  // Mode d'affichage / Filtre
+  // ============================================
+
+  setDisplayMode(mode: 'all' | 'selected'): void {
+    this.displayMode = mode;
+    this.applyFiltersAndSort();
+  }
+
+  toggleFilterMenu(): void {
+    this.showFilterMenu = !this.showFilterMenu;
+    if (this.showFilterMenu) {
+      this.showExportMenu = false;
+    }
+  }
+
+  selectFieldForFilter(field: string, label: string): void {
+    this.activeFieldFilter = field;
+    this.activeFieldFilterLabel = label;
+    this.fieldFilterValue = '';
+    this.showFieldFilterMenu = false;
+    this.showFilterMenu = false;
+    this.applyFiltersAndSort();
+  }
+
+  onFieldFilterInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.fieldFilterValue = input.value;
+    this.applyFiltersAndSort();
+  }
+
+  clearFieldFilter(): void {
+    this.activeFieldFilter = null;
+    this.activeFieldFilterLabel = '';
+    this.fieldFilterValue = '';
+    this.displayMode = 'all';
+    this.applyFiltersAndSort();
+  }
+
+  // ============================================
+  // Pagination
+  // ============================================
+
+  setPageSize(size: number): void {
+    this.pageSize = size;
+    this.currentPage = 1;
+    this.updatePagination();
+    this.savePreferences();
+  }
+
+  goToFirstPage(): void {
+    this.goToPage(1);
+  }
+
+  goToLastPage(): void {
+    this.goToPage(this.totalPages);
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.updatePagination();
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.updatePagination();
+    }
+  }
+
+  formatDate(value: any): string {
+    if (!value) return '—';
+    const date = new Date(value);
+    return date.toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
   // ============================================
@@ -619,16 +779,23 @@ export class UserListComponent implements OnInit, OnDestroy {
   // Export
   // ============================================
 
-  toggleExportMenu(event: Event): void {
-    event.stopPropagation();
+  toggleExportMenu(event?: Event): void {
+    if (event) event.stopPropagation();
     this.showExportMenu = !this.showExportMenu;
   }
 
-  exportCSV(): void {
+  exportCSV(selectedOnly: boolean = false): void {
     this.showExportMenu = false;
+    const data = selectedOnly
+      ? this.filteredUsers.filter(u => this.selectedIds.has(u.id))
+      : this.filteredUsers;
+    if (data.length === 0) {
+      this.toastService.warning('Export', 'Aucune donnée à exporter');
+      return;
+    }
     const visibleCols = this.getVisibleColumns();
     const headers = visibleCols.map(c => c.label).join(';');
-    const rows = this.filteredUsers.map(u =>
+    const rows = data.map(u =>
       visibleCols.map(c => {
         let val: any;
         switch (c.field) {
@@ -647,7 +814,8 @@ export class UserListComponent implements OnInit, OnDestroy {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'utilisateurs.csv';
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.download = selectedOnly ? `utilisateurs_selectionnes_${timestamp}.csv` : `tous_utilisateurs_${timestamp}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
     this.toastService.success('Export', 'Export CSV réussi');
@@ -927,6 +1095,9 @@ export class UserListComponent implements OnInit, OnDestroy {
     }
     if (this.showFilterMenu) {
       this.showFilterMenu = false;
+    }
+    if (this.showFieldFilterMenu) {
+      this.showFieldFilterMenu = false;
     }
   }
 
