@@ -4,32 +4,6 @@
     - Redaction du CPS de l'app
     - Redaction des phases du plan de dev de l'app a partir du CPS
     - Implementation du plan de dev de l'app
-
-## Sommaire
-
-- [Plan de dev de l'app](#plan-de-dev-de-lapp)
-- [Promptes importantes opencode](#promptes-importantes-opencode)
-  - [Phase : configuration du depot git local + distant](#phase--configuration-du-depot-git-local--distant)
-    - [Compte Github pour git + Github API token](#compte-github-pour-git--github-api-token)
-    - [synchronisation depot local avec depot distant](#synchronisation-depot-local-avec-depot-distant)
-    - [Structure des branches dans local et dans depot distant](#structure-des-branches-dans-local-et-dans-depot-distant)
-    - [Creation des branches de fonctionnalite](#creation-des-branches-de-fonctionnalite)
-  - [Teste de la version actuelle de l'app](#teste-de-la-version-actuelle-de-lapp)
-    - [Identifiants des utilisateurs de tests](#identifiants-des-utilisateurs-de-tests)
-    - [Prompte redemarrage serveurs backend + frontend](#prompte-redemarrage-serveurs-backend--frontend)
-  - [Redaction du CPS de l'app](#redaction-du-cps-de-lapp)
-    - [Prompt redaction CPS de l'app](#prompt-redaction-cps-de-lapp)
-      - [Plan du CPS](#plan-du-cps)
-      - [Acteurs et roles](#acteurs-et-roles)
-  - [Phase : Developement de l'app](#phase--developement-de-lapp)
-    - [Fonctionnalites Espace Admin : Gestion des organisations](#fonctionnalites-espace-admin--gestion-des-organisations)
-      - [Prompte n1](#prompte-n1)
-      - [Prompte n2](#prompte-n2)
-      - [Prompte n3](#prompte-n3)
-    - [Fonctionnalites Espace Admin : Gestion des utilisateurs](#fonctionnalites-espace-admin--gestion-des-utilisateurs)
-      - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1--redaction-plan-de-dev-de-la-phase--gestion-des-utilisateurs)
-      - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2--implementation-plan-de-dev-de-la-phase--gestion-des-utilisateurs)
-
 # Promptes importantes opencode
 ## Phase : configuration du depot git local + distant
 ### Compte Github pour git + Github API token 
@@ -58,7 +32,7 @@ commit changes dans la branche locale active et synchronise ces commits  avec le
 
 | Rôle | Email | Mot de passe |
 |------|-------|-------------|
-| Super Admin | boulmaneabderrazzak@gmail.com | admin123 |
+| Super Admin | boulmaneabderrazzak@gmail.com | Abderrazzak@1234 |
 | Utilisateur standard | abderrazzak.cadazilal@gmail.com | Test@1234 |
 
 ### Prompte redemarrage serveurs backend + frontend
@@ -179,17 +153,6 @@ corrige les points suivants :
 
 ### Fonctionnalites Espace Admin : Gestion des utilisateurs
 
-#### Plan des coorections + nouvelles options a ajouter : 
-
-    - champs societe a quoi sert pour les utilisateurs
-    - affichage des roles dans le tableau des utilisateurs dans page "/admin/utilisateurs".
-    - ajouter d'organisation cadastre Azilal + ITKANTOPO
-    - Ajouter des utilisateurs pour les deux organisations
-    - tester les fonctionnalites disponibles pour ces utilisateurs.
-    - Ajouter les infos de connexion + maj de ces infos pendant la phase de dev dans une section dans docs/notes/notes-app-sdgps-v2.md
-    - 
-
-
 #### Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs
 
 L'objectif maintenant est de developper la fonctionnalite de gestion des utilisateurs de l'app.
@@ -244,61 +207,3 @@ name : "blmerio2022"
 #### Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs
 
 passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
-
-#### Prompte n3 : correction + refonte UI de la page "/admin/utilisateurs"
-
-##### Version n1 : Pi desktop
-
-/ui-workflow corrige et refaire l'ui de la page "/admin/utilisateurs" en s'inspirant du tableau dans la page "/admin/organisations/liste". ajoute les fonctionnalites manquante dans la page "/admin/utilisateurs". Le tout dans un style élégant, pro et conforme au design System de l'app.
-
-/ui-workflow Corrige les points suivants dans la page "/admin/utilisateurs" : 
-    - La barre d'outil du tableau doit etre en deux lignes (une pour les outils de filtres et l'autre pour les autres outils).
-    - Ajouter la description des colonnes dans la boite organiser les colonnes comme dans la page "/admin/organisations/liste".
-    - corrige le probleme de creation d'un nouveau utilisateur.
-    - boutton "regenerer mdp" dans la boite de dialogue "Réinitialiser le mot de passe".
-    - Ajouter toggle pour activer/desactiver un utilisateur dans la colonne action.
-    - corrige probleme de coloration de la ligne entiere selectionnee.
-    - Ajouter option deselectionner tout dans le menu contextuel de clique droit.
-    - ajoute une boite de dialogue de confirmation lors de l'activation/desactivation d'utilisateur.
-    - corrige les outils de filtrage dans la partie gauche du footer du tabelau, s'inspire du tableau dans la page "/admin/organisations/liste".
-    - corrige les outils de pagination dans la partie droite du footer du tabelau, s'inspire du tableau dans la page "/admin/organisations/liste".
-    - Le tout dans un style élégant, pro et conforme au design System de l'app.
-
-/ui-workflow Corrige les points suivants dans la page "/admin/utilisateurs" : 
-    - La selection des lignes n'inclut pas la premiere colonne et la derniere colonne du tableau. s'inspire du tableau dans la page "/admin/organisations/liste".
-    - La description des colonnes dans la boite de dialogue organiser les colonnes, doit etre end erniere colonne. toujous s'inpire grandement de la boite de dialogue correspondnate dans le tableau dans la page "/admin/organisations/liste".
-    - corrige la boite de dialogue modifier un utilisateur affiche un message d'erreur.
-    - le boutton exporter les lignes ne fonctionne pas.
-    - le boutton de filtrage et de recherche dans le tableau ne fonctionnent pas. 
-    -utilise pour les outils de filtrage et de pagination dans le footer du tableau de la page "/admin/utilisateurs" les meme styles et design pour les outils de filtrage et de pagination dans le footer du tableau de la page "/admin/organisations/liste".
-    - Le tout dans un style élégant, pro et conforme au design System de l'app.
-
-/ui-workflow Corrige les points suivants dans la page "/admin/utilisateurs" : 
-    - toujours meme probleme de la selection et survole des lignes n'inclut pas la premiere colonne et la derniere colonne du tableau. s'inspire grandement de la maniere dont la selection et survol est implemente du tableau dans la page "/admin/organisations/liste".
-    - La colonne description des colonnes dans la boite de dialogue organiser les colonnes, doit etre la derniere colonne. la colonne contenant les actions : deplacer en haut, en bas, en premier et en dernier, doit etre la premiere colonne. toujous s'inpire grandement de la boite de dialogue correspondnate dans le tableau dans la page "/admin/organisations/liste".
-    - Toujours un probleme lors de modification des infos d'un utilisateur dans la boite de dialogue modifier un utilisateur affiche un message d'erreur.
-    - Toujours meme probleme avec outils de pagination dans footer de la page. manque de : "Éléments par page :" + select custom avec flèche ; "Page X sur Y" + First/Prev/Next/Last.
-    - utilise speckit pour clarifier les points ambigues ou manquants.
-    - Le tout dans un style élégant, pro et conforme au design System de l'app.
-
-
-Toujours meme probleme lors de modification des infos d'un utilisateur dans la boite de dialogue modifier un message d'erreur s'affiche "Erreur
-Http failure response for http://localhost:8085/api/v1/users/2/: 404 Not Found"
-
-
-refaire le design et style de la section "Nouveau mot de passe temporaire" dans la boite de dialogue " Réinitialiser le mot de passe".Le tout dans un style élégant, pro et conforme au design System de l'app.
-
-
-Ajoute une section dans le plan dans docs/plans/PLAN_DEV.md pour y stocker les infos de connexion des comptes test : compte admin de l'app, compte responsable admin, compte operateur
-
-plan . explique moi a quoi sert le champs societe dans le tableau de la page "/admin/utilisateurs".
-
-execute le workflow example pour supprimer le champs nom_societe  du modele CustomUser. faire les maj necessaires pour que le code de l'app ne casse pas.
-
-commit changes dans la branche locale correspondante et synchronise avec le dépôt distant global de l'app.
-
-##### Version n2 : Opencode desktop
-
-commit changes dans la branche locale correspondante et synchronise avec le dépôt distant global de l'app.
-
- s'inpire grandement du tableau dans la page "/admin/organisations/liste" pour implementer et mettre en style et design les fonctionnalites du tableau dans "/admin/utilisateurs". respecte le meme style et design dans le tableau de la liste des organisations pour celui des fonctionnalites du tableau de liste des utilisateur. Le tout dans un style élégant, pro et conforme au design System de l'app. verifie et faire des tests pour s'assurer que toutes les fonctionnalites dans le tableau "/admin/organisations/liste" sont bien presentes et fonctionnelles dans le tableau "/admin/utilisateurs". respecte ce workflow analyse ==> plan ==> implemente ==> verify et test ===> reimplemente  ==> verify et test ... etc. jusqu'a s'assurer que le tableau de la liste des utilisateurs est parfaitement homologue de celui de la liste des organisations.
