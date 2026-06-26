@@ -48,7 +48,7 @@ def find_insert_position(lines: list) -> int | None:
     return None
 
 def remove_all_tocs(lines: list) -> list:
-    return [line for line in lines if not re.match(r"^##\s+Sommaire\s*$", line)]
+    return [line for line in lines if not re.match(r"^#+\s+Sommaire\s*$", line)]
 
 def main():
     file_arg = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FILE
