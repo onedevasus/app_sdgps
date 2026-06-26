@@ -594,6 +594,15 @@
                     color: #e74c3c;
                   }
                 }
+
+                &.btn-icon-toggle-on {
+                  color: #2ecc71;
+
+                  &:hover {
+                    background: rgba(46, 204, 113, 0.12);
+                    color: #27ae60;
+                  }
+                }
               }
 
               .cell-primary {
@@ -2062,7 +2071,8 @@
   }
 }
 
-.modal-delete-confirm {
+.modal-delete-confirm,
+.modal-toggle-confirm {
   max-width: 550px;
   width: 90%;
 
@@ -2163,6 +2173,12 @@
         flex-shrink: 0;
 
         i { font-size: 32px; color: #e74c3c; }
+      }
+
+      .warning-icon-success {
+        background: linear-gradient(135deg, rgba(46, 204, 113, 0.1) 0%, rgba(39, 174, 96, 0.1) 100%);
+
+        i { color: #2ecc71; }
       }
 
       .warning-content {

@@ -162,7 +162,7 @@
                 <button class="btn-icon" (click)="openResetPasswordModal(user)" title="Réinitialiser le mot de passe">
                   <i class="fas fa-key"></i>
                 </button>
-                <button class="btn-icon" (click)="openToggleModal(user)" title="{{ user.is_active ? 'Désactiver' : 'Activer' }}">
+                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" (click)="openToggleModal(user)" title="{{ user.is_active ? 'Désactiver' : 'Activer' }}">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
                 <button class="btn-icon btn-icon-danger" (click)="openDeleteModal(user)" title="Supprimer">
@@ -924,7 +924,7 @@
 <!-- MODALE: Confirmation toggle actif/inactif  -->
 <!-- ========================================== -->
 <div class="modal-overlay" *ngIf="showConfirmToggleModal" (click)="closeToggleModal()">
-  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+  <div class="modal-content modal-toggle-confirm" (click)="$event.stopPropagation()">
     <div class="modal-header" [class.modal-header-danger]="toggleAction === 'désactiver'" [class.modal-header-success]="toggleAction === 'activer'">
       <div class="modal-header-left">
         <h3>

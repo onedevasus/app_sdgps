@@ -4,6 +4,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -283,6 +287,6 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
   -	restyler/redesigner le boutton close (boutton en haut a droite de la fenetre) des modales en le mettant dans un style élégant, pro et conforme au design System de l'app.
   - mettre les boutons dans la colonne action du tableau dans une seule ligne pas de retour a la ligne entre les bouttons. le tout dans un style élégant, pro et conforme au design System de l'app.
-  - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.s
+  - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.
   - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
   - boutton confirmer de la modale de Désactiver/Activer le Compte
