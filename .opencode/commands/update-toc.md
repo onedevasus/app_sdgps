@@ -7,7 +7,7 @@ Usage: /update-toc <file>
 Example: /update-toc docs/plans/PLAN_DEV.md
 Example: /update-toc docs/notes/Notes.md
 
-Run: python .githooks/update_toc.py $ARGUMENTS
+Run: python docs/scripts/update_toc.py $ARGUMENTS
 Then: git add $ARGUMENTS
 Verify: git diff --stat $ARGUMENTS
 
