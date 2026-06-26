@@ -268,3 +268,6 @@ name : "blmerio2022"
 passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 
 #### correction + refonte frontend tableau de la liste des utilisateurs.
+
+Maintenant je veux corriger les points suivantes : 
+  -
