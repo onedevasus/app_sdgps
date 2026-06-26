@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, HostListener, ChangeDetectorRef } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
 import { UserService } from '../../../../core/services/user.service';
@@ -93,6 +93,9 @@ export class UserListComponent implements OnInit, OnDestroy {
   isBulkDelete = false;
   addForm: FormGroup;
   editForm: FormGroup;
+  submitting = false;
+  deleting = false;
+  bulkDeleting = false;
 
   // Reset Password Modal
   showResetPasswordModal = false;
@@ -137,19 +140,19 @@ export class UserListComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
   ) {
     this.addForm = this.fb.group({
-      email: [''],
-      first_name: [''],
-      last_name: [''],
+      email: ['', [Validators.required, Validators.email]],
+      first_name: ['', Validators.required],
+      last_name: ['', Validators.required],
       password: [''],
-      role: ['ROLE_ORGANISATION_AGENT'],
-      organization_id: [''],
+      role: ['ROLE_ORGANISATION_AGENT', Validators.required],
+      organization_id: ['', Validators.required],
       must_change_password: [true],
     });
     this.editForm = this.fb.group({
-      first_name: [''],
-      last_name: [''],
+      first_name: ['', Validators.required],
+      last_name: ['', Validators.required],
       is_active: [true],
-      role: [''],
+      role: ['', Validators.required],
       organization_id: [''],
     });
   }
@@ -416,13 +419,21 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   selectAll(): void {
-    this.paginatedUsers.forEach(u => this.selectedIds.add(u.id));
+    this.filteredUsers.forEach(u => this.selectedIds.add(u.id));
     this.isAllSelected = true;
   }
 
   deselectAll(): void {
     this.selectedIds.clear();
     this.isAllSelected = false;
+  }
+
+  toggleSelectAll(): void {
+    if (this.isAllSelected) {
+      this.deselectAll();
+    } else {
+      this.selectAll();
+    }
   }
 
   invertSelection(): void {
@@ -433,7 +444,7 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.selectedIds.add(u.id);
       }
     });
-    this.isAllSelected = false;
+    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(u.id));
   }
 
   moveSelectionToTop(): void {
@@ -466,12 +477,12 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (this.contextMenuUser) {
       this.toggleSelection(this.contextMenuUser.id);
     }
-    this.showRowContextMenu = false;
+    this.closeAllContextMenus();
   }
 
   selectAllFromContext(): void {
     this.selectAll();
-    this.showRowContextMenu = false;
+    this.closeAllContextMenus();
   }
 
   copyCellValueFromContext(): void {
@@ -480,7 +491,28 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.toastService.success('Copié', 'Valeur copiée dans le presse-papier');
       });
     }
-    this.showRowContextMenu = false;
+    this.closeAllContextMenus();
+  }
+
+  openDetailFromContext(): void {
+    if (this.contextMenuUser) {
+      this.openDetailModal(this.contextMenuUser);
+    }
+    this.closeAllContextMenus();
+  }
+
+  openEditFromContext(): void {
+    if (this.contextMenuUser) {
+      this.openEditModal(this.contextMenuUser);
+    }
+    this.closeAllContextMenus();
+  }
+
+  openDeleteFromContext(): void {
+    if (this.contextMenuUser) {
+      this.openDeleteModal(this.contextMenuUser);
+    }
+    this.closeAllContextMenus();
   }
 
   // ============================================
@@ -842,6 +874,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   closeAddModal(): void {
+    if (this.submitting) return;
     this.showAddModal = false;
     document.body.style.overflow = '';
   }
@@ -866,26 +899,37 @@ export class UserListComponent implements OnInit, OnDestroy {
     });
   }
 
-  onMustChangeCheckboxChange(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.addForm.patchValue({ must_change_password: target.checked });
-  }
-
-  onEditActiveCheckboxChange(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.editForm.patchValue({ is_active: target.checked });
-  }
-
   onSubmitAdd(): void {
-    if (this.addForm.invalid) return;
+    if (this.addForm.invalid || this.submitting) {
+      Object.keys(this.addForm.controls).forEach(key => {
+        this.addForm.get(key)?.markAsTouched();
+      });
+      if (this.addForm.invalid) {
+        this.toastService.error('Formulaire Invalide', 'Veuillez corriger les erreurs avant de soumettre.');
+        return;
+      }
+      return;
+    }
+    this.submitting = true;
     const payload: CreateUserPayload = this.addForm.value;
     this.userService.createUser(payload).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
+        this.submitting = false;
         this.toastService.success('Succès', 'Utilisateur créé avec succès');
         this.closeAddModal();
         this.loadUsers();
       },
-      error: () => this.toastService.error('Erreur', 'Erreur lors de la création'),
+      error: (error) => {
+        this.submitting = false;
+        let msg = 'Erreur lors de la création';
+        if (error.status === 400 && error.error) {
+          if (error.error.email) msg = `Email : ${error.error.email}`;
+          else if (error.error.detail) msg = error.error.detail;
+        } else if (error.status === 409) {
+          msg = 'Cet email est déjà utilisé.';
+        }
+        this.toastService.error('Échec de la Création', msg);
+      },
     });
   }
 
@@ -903,13 +947,20 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   closeEditModal(): void {
+    if (this.submitting) return;
     this.showEditModal = false;
     this.editUser = null;
     document.body.style.overflow = '';
   }
 
   onSubmitEdit(): void {
-    if (!this.editUser || this.editForm.invalid) return;
+    if (!this.editUser || this.editForm.invalid || this.submitting) {
+      Object.keys(this.editForm.controls).forEach(key => {
+        this.editForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+    this.submitting = true;
     const payload: UpdateUserPayload = {};
     const formVal = this.editForm.value;
     if (formVal.first_name !== this.editUser.first_name) payload.first_name = formVal.first_name;
@@ -920,11 +971,19 @@ export class UserListComponent implements OnInit, OnDestroy {
 
     this.userService.updateUser(this.editUser.id, payload).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
+        this.submitting = false;
         this.toastService.success('Succès', 'Utilisateur modifié avec succès');
         this.closeEditModal();
         this.loadUsers();
       },
-      error: () => this.toastService.error('Erreur', 'Erreur lors de la modification'),
+      error: (error) => {
+        this.submitting = false;
+        let msg = 'Erreur lors de la modification';
+        if (error.status === 400 && error.error) {
+          if (error.error.detail) msg = error.error.detail;
+        }
+        this.toastService.error('Échec de la Modification', msg);
+      },
     });
   }
 
@@ -954,37 +1013,62 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   closeDeleteModal(): void {
+    if (this.deleting || this.bulkDeleting) return;
     this.showDeleteModal = false;
     this.deleteUser = null;
+    this.isBulkDelete = false;
     document.body.style.overflow = '';
   }
 
   confirmDelete(): void {
     if (this.isBulkDelete) {
+      if (this.bulkDeleting || this.selectedIds.size === 0) return;
+      this.bulkDeleting = true;
       const ids = Array.from(this.selectedIds);
       let completed = 0;
+      let hasError = false;
       ids.forEach(id => {
         this.userService.deleteUser(id).pipe(takeUntil(this.destroy$)).subscribe({
           next: () => {
             completed++;
             if (completed === ids.length) {
-              this.toastService.success('Succès', `${ids.length} utilisateur(s) supprimé(s)`);
+              this.bulkDeleting = false;
+              if (!hasError) {
+                this.toastService.success('Succès', `${ids.length} utilisateur(s) supprimé(s)`);
+              }
               this.closeDeleteModal();
               this.selectedIds.clear();
               this.loadUsers();
             }
           },
-          error: () => this.toastService.error('Erreur', 'Erreur lors de la suppression'),
+          error: () => {
+            hasError = true;
+            completed++;
+            if (completed === ids.length) {
+              this.bulkDeleting = false;
+              this.closeDeleteModal();
+              this.selectedIds.clear();
+              this.loadUsers();
+            }
+          },
         });
       });
     } else if (this.deleteUser) {
+      if (this.deleting) return;
+      this.deleting = true;
       this.userService.deleteUser(this.deleteUser.id).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
-          this.toastService.success('Succès', 'Utilisateur supprimé avec succès');
+          this.deleting = false;
+          this.toastService.success('Suppression Réussie', `L'utilisateur "${this.deleteUser!.first_name} ${this.deleteUser!.last_name}" a été supprimé.`);
           this.closeDeleteModal();
           this.loadUsers();
         },
-        error: () => this.toastService.error('Erreur', 'Erreur lors de la suppression'),
+        error: (error) => {
+          this.deleting = false;
+          let msg = 'Erreur lors de la suppression';
+          if (error.status === 400 && error.error?.detail) msg = error.error.detail;
+          this.toastService.error('Suppression Impossible', msg);
+        },
       });
     }
   }
@@ -1077,27 +1161,22 @@ export class UserListComponent implements OnInit, OnDestroy {
     }
   }
 
+  closeAllContextMenus(): void {
+    this.showColumnContextMenu = false;
+    this.showRowContextMenu = false;
+    this.contextMenuColumn = null;
+    this.contextMenuUser = null;
+    this.contextMenuField = null;
+  }
+
   private handleGlobalClick(event: Event): void {
-    // Fermer les menus ouverts
-    if (this.showColumnContextMenu) {
-      this.showColumnContextMenu = false;
-      this.contextMenuColumn = null;
-    }
-    if (this.showRowContextMenu) {
-      this.showRowContextMenu = false;
-      this.contextMenuUser = null;
-    }
-    if (this.showColumnFilterMenu) {
-      this.showColumnFilterMenu = false;
-    }
-    if (this.showExportMenu) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.filter-menu-wrapper') && !target.closest('.context-menu')) {
       this.showExportMenu = false;
-    }
-    if (this.showFilterMenu) {
       this.showFilterMenu = false;
-    }
-    if (this.showFieldFilterMenu) {
       this.showFieldFilterMenu = false;
+      this.showColumnFilterMenu = false;
+      this.closeAllContextMenus();
     }
   }
 

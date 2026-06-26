@@ -1324,12 +1324,18 @@
         gap: 7px;
         box-shadow: 0 2px 8px rgba(204, 88, 88, 0.3);
 
-        &:hover {
+        &:hover:not(:disabled) {
           box-shadow: 0 4px 14px rgba(204, 88, 88, 0.45);
           transform: translateY(-1px);
         }
 
-        &:active { transform: translateY(0); }
+        &:active:not(:disabled) { transform: translateY(0); }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
       }
 
       .btn-cancel {
@@ -1530,6 +1536,21 @@
         select { cursor: pointer; }
 
         textarea { resize: vertical; min-height: 60px; }
+
+        input.is-invalid, select.is-invalid {
+          border-color: #e74c3c !important;
+          box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1) !important;
+        }
+
+        .field-error {
+          font-size: 11px;
+          color: #e74c3c;
+          margin-top: 4px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
 
         .error-message {
           font-size: 12px;
