@@ -172,17 +172,22 @@ Activé par `git config core.hooksPath .githooks`. Se déclenche avant chaque `g
 
 **Fichier :** `.githooks/auto-save-watcher.ps1`
 
-Script PowerShell qui tourne en arrière-plan et vérifie toutes les 30 secondes la présence de fichiers modifiés non commités. Si détection, il commit automatiquement (`git add -A && git commit -m "wip: auto-save [timestamp]"`).
+Script PowerShell qui tourne en arrière-plan et vérifie toutes les 30 secondes la présence de fichiers modifiés non commités. Si détection, il commit automatiquement (`git add -A --ignore-errors && git commit -m "wip: auto-save [timestamp]"`).
+
+**Important :** Le watcher doit être lancé avec `Start-Process` (processus détaché), pas `Start-Job` (qui meurt à la fin de chaque commande OpenCode).
 
 ```powershell
-# Lancer le watcher
-Start-Job -FilePath ".githooks\auto-save-watcher.ps1"
+# 1. LANCER le watcher
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
 
-# Vérifier son état
-Get-Job
+# 2. VÉRIFIER s'il tourne
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object CommandLine -match 'auto-save-watcher'
 
-# Arrêter le watcher
-Get-Job | Stop-Job
+# 3. ARRÊTER le watcher
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object CommandLine -match 'auto-save-watcher' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+# 4. VOIR L'HISTORIQUE des commits auto-save
+git log --oneline --grep="wip: auto-save" --max-count=20
 ```
 
 - ✅ **Protège contre tout scénario** : reset OpenCode, crash, oubli de l'agent, fermeture inattendue
@@ -204,7 +209,7 @@ Get-Job | Stop-Job
 Lancer le watcher dès le début de chaque session de travail :
 
 ```powershell
-Start-Job -FilePath ".githooks\auto-save-watcher.ps1"
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
 ```
 
 Pour le rendre permanent, ajouter cette commande au démarrage de Windows (via le registre `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` ou le dossier `shell:startup`).
