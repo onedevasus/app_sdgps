@@ -1,4 +1,17 @@
 # Plan de Développement — Application SDGPS
+
+> **SDGPS** : Système de Génération de Documents et Pièces
+> **Version** : 1.0
+> **Dernière mise à jour** : Juin 2026
+
+---
+
+
+
+---
+
+
+
 ## Sommaire
 
 - [Plan de Développement — Application SDGPS](#plan-de-développement-application-sdgps)
@@ -52,17 +65,6 @@
     - [Phase 6 — Supervision et rapports (F01, F07, F09, F16, F17)](#phase-6-supervision-et-rapports-f01-f07-f09-f16-f17)
     - [Phase 7 — Fonctionnalités innovantes (F28-F30)](#phase-7-fonctionnalités-innovantes-f28-f30)
   - [7. Glossaire](#7-glossaire)
-
-
-
-
-> **SDGPS** : Système de Génération de Documents et Pièces
-> **Version** : 1.0
-> **Dernière mise à jour** : Juin 2026
-
----
-
-
 
 ## 1. Introduction
 
@@ -182,22 +184,17 @@ Activé par `git config core.hooksPath .githooks`. Se déclenche avant chaque `g
 
 **Fichier :** `.githooks/auto-save-watcher.ps1`
 
-Script PowerShell qui tourne en arrière-plan et vérifie toutes les 30 secondes la présence de fichiers modifiés non commités. Si détection, il commit automatiquement (`git add -A --ignore-errors && git commit -m "wip: auto-save [timestamp]"`).
-
-**Important :** Le watcher doit être lancé avec `Start-Process` (processus détaché), pas `Start-Job` (qui meurt à la fin de chaque commande OpenCode).
+Script PowerShell qui tourne en arrière-plan et vérifie toutes les 30 secondes la présence de fichiers modifiés non commités. Si détection, il commit automatiquement (`git add -A && git commit -m "wip: auto-save [timestamp]"`).
 
 ```powershell
-# 1. LANCER le watcher
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
+# Lancer le watcher
+Start-Job -FilePath ".githooks\auto-save-watcher.ps1"
 
-# 2. VÉRIFIER s'il tourne
-Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object CommandLine -match 'auto-save-watcher'
+# Vérifier son état
+Get-Job
 
-# 3. ARRÊTER le watcher
-Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object CommandLine -match 'auto-save-watcher' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-
-# 4. VOIR L'HISTORIQUE des commits auto-save
-git log --oneline --grep="wip: auto-save" --max-count=20
+# Arrêter le watcher
+Get-Job | Stop-Job
 ```
 
 - ✅ **Protège contre tout scénario** : reset OpenCode, crash, oubli de l'agent, fermeture inattendue
@@ -219,7 +216,7 @@ git log --oneline --grep="wip: auto-save" --max-count=20
 Lancer le watcher dès le début de chaque session de travail :
 
 ```powershell
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
+Start-Job -FilePath ".githooks\auto-save-watcher.ps1"
 ```
 
 Pour le rendre permanent, ajouter cette commande au démarrage de Windows (via le registre `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` ou le dossier `shell:startup`).
