@@ -1,11 +1,4 @@
 # Plan de Développement — Application SDGPS
-
-> **SDGPS** : Système de Génération de Documents et Pièces
-> **Version** : 1.0
-> **Dernière mise à jour** : Juin 2026
-
----
-
 ## Sommaire
 
 - [Plan de Développement — Application SDGPS](#plan-de-développement-application-sdgps)
@@ -59,6 +52,17 @@
     - [Phase 6 — Supervision et rapports (F01, F07, F09, F16, F17)](#phase-6-supervision-et-rapports-f01-f07-f09-f16-f17)
     - [Phase 7 — Fonctionnalités innovantes (F28-F30)](#phase-7-fonctionnalités-innovantes-f28-f30)
   - [7. Glossaire](#7-glossaire)
+
+
+
+
+> **SDGPS** : Système de Génération de Documents et Pièces
+> **Version** : 1.0
+> **Dernière mise à jour** : Juin 2026
+
+---
+
+
 
 ## 1. Introduction
 
