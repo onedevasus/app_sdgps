@@ -1,11 +1,13 @@
-# Plan de dev de l'app
+# Notes — Application SDGPS
+
+
 
 
 
 
 ## Sommaire
 
-- [Plan de dev de l'app](#plan-de-dev-de-lapp)
+- [Notes — Application SDGPS](#notes-application-sdgps)
 - [Promptes importantes opencode](#promptes-importantes-opencode)
   - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
     - [Compte Github pour git + Github API token](#compte-github-pour-git-github-api-token)
