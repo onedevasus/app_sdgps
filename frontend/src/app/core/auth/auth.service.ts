@@ -360,16 +360,19 @@ export class AuthService {
                         window.location.href = '/auth/change-password?reason=first_login';
                     }, 100);
                 } else {
-                    // Si déjà sur le dashboard, ne pas rediriger
-                    if (currentPath.includes('/dashboard')) {
+                    // Déterminer la redirection selon le rôle
+                    const isAdmin = userProfile.role === 'ROLE_APP_ADMIN' || userProfile.is_superuser === true;
+                    const targetRoute = isAdmin ? '/admin/dashboard' : '/dashboard';
+
+                    // Si déjà sur la bonne route, ne pas rediriger
+                    if (currentPath.includes('/dashboard') || currentPath.includes('/admin')) {
                         console.log('✅ Déjà sur dashboard - Pas de redirection');
                         return;
                     }
 
-                    // Si aucun changement requis, rediriger vers le dashboard
-                    console.log('✅ Connexion réussie - Redirection vers dashboard...');
+                    console.log('✅ Connexion réussie - Redirection vers', targetRoute);
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = targetRoute;
                     }, 100);
                 }
             },
@@ -377,7 +380,7 @@ export class AuthService {
                 console.error('Erreur vérification statut MDP:', err);
 
                 // En cas d'erreur, ne rediriger que si pas déjà sur dashboard
-                if (!currentPath.includes('/dashboard')) {
+                if (!currentPath.includes('/dashboard') && !currentPath.includes('/admin')) {
                     setTimeout(() => {
                         window.location.href = '/dashboard';
                     }, 100);

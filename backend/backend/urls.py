@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('api/v1/platform-admin/', include('platform_admin.urls')),
     path('api/v1/organizations/', include('organizations.urls')),  # ← AJOUT: Gestion organisations
+    path('api/v1/users/', include('accounts.users_urls')),  # ← AJOUT: Gestion utilisateurs
 ]
 
 # Servir les fichiers médias en développement

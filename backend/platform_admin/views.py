@@ -33,7 +33,7 @@ class SuperAdminProfileView(generics.RetrieveUpdateAPIView):
         
         # Vérification supplémentaire: Super Admin uniquement
         # Utilise is_superuser ou get_primary_role()
-        if not (user.is_superuser or user.get_primary_role() == 'superadmin'):
+        if not (user.is_superuser or user.get_primary_role() == 'ROLE_APP_ADMIN'):
             logger.warning(f"Tentative d'accès non autorisé au profil par: {user.email}")
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Accès réservé aux Super Admins.")
@@ -99,7 +99,7 @@ class ChangePasswordView(APIView):
         user = request.user
         
         # Vérification Super Admin
-        if not (user.is_superuser or user.get_primary_role() == 'superadmin'):
+        if not (user.is_superuser or user.get_primary_role() == 'ROLE_APP_ADMIN'):
             logger.warning(f"Tentative changement MDP non autorisé par: {user.email}")
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Accès réservé aux Super Admins.")

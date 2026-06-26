@@ -58,7 +58,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(write_only=True, min_length=8)
     confirmPassword = serializers.CharField(write_only=True)
-    nomSociete = serializers.CharField(write_only=True, required=False, source='nom_societe')
     organizationCode = serializers.CharField(
         write_only=True, 
         required=False,
@@ -67,7 +66,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'nomSociete', 'email', 'password', 'confirmPassword', 'organizationCode']
+        fields = ['first_name', 'last_name', 'email', 'password', 'confirmPassword', 'organizationCode']
 
     def validate(self, data):
         """
@@ -104,7 +103,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
-            nom_societe=validated_data.get('nom_societe', '')
         )
         
         # Gestion de l'organisation et du rôle RBAC
@@ -113,11 +111,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             Membership.objects.create(
                 user=user,
                 organization=organization,
-                role='USER'
+                role='ROLE_ORGANISATION_AGENT'
             )
         else:
             # Mode 1: Créer une nouvelle organisation avec l'utilisateur comme ADMIN
-            org_name = validated_data.get('nom_societe') or f"{validated_data.get('first_name', '')} {validated_data.get('last_name', '')}"
+            org_name = f"{validated_data.get('first_name', '')} {validated_data.get('last_name', '')}"
             
             # Générer un code unique basé sur le nom de l'organisation
             import random
@@ -141,7 +139,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             Membership.objects.create(
                 user=user,
                 organization=organization,
-                role='ADMIN'
+                role='ROLE_ORGANISATION_ADMIN'
             )
         
         return user

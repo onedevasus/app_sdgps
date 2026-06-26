@@ -1,0 +1,579 @@
+<div class="user-list-container">
+  <!-- En-tête -->
+  <div class="list-header">
+    <div class="header-top">
+      <h2>Utilisateurs
+        <span class="header-stats small-font">
+          <strong>Total :</strong><strong class="stat-value">{{ users.length }}</strong>
+          <span class="stat-sep">|</span>
+          <strong>Filtrés :</strong><strong class="stat-value">{{ filteredUsers.length }}</strong>
+          <span class="stat-sep">|</span>
+          <strong>Sélectionnés :</strong><strong class="stat-value">{{ selectedIds.size }}</strong>
+        </span>
+      </h2>
+    </div>
+
+    <div class="header-actions">
+      <div class="toolbar-left">
+        <button class="btn btn-secondary" (click)="selectAll()" title="Sélectionner tout">
+          <i class="fas fa-check-square"></i> Sélectionner tout
+        </button>
+        <button class="btn btn-secondary" (click)="deselectAll()" title="Désélectionner tout">
+          <i class="fas fa-square"></i> Désélectionner tout
+        </button>
+        <button class="btn btn-secondary" (click)="invertSelection()" title="Inverser la sélection">
+          <i class="fas fa-exchange-alt"></i> Inverser
+        </button>
+        <button class="btn btn-secondary" [disabled]="selectedIds.size === 0" title="Déplacer la sélection">
+          <i class="fas fa-arrow-up"></i> Déplacer la sélection en haut
+        </button>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="dropdown-container" [class.open]="showExportMenu">
+          <button class="btn btn-secondary" (click)="toggleExportMenu($event)" title="Exporter les données">
+            <i class="fas fa-download"></i> Exporter
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showExportMenu">
+            <div class="dropdown-item" (click)="exportCSV(); $event.stopPropagation()">
+              <i class="fas fa-file-csv"></i> <span>Export CSV</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary" (click)="openColumnConfig()" title="Organiser les colonnes">
+          <i class="fas fa-columns"></i> Organiser les colonnes
+        </button>
+
+        <button class="btn btn-danger" [disabled]="selectedIds.size === 0" (click)="openBulkDeleteModal()">
+          <i class="fas fa-trash"></i> Supprimer la sélection
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="search-box-right">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Rechercher un utilisateur..."
+                 [ngModel]="searchText" (ngModelChange)="searchText = $event; onSearchChange()" />
+          <button *ngIf="searchText" class="btn-clear-search" (click)="searchText = ''; onSearchChange()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <button class="btn btn-primary" (click)="openAddModal()">
+          <i class="fas fa-plus"></i> Ajouter un utilisateur
+        </button>
+      </div>
+    </div>
+
+    <div class="filters-line">
+      <select class="filter-select" [ngModel]="selectedRole" (ngModelChange)="selectedRole = $event; onFilterChange()">
+        <option value="">Tous les rôles</option>
+        <option value="ROLE_APP_ADMIN">Administrateur</option>
+        <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
+        <option value="ROLE_ORGANISATION_AGENT">Agent</option>
+      </select>
+      <select class="filter-select" [ngModel]="selectedStatus" (ngModelChange)="selectedStatus = $event; onFilterChange()">
+        <option value="">Tous les statuts</option>
+        <option value="active">Actif</option>
+        <option value="inactive">Inactif</option>
+        <option value="deleted">Supprimé</option>
+      </select>
+      <select class="filter-select" [ngModel]="selectedOrganization" (ngModelChange)="selectedOrganization = $event; onFilterChange()">
+        <option value="">Toutes les organisations</option>
+        <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Wrapper du tableau -->
+  <div class="table-wrapper">
+    <div class="table-container">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th class="checkbox-col">
+              <input type="checkbox" [checked]="isAllSelected" (change)="isAllSelected ? deselectAll() : selectAll()" />
+            </th>
+            <th *ngFor="let col of getVisibleColumns()"
+                [style.width]="col.width"
+                [class.sortable]="col.field !== 'actions'"
+                [class.checkbox-col]="col.type === 'boolean'"
+                (click)="col.type !== 'actions' && sortBy(col.field)"
+                (contextmenu)="onColumnHeaderRightClick($event, col)">
+              {{ col.label }}
+              <i *ngIf="col.type !== 'actions' && col.type !== 'boolean'" [class]="getSortIcon(col.field)"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of paginatedUsers"
+              [class.selected]="selectedIds.has(user.id)"
+              (contextmenu)="onRowRightClick($event, user)">
+            <td class="checkbox-col">
+              <input type="checkbox" [checked]="selectedIds.has(user.id)" (change)="toggleSelection(user.id)" />
+            </td>
+            <td *ngFor="let col of getVisibleColumns()" [class.checkbox-col]="col.type === 'boolean'">
+              <ng-container [ngSwitch]="col.type">
+                <!-- Nom complet -->
+                <ng-container *ngSwitchCase="'text'">
+                  <ng-container *ngIf="col.field === 'first_name'">
+                    <div class="cell-primary">{{ user.first_name }} {{ user.last_name }}</div>
+                  </ng-container>
+                  <ng-container *ngIf="col.field === 'organization_name'">
+                    {{ user.organization_name || '—' }}
+                  </ng-container>
+                </ng-container>
+                <!-- Email -->
+                <ng-container *ngSwitchCase="'email'">
+                  <a [href]="'mailto:' + user.email" class="email-link">{{ user.email }}</a>
+                </ng-container>
+                <!-- Rôle -->
+                <ng-container *ngSwitchCase="'role'">
+                  <span class="badge" [ngClass]="getRoleBadgeClass(user.role)">{{ user.role_display }}</span>
+                </ng-container>
+                <!-- Statut -->
+                <ng-container *ngSwitchCase="'status'">
+                  <span class="badge" [class.badge-success]="user.is_active" [class.badge-warning]="!user.is_active && !user.is_deleted" [class.badge-secondary]="user.is_deleted">
+                    {{ user.is_deleted ? 'Supprimé' : (user.is_active ? 'Actif' : 'Inactif') }}
+                  </span>
+                </ng-container>
+                <!-- Date -->
+                <ng-container *ngSwitchCase="'date'">
+                  {{ col.field === 'last_connection_at' && !user.last_connection_at ? '—' : (getCellValue(user, col.field) | date:'dd/MM/yyyy HH:mm') }}
+                </ng-container>
+                <!-- Boolean -->
+                <ng-container *ngSwitchCase="'boolean'">
+                  <i class="fas" [class.fa-check-circle]="getCellValue(user, col.field) === 'Oui'" [class.fa-times-circle]="getCellValue(user, col.field) === 'Non'"
+                     [class.text-success]="getCellValue(user, col.field) === 'Oui'" [class.text-danger]="getCellValue(user, col.field) === 'Non'"></i>
+                </ng-container>
+                <!-- Default -->
+                <ng-container *ngSwitchDefault>{{ getCellValue(user, col.field) }}</ng-container>
+              </ng-container>
+            </td>
+          </tr>
+          <tr *ngIf="paginatedUsers.length === 0">
+            <td [attr.colspan]="getVisibleColumns().length + 1" class="no-data">
+              <i class="fas fa-users"></i>
+              <p>Aucun utilisateur trouvé</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <div class="table-footer-left">
+        <button class="btn btn-secondary" (click)="displayMode = 'all'; onFilterChange()" [class.active]="displayMode === 'all'">Toutes</button>
+        <button class="btn btn-secondary" (click)="displayMode = 'selected'; onFilterChange()" [class.active]="displayMode === 'selected'">Sélectionnées</button>
+        <span class="pagination-size-label">Éléments par page :</span>
+        <select class="pagination-size-select" [ngModel]="pageSize" (ngModelChange)="pageSize = +$event; onPageSizeChange()">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        </select>
+      </div>
+      <div class="table-footer-right">
+        <button class="pagination-nav-btn" [disabled]="currentPage === 1" (click)="goToPage(1)" title="Première page">
+          <i class="fas fa-angle-double-left"></i>
+        </button>
+        <button class="pagination-nav-btn" [disabled]="currentPage === 1" (click)="goToPage(currentPage - 1)" title="Page précédente">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="pagination-nav-label">Page {{ currentPage }} sur {{ totalPages }}</span>
+        <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="goToPage(currentPage + 1)" title="Page suivante">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="goToPage(totalPages)" title="Dernière page">
+          <i class="fas fa-angle-double-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Configuration des colonnes         -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showColumnConfig" (click)="toggleColumnConfig()">
+  <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-columns header-icon"></i>
+        <div>
+          <h3>Organiser les colonnes</h3>
+          <span class="modal-stats">
+            <i class="fas fa-table"></i> Total: {{ getColumnStats().total }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye"></i> Visibles : {{ getColumnStats().visible }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye-slash"></i> Masquées : {{ getColumnStats().hidden }}
+          </span>
+        </div>
+      </div>
+      <div class="modal-header-right">
+        <div class="dropdown-container" [class.open]="showColumnFilterMenu">
+          <button type="button" class="btn btn-filter-toggle" (click)="toggleColumnFilterMenu($event)">
+            <i class="fas fa-filter"></i> {{ getColumnFilterLabel() }}
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('all')" [class.active]="columnFilter === 'all'">
+              <i class="fas fa-eye"></i> <span>Afficher toutes les colonnes</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'all'"></i>
+            </div>
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('visible')" [class.active]="columnFilter === 'visible'">
+              <i class="fas fa-eye-slash"></i> <span>Colonnes visibles uniquement</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'visible'"></i>
+            </div>
+          </div>
+        </div>
+        <button class="close-btn" (click)="toggleColumnConfig()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <ul class="column-list">
+        <li *ngFor="let col of getFilteredColumns(); let i = index"
+            class="column-item"
+            [class.dragging]="draggedColumnIndex === columns.indexOf(col)"
+            [class.drag-over]="dragOverIndex === columns.indexOf(col)"
+            draggable="true"
+            (dragstart)="onDragStart(columns.indexOf(col))"
+            (dragover)="onDragOver($event, columns.indexOf(col))"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop(columns.indexOf(col))"
+            (dragend)="onDragEnd()">
+          <div class="column-row">
+            <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.field)" />
+            <div class="column-reorder-buttons">
+              <button type="button" class="btn-reorder" [disabled]="i === 0" (click)="moveColumnToTop(i)" title="Déplacer en première position">
+                <i class="fas fa-angle-double-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === 0" (click)="moveColumnUp(i)" title="Monter">
+                <i class="fas fa-angle-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === columns.length - 1" (click)="moveColumnDown(i)" title="Descendre">
+                <i class="fas fa-angle-down"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === columns.length - 1" (click)="moveColumnToBottom(i)" title="Déplacer en dernière position">
+                <i class="fas fa-angle-double-down"></i>
+              </button>
+            </div>
+            <label>
+              <span class="column-type">{{ getTypeLabel(col.type) }}</span>
+              <span class="column-name">{{ col.label }}</span>
+              <i class="fas fa-info-circle column-info-icon" *ngIf="getFieldDescription(col.field)" [title]="getFieldDescription(col.field)"></i>
+            </label>
+            <div class="column-description-cell" *ngIf="getFieldDescription(col.field)">
+              {{ getFieldDescription(col.field) }}
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="modal-footer">
+      <div class="footer-actions">
+        <button class="btn btn-action" (click)="selectAllColumns()"><i class="fas fa-check-double"></i> Sélectionner tout</button>
+        <button class="btn btn-action" (click)="deselectAllColumns()"><i class="fas fa-times"></i> Désélectionner tout</button>
+        <button class="btn btn-action" (click)="invertColumnSelection()"><i class="fas fa-exchange-alt"></i> Inverser</button>
+      </div>
+      <div class="footer-buttons">
+        <button class="btn btn-cancel" (click)="cancelColumnConfig()"><i class="fas fa-times"></i> Annuler</button>
+        <button class="btn btn-confirm" (click)="confirmColumnConfig()"><i class="fas fa-check"></i> OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MENU CONTEXTUEL: En-têtes de colonnes      -->
+<!-- ========================================== -->
+<div class="context-menu" *ngIf="showColumnContextMenu"
+     [style.top.px]="contextMenuPosition.y" [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="hideColumnFromContext()">
+    <i class="fas fa-eye-slash"></i> <span>Masquer la colonne</span>
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" (click)="openColumnConfigFromContext()">
+    <i class="fas fa-columns"></i> <span>Organiser les colonnes</span>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MENU CONTEXTUEL: Lignes (clic droit)       -->
+<!-- ========================================== -->
+<div class="context-menu" *ngIf="showRowContextMenu"
+     [style.top.px]="contextMenuPosition.y" [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="openDetailModal(contextMenuUser!)">
+    <i class="fas fa-eye"></i> Voir les détails
+  </div>
+  <div class="context-menu-item" (click)="openEditModal(contextMenuUser!)">
+    <i class="fas fa-edit"></i> Modifier
+  </div>
+  <div class="context-menu-item" (click)="openResetPasswordModal(contextMenuUser!)">
+    <i class="fas fa-key"></i> Réinitialiser MDP
+  </div>
+  <div class="context-menu-item" (click)="openToggleModal(contextMenuUser!)">
+    <i class="fas" [class.fa-toggle-off]="contextMenuUser?.is_active" [class.fa-toggle-on]="!contextMenuUser?.is_active"></i>
+    {{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item context-menu-item-danger" (click)="openDeleteModal(contextMenuUser!)">
+    <i class="fas fa-trash"></i> Supprimer
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Ajouter un utilisateur             -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-content modal-add-user" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2><i class="fas fa-user-plus"></i> Ajouter un utilisateur</h2>
+      <button class="btn-close" (click)="closeAddModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Prénom <span class="required">*</span></label>
+          <input type="text" [ngModel]="addForm.value.first_name" (ngModelChange)="addForm.patchValue({first_name: $event})" placeholder="Prénom" />
+        </div>
+        <div class="form-group">
+          <label>Nom <span class="required">*</span></label>
+          <input type="text" [ngModel]="addForm.value.last_name" (ngModelChange)="addForm.patchValue({last_name: $event})" placeholder="Nom" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email <span class="required">*</span></label>
+        <input type="email" [ngModel]="addForm.value.email" (ngModelChange)="addForm.patchValue({email: $event})" placeholder="email@exemple.com" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rôle <span class="required">*</span></label>
+          <select [ngModel]="addForm.value.role" (ngModelChange)="addForm.patchValue({role: $event})">
+            <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
+            <option value="ROLE_ORGANISATION_AGENT">Agent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organisation <span class="required">*</span></label>
+          <select [ngModel]="addForm.value.organization_id" (ngModelChange)="addForm.patchValue({organization_id: $event})">
+            <option value="">Sélectionner...</option>
+            <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group password-section">
+        <label>Mot de passe temporaire</label>
+        <div class="password-input-group">
+          <input type="text" [value]="generatedPassword" readonly class="generated-password" />
+          <button type="button" class="btn btn-sm" (click)="regeneratePassword()"><i class="fas fa-sync"></i></button>
+          <button type="button" class="btn btn-sm" (click)="copyToClipboard(generatedPassword)"><i class="fas fa-copy"></i></button>
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" [checked]="addForm.value.must_change_password" (change)="onMustChangeCheckboxChange($event)" />
+          Forcer le changement au premier login
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeAddModal()">Annuler</button>
+      <button class="btn btn-primary" (click)="onSubmitAdd()">Créer l'utilisateur</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Modifier un utilisateur           -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
+  <div class="modal-content modal-edit-user" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2><i class="fas fa-user-edit"></i> Modifier l'utilisateur</h2>
+      <button class="btn-close" (click)="closeEditModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Prénom</label>
+          <input type="text" [ngModel]="editForm.value.first_name" (ngModelChange)="editForm.patchValue({first_name: $event})" />
+        </div>
+        <div class="form-group">
+          <label>Nom</label>
+          <input type="text" [ngModel]="editForm.value.last_name" (ngModelChange)="editForm.patchValue({last_name: $event})" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rôle</label>
+          <select [ngModel]="editForm.value.role" (ngModelChange)="editForm.patchValue({role: $event})">
+            <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
+            <option value="ROLE_ORGANISATION_AGENT">Agent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organisation</label>
+          <select [ngModel]="editForm.value.organization_id" (ngModelChange)="editForm.patchValue({organization_id: $event})">
+            <option value="">Sélectionner...</option>
+            <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" [checked]="editForm.value.is_active" (change)="onEditActiveCheckboxChange($event)" />
+          Compte actif
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeEditModal()">Annuler</button>
+      <button class="btn btn-primary" (click)="onSubmitEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Détail d'un utilisateur          -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetailModal()">
+  <div class="modal-content modal-detail-user" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2><i class="fas fa-user"></i> Détail de l'utilisateur</h2>
+      <button class="btn-close" (click)="closeDetailModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" *ngIf="showDetailUser">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label>Nom complet</label>
+          <span>{{ showDetailUser.first_name }} {{ showDetailUser.last_name }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Email</label>
+          <span>{{ showDetailUser.email }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Rôle</label>
+          <span class="badge" [ngClass]="getRoleBadgeClass(showDetailUser.role)">{{ showDetailUser.role_display }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Organisation</label>
+          <span>{{ showDetailUser.organization_name || '—' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Statut</label>
+          <span class="badge" [class.badge-success]="showDetailUser.is_active" [class.badge-warning]="!showDetailUser.is_active && !showDetailUser.is_deleted" [class.badge-secondary]="showDetailUser.is_deleted">
+            {{ showDetailUser.is_deleted ? 'Supprimé' : (showDetailUser.is_active ? 'Actif' : 'Inactif') }}
+          </span>
+        </div>
+        <div class="detail-item">
+          <label>Dernière connexion</label>
+          <span>{{ showDetailUser.last_connection_at ? (showDetailUser.last_connection_at | date:'dd/MM/yyyy HH:mm') : 'Jamais' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Date d'inscription</label>
+          <span>{{ showDetailUser.date_joined | date:'dd/MM/yyyy HH:mm' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Superuser</label>
+          <span>{{ showDetailUser.is_superuser ? 'Oui' : 'Non' }}</span>
+        </div>
+      </div>
+      <div class="detail-section" *ngIf="showDetailUser.memberships && showDetailUser.memberships.length > 0">
+        <h3>Adhésions aux organisations</h3>
+        <table class="detail-membership-table">
+          <thead><tr><th>Organisation</th><th>Rôle</th><th>Date</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let m of showDetailUser.memberships">
+              <td>{{ m.organization_name }}</td>
+              <td><span class="badge" [ngClass]="getRoleBadgeClass(m.role)">{{ m.role_display }}</span></td>
+              <td>{{ m.joined_at | date:'dd/MM/yyyy' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeDetailModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Confirmation de suppression        -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-danger">
+      <h2><i class="fas fa-exclamation-triangle"></i> Confirmer la suppression</h2>
+      <button class="btn-close" (click)="closeDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p *ngIf="!isBulkDelete && deleteUser">
+        Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{{ deleteUser.first_name }} {{ deleteUser.last_name }}</strong> ({{ deleteUser.email }}) ?
+      </p>
+      <p *ngIf="isBulkDelete">
+        Êtes-vous sûr de vouloir supprimer <strong>{{ selectedIds.size }} utilisateur(s)</strong> ?
+      </p>
+      <p class="warning-text">Cette action est réversible (soft-delete). L'utilisateur pourra être restauré.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn btn-danger btn-delete-confirm" (click)="confirmDelete()">Confirmer la suppression</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Confirmation toggle actif/inactif -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showConfirmToggleModal" (click)="closeToggleModal()">
+  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header" [class.modal-header-danger]="toggleAction === 'désactiver'" [class.modal-header-success]="toggleAction === 'activer'">
+      <h2><i class="fas" [class.fa-toggle-off]="toggleAction === 'désactiver'" [class.fa-toggle-on]="toggleAction === 'activer'"></i>
+        {{ toggleAction === 'désactiver' ? 'Désactiver' : 'Activer' }} le compte</h2>
+      <button class="btn-close" (click)="closeToggleModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p *ngIf="toggleTargetUser">
+        Voulez-vous vraiment {{ toggleAction }} le compte de <strong>{{ toggleTargetUser.first_name }} {{ toggleTargetUser.last_name }}</strong> ({{ toggleTargetUser.email }}) ?
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" (click)="closeToggleModal()">Annuler</button>
+      <button class="btn" [class.btn-danger]="toggleAction === 'désactiver'" [class.btn-success]="toggleAction === 'activer'" (click)="confirmToggle()">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Réinitialisation du mot de passe  -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showResetPasswordModal" (click)="closeResetPasswordModal()">
+  <div class="modal-content modal-password-reset" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2><i class="fas fa-key"></i> Réinitialiser le mot de passe</h2>
+      <button class="btn-close" (click)="closeResetPasswordModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p *ngIf="resetPasswordUser && !newPassword">
+        Voulez-vous réinitialiser le mot de passe de <strong>{{ resetPasswordUser.first_name }} {{ resetPasswordUser.last_name }}</strong> ?
+      </p>
+      <div *ngIf="newPassword" class="new-password-display">
+        <p>Le mot de passe a été réinitialisé avec succès.</p>
+        <div class="password-display">
+          <input type="text" [value]="newPassword" readonly />
+          <button class="btn btn-sm" (click)="copyToClipboard(newPassword)"><i class="fas fa-copy"></i> Copier</button>
+        </div>
+        <p class="warning-text">Communiquez ce mot de passe à l'utilisateur. Il devra le changer à la prochaine connexion.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeResetPasswordModal()">{{ newPassword ? 'Fermer' : 'Annuler' }}</button>
+      <button class="btn btn-primary" *ngIf="!newPassword" (click)="confirmResetPassword()">Réinitialiser</button>
+    </div>
+  </div>
+</div>

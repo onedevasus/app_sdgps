@@ -4,6 +4,9 @@ import { DashboardLayoutComponent } from './core/layout/components/dashboard-lay
 import { AdminGuard } from './core/guards/admin.guard';
 import { TestProfileRouteComponent } from './features/test-profile-route.component';
 import { OrganizationListComponent } from './features/dashboard/organization-list/organization-list.component';
+import { UserListComponent } from './features/admin/users/user-list/user-list.component';
+import { UserDetailComponent } from './features/admin/users/user-detail/user-detail.component';
+import { RolesPermissionsComponent } from './features/admin/users/roles-permissions/roles-permissions.component';
 
 // Composant placeholder temporaire (à remplacer par vos vrais composants)
 @Component({
@@ -77,8 +80,18 @@ const routes: Routes = [
       },
       {
         path: 'utilisateurs',
-        component: PlaceholderComponent,
+        component: UserListComponent,
         data: { title: 'Gestion des Utilisateurs' }
+      },
+      {
+        path: 'utilisateurs/:id',
+        component: UserDetailComponent,
+        data: { title: 'Détail Utilisateur' }
+      },
+      {
+        path: 'roles-permissions',
+        component: RolesPermissionsComponent,
+        data: { title: 'Rôles et Permissions' }
       },
       {
         path: 'logs-audit',

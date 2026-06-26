@@ -22,9 +22,9 @@ class OrganizationBulkDeleteView(APIView):
     
     def post(self, request):
         # Vérifier que l'utilisateur est Super Admin
-        if not request.user.is_superuser and request.user.get_primary_role() != 'superadmin':
+        if not request.user.is_superuser and request.user.get_primary_role() != 'ROLE_APP_ADMIN':
             return Response(
-                {'detail': 'Seul le Super Admin peut supprimer des organisations.'},
+                {'detail': 'Seul l\'administrateur de l\'application peut supprimer des organisations.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -158,14 +158,14 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         """Vérifie les permissions spécifiques à l'objet"""
         if request.method in ['PUT', 'PATCH', 'DELETE']:
             # Super Admin peut tout faire
-            if request.user.is_superuser or request.user.get_primary_role() == 'superadmin':
+            if request.user.is_superuser or request.user.get_primary_role() == 'ROLE_APP_ADMIN':
                 return
             
             # Admin de l'organisation peut modifier
             membership = Membership.objects.filter(
                 user=request.user,
                 organization=obj,
-                role__in=['ADMIN', 'OWNER'],
+                role='ROLE_ORGANISATION_ADMIN',
                 is_active=True
             ).first()
             
@@ -274,7 +274,7 @@ class AddMemberView(APIView):
         membership = Membership.objects.filter(
             user=request.user,
             organization=organization,
-            role__in=['ADMIN', 'OWNER'],
+            role='ROLE_ORGANISATION_ADMIN',
             is_active=True
         ).first()
         

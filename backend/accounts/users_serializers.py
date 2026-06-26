@@ -1,0 +1,199 @@
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from .models import Membership, Organization
+import secrets
+import string
+
+User = get_user_model()
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    role_display = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
+    organization_id = serializers.SerializerMethodField()
+    is_superuser = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'first_name', 'last_name',
+            'is_active', 'is_superuser', 'is_deleted',
+            'role', 'role_display', 'organization_name', 'organization_id',
+            'last_connection_at', 'password_changed_at',
+            'must_change_password', 'date_joined',
+        ]
+
+    def get_role(self, obj):
+        return obj.get_primary_role()
+
+    def get_role_display(self, obj):
+        return obj.get_primary_role_display()
+
+    def get_organization_name(self, obj):
+        org = obj.get_primary_organization()
+        return org.name if org else None
+
+    def get_organization_id(self, obj):
+        org = obj.get_primary_organization()
+        return str(org.id) if org else None
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    role_display = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
+    organization_id = serializers.SerializerMethodField()
+    memberships = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'first_name', 'last_name',
+            'is_active', 'is_superuser', 'is_deleted', 'deleted_at',
+            'role', 'role_display', 'organization_name', 'organization_id',
+            'memberships',
+            'last_connection_at', 'password_changed_at',
+            'must_change_password', 'date_joined',
+        ]
+        read_only_fields = ['id', 'email', 'date_joined', 'last_connection_at',
+                           'password_changed_at', 'deleted_at', 'is_superuser']
+
+    def get_role(self, obj):
+        return obj.get_primary_role()
+
+    def get_role_display(self, obj):
+        return obj.get_primary_role_display()
+
+    def get_organization_name(self, obj):
+        org = obj.get_primary_organization()
+        return org.name if org else None
+
+    def get_organization_id(self, obj):
+        org = obj.get_primary_organization()
+        return str(org.id) if org else None
+
+    def get_memberships(self, obj):
+        memberships = obj.memberships.filter(is_active=True).select_related('organization')
+        return [
+            {
+                'organization_id': str(m.organization.id),
+                'organization_name': m.organization.name,
+                'role': m.role,
+                'role_display': m.get_role_display(),
+                'joined_at': m.joined_at,
+            }
+            for m in memberships
+        ]
+
+
+class UserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    role = serializers.ChoiceField(
+        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT'],
+        default='ROLE_ORGANISATION_AGENT'
+    )
+    organization_id = serializers.UUIDField(required=True)
+    must_change_password = serializers.BooleanField(default=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'email', 'first_name', 'last_name',
+            'password', 'role', 'organization_id', 'must_change_password',
+        ]
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Cet email est déjà utilisé.")
+        return value
+
+    def validate_organization_id(self, value):
+        if not Organization.objects.filter(id=value, is_active=True, is_deleted=False).exists():
+            raise serializers.ValidationError("L'organisation spécifiée n'existe pas.")
+        return value
+
+    def create(self, validated_data):
+        role = validated_data.pop('role')
+        organization_id = validated_data.pop('organization_id')
+        must_change_password = validated_data.pop('must_change_password', True)
+
+        user = User.objects.create_user(
+            username=validated_data['email'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            is_superuser=False,
+            must_change_password=must_change_password,
+        )
+
+        organization = Organization.objects.get(id=organization_id)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=role,
+        )
+
+        return user
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    role = serializers.ChoiceField(
+        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT'],
+        required=False
+    )
+    organization_id = serializers.UUIDField(required=False)
+
+    class Meta:
+        model = User
+        fields = [
+            'first_name', 'last_name',
+            'is_active', 'role', 'organization_id',
+        ]
+
+    def update(self, instance, validated_data):
+        role = validated_data.pop('role', None)
+        organization_id = validated_data.pop('organization_id', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if organization_id:
+            organization = Organization.objects.get(id=organization_id)
+            membership, created = Membership.objects.get_or_create(
+                user=instance,
+                organization=organization,
+                defaults={'role': role or 'ROLE_ORGANISATION_AGENT', 'is_active': True},
+            )
+            if not created:
+                if role:
+                    membership.role = role
+                membership.is_active = True
+                membership.save()
+        elif role:
+            membership = instance.memberships.filter(is_active=True).first()
+            if membership:
+                membership.role = role
+                membership.save()
+
+        instance.save()
+        return instance
+
+
+class RoleSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    permissions = serializers.ListField(child=serializers.CharField())
+    user_count = serializers.IntegerField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(min_length=8, required=False)
+    must_change_password = serializers.BooleanField(default=True)
+
+    def generate_password(self):
+        alphabet = string.ascii_letters + string.digits + '!@#$%^&*'
+        password = ''.join(secrets.choice(alphabet) for _ in range(12))
+        return password
