@@ -1,9 +1,3 @@
-# Plan de dev de l'app
-    - configuration du depot git local + distant
-    - tester la version actuelle de l'app
-    - Redaction du CPS de l'app
-    - Redaction des phases du plan de dev de l'app a partir du CPS
-    - Implementation du plan de dev de l'app
 # Sommaire
 
 - [Plan de dev de l'app](#plan-de-dev-de-lapp)
@@ -28,6 +22,14 @@
     - [Fonctionnalites Espace Admin : Gestion des utilisateurs](#fonctionnalites-espace-admin-gestion-des-utilisateurs)
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
+
+# Plan de dev de l'app
+    - configuration du depot git local + distant
+    - tester la version actuelle de l'app
+    - Redaction du CPS de l'app
+    - Redaction des phases du plan de dev de l'app a partir du CPS
+    - Implementation du plan de dev de l'app
+
 
 ## Phase : configuration du depot git local + distant
 ### Compte Github pour git + Github API token 
@@ -248,10 +250,8 @@ name : "blmerio2022"
 
 passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 
-
 ## Sommaire
 
-- [Plan de dev de l'app](#plan-de-dev-de-lapp)
   - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
     - [Compte Github pour git + Github API token](#compte-github-pour-git-github-api-token)
     - [synchronisation depot local avec depot distant](#synchronisation-depot-local-avec-depot-distant)
