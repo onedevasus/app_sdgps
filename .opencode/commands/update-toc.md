@@ -1,9 +1,14 @@
 ---
-description: Met à jour le sommaire (TOC) de docs/plans/PLAN_DEV.md automatiquement
+description: Met à jour le sommaire (TOC) de docs/plans/PLAN_DEV.md ou docs/notes/Notes.md
 ---
 
-Run the command: python .githooks/update_toc.py
+Usage: /update-toc <file>
 
-Then run: git add docs/plans/PLAN_DEV.md
+Example: /update-toc docs/plans/PLAN_DEV.md
+Example: /update-toc docs/notes/Notes.md
 
-And verify with: git diff --stat docs/plans/PLAN_DEV.md
+Run: python .githooks/update_toc.py $ARGUMENTS
+Then: git add $ARGUMENTS
+Verify: git diff --stat $ARGUMENTS
+
+If no argument provided, defaults to docs/plans/PLAN_DEV.md.
