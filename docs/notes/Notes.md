@@ -6,6 +6,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -33,6 +35,7 @@
     - [Fonctionnalites Espace Admin : Gestion des utilisateurs](#fonctionnalites-espace-admin-gestion-des-utilisateurs)
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
+      - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
 
 # Taches a faire
   - gestion des utilisateurs
@@ -259,3 +262,5 @@ name : "blmerio2022"
 #### Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs
 
 passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
+
+#### correction + refonte frontend tableau de la liste des utilisateurs.
