@@ -1740,6 +1740,9 @@
 }
 
 .modal-add-user .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
   color: white;
   padding: 20px 24px;
@@ -1795,6 +1798,9 @@
 // MODALE MODIFIER - Thème orange
 // ==========================================
 .modal-edit-user .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
   color: white;
   padding: 20px 24px;
@@ -1852,6 +1858,9 @@
   max-height: 90vh;
 
   .modal-header.modal-header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
     color: white;
     padding: 20px 24px;
@@ -2009,6 +2018,9 @@
   width: 90%;
 
   .modal-header.modal-header-danger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     background: var(--accent-color);
     color: white;
     padding: 20px 24px;
@@ -2032,6 +2044,9 @@
   }
 
   .modal-header.modal-header-success {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
     color: white;
     padding: 20px 24px;
@@ -2217,6 +2232,9 @@
   width: 90%;
 
   .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     color: white;
     padding: 20px 24px;
