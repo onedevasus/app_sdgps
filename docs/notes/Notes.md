@@ -4,7 +4,7 @@
     - Redaction du CPS de l'app
     - Redaction des phases du plan de dev de l'app a partir du CPS
     - Implementation du plan de dev de l'app
-## Sommaire
+# Sommaire
 
 - [Plan de dev de l'app](#plan-de-dev-de-lapp)
   - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
@@ -247,3 +247,28 @@ name : "blmerio2022"
 #### Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs
 
 passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
+
+## Sommaire
+
+- [Plan de dev de l'app](#plan-de-dev-de-lapp)
+  - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
+    - [Compte Github pour git + Github API token](#compte-github-pour-git-github-api-token)
+    - [synchronisation depot local avec depot distant](#synchronisation-depot-local-avec-depot-distant)
+    - [Structure des branches dans local et dans depot distant](#structure-des-branches-dans-local-et-dans-depot-distant)
+    - [Creation des branches de fonctionnalite](#creation-des-branches-de-fonctionnalite)
+    - [commandes pour controller le watcher.](#commandes-pour-controller-le-watcher)
+  - [Teste de la version actuelle de l'app](#teste-de-la-version-actuelle-de-lapp)
+    - [Identifiants des utilisateurs de tests](#identifiants-des-utilisateurs-de-tests)
+    - [Prompte redemarrage serveurs backend + frontend](#prompte-redemarrage-serveurs-backend-frontend)
+  - [Redaction du CPS de l'app](#redaction-du-cps-de-lapp)
+    - [Prompt redaction CPS de l'app](#prompt-redaction-cps-de-lapp)
+      - [Plan du CPS](#plan-du-cps)
+      - [Acteurs et roles](#acteurs-et-roles)
+  - [Phase : Developement de l'app](#phase-developement-de-lapp)
+    - [Fonctionnalites Espace Admin : Gestion des organisations](#fonctionnalites-espace-admin-gestion-des-organisations)
+      - [Prompte n1](#prompte-n1)
+      - [Prompte n2](#prompte-n2)
+      - [Prompte n3](#prompte-n3)
+    - [Fonctionnalites Espace Admin : Gestion des utilisateurs](#fonctionnalites-espace-admin-gestion-des-utilisateurs)
+      - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
+      - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
