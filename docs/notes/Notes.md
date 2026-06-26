@@ -25,8 +25,6 @@
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
 
-
-
     - configuration du depot git local + distant
     - tester la version actuelle de l'app
     - Redaction du CPS de l'app

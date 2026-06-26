@@ -64,6 +64,20 @@ def remove_orphan_tocs(lines: list) -> list:
 def remove_all_tocs(lines: list) -> list:
     return [line for line in lines if not re.match(r"^#+\s+Sommaire\s*$", line)]
 
+def find_insert_after_title(lines: list) -> int:
+    for i, line in enumerate(lines[1:], start=1):
+        if re.match(r"^#\s", line):
+            return i
+        if re.match(r"^\[|^>|^---", line):
+            continue
+        stripped = line.strip()
+        if stripped == "":
+            continue
+        if is_toc_line(line):
+            continue
+        return i
+    return len(lines)
+
 def main():
     file_arg = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FILE
     file_path = Path(file_arg)
@@ -76,7 +90,7 @@ def main():
     lines = remove_all_tocs(lines)
     lines = remove_orphan_tocs(lines)
 
-    insert_at = 1
+    insert_at = find_insert_after_title(lines)
     toc_lines = build_toc(lines)
     if not toc_lines:
         print("No headings found for TOC")
