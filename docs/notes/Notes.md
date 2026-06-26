@@ -5,6 +5,7 @@
     - Redaction des phases du plan de dev de l'app a partir du CPS
     - Implementation du plan de dev de l'app
 
+
 - [Plan de dev de l'app](#plan-de-dev-de-lapp)
 - [Promptes importantes opencode](#promptes-importantes-opencode)
   - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
