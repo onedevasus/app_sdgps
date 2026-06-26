@@ -14,7 +14,7 @@ def build_toc(lines: list) -> list:
     toc = []
     in_sommaire = False
     for line in lines:
-        m = re.match(r"^(#{2,3})\s+(.+)$", line)
+        m = re.match(r"^(#+)\s+(.+)$", line)
         if not m:
             continue
         level = len(m.group(1))
@@ -27,8 +27,8 @@ def build_toc(lines: list) -> list:
         if in_sommaire:
             continue
         anchor = slugify(title)
-        indent = "  " if level >= 3 else ""
-        prefix = "-" if level == 2 else "-"
+        indent = "  " * (level - 1)
+        prefix = "-"
         toc.append(f"{indent}{prefix} [{title}](#{anchor})")
     return toc
 
