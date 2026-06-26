@@ -13,7 +13,13 @@ def slugify(text: str) -> str:
 def build_toc(lines: list) -> list:
     toc = []
     in_sommaire = False
+    in_code_block = False
     for line in lines:
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
         m = re.match(r"^(#+)\s+(.+)$", line)
         if not m:
             continue
