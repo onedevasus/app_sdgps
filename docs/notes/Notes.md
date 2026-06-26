@@ -6,26 +6,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -56,6 +36,9 @@
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
 
 # Taches a faire
+  - Divers
+    - Personnaliser les messages des commites du watcher en passant par opencode.
+    - 
   - gestion des utilisateurs
   - gestion des projets/proprietes/affaires/ssd-gps
     - gestion des ssd-gps mono-session
@@ -81,7 +64,7 @@ Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour
 
 ### Prompte pour commit des modifs et synchronisation avec depot distant configure
 
-commit les changements dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app. quand le watcher a deja commiter maj le message du commit dans le depot local et distant.
+commit les changements dans le depot local et synchronise ces commits  avec le dépôt distant global de l'app. quand le watcher a deja commiter maj le message du commit dans le depot local et distant.
 
 
 ### promptes opencode + commandes pour controller le watcher.
@@ -286,8 +269,7 @@ passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 Maintenant je veux corriger les points suivantes dans le tableau de la liste des utilisateurs :
   - correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
   -	restyler/redesigner le boutton close (boutton en haut a droite de la fenetre) des modales en le mettant dans un style élégant, pro et conforme au design System de l'app.
-
-	- mettre les boutons dans la colonne action du tableau dans une seule ligne pas de retour a la ligne entre les bouttons
-	- restyle toggle activer/desactiver un utilisateur et son modales
-	- presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
-	- boutton confirmer de la modale de Désactiver/Activer le Compte
+  - mettre les boutons dans la colonne action du tableau dans une seule ligne pas de retour a la ligne entre les bouttons
+  - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.s
+  - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
+  - boutton confirmer de la modale de Désactiver/Activer le Compte
