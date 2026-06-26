@@ -1,21 +1,25 @@
 # Auto-save watcher: commits uncommitted changes every 30 seconds
-# Run in background: Start-Job -FilePath ".githooks\auto-save-watcher.ps1" -ArgumentList "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps"
-# Stop: Get-Job | Stop-Job
+# Usage:
+#   Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
 
-param(
-  [string]$RepoPath = (Get-Location).Path
-)
+$RepoPath = "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps"
 
 while ($true) {
   try {
     Push-Location $RepoPath
     $status = git status --porcelain 2>$null
     if ($status) {
-      git add -A 2>$null
-      git commit -m "wip: auto-save [$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')]" 2>$null
+      git add -A --ignore-errors 2>$null
+      git diff --cached --quiet 2>$null
+      if ($LASTEXITCODE -ne 0) {
+        git commit -m "wip: auto-save [$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')]" 2>$null
+        $timeStr = Get-Date -Format 'HH:mm:ss'
+        Write-Output "[$timeStr] Auto-save committed"
+      }
     }
   } catch {
-    # ignore errors
+    $timeStr = Get-Date -Format 'HH:mm:ss'
+    Write-Output "[$timeStr] Error: $_"
   } finally {
     Pop-Location
   }

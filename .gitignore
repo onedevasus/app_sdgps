@@ -46,3 +46,10 @@ frontend/node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Windows reserved names (nul is a device, not a file)
+nul
+backend/nul
+
+# OpenCode workflow runs
+.pi/

@@ -26,6 +26,22 @@ Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour
 commit changes dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app
 
 
+### commandes pour controller le watcher.
+
+
+LANCER le watcher
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
+
+VÉRIFIER s'il tourne
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object CommandLine -match 'auto-save-watcher' | Format-Table ProcessId, CommandLine -AutoSize -Wrap
+
+ARRÊTER le watcher
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object CommandLine -match 'auto-save-watcher' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+VOIR L'HISTORIQUE des commits auto-save
+git log --oneline --grep="wip: auto-save" --max-count=20
+
+
 ## Teste de la version actuelle de l'app
 
 ### Identifiants des utilisateurs de tests
