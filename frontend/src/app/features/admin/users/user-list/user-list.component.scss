@@ -426,8 +426,8 @@
               }
 
               &.actions-col {
-                width: 140px;
-                min-width: 140px;
+                width: 200px;
+                min-width: 200px;
                 text-align: center;
                 position: sticky;
                 top: 0;
@@ -536,6 +536,30 @@
                   background: rgba(155, 89, 182, 0.15);
                   color: #9b59b6;
                   border: 1px solid rgba(155, 89, 182, 0.3);
+                }
+
+                &.badge-admin {
+                  background: rgba(52, 152, 219, 0.15);
+                  color: #3498db;
+                  border: 1px solid rgba(52, 152, 219, 0.3);
+                }
+
+                &.badge-org-admin {
+                  background: rgba(46, 204, 113, 0.15);
+                  color: #27ae60;
+                  border: 1px solid rgba(46, 204, 113, 0.3);
+                }
+
+                &.badge-agent {
+                  background: rgba(243, 156, 18, 0.15);
+                  color: #e67e22;
+                  border: 1px solid rgba(243, 156, 18, 0.3);
+                }
+
+                &.badge-default {
+                  background: rgba(149, 165, 166, 0.15);
+                  color: #95a5a6;
+                  border: 1px solid rgba(149, 165, 166, 0.3);
                 }
               }
 
@@ -1430,199 +1454,396 @@
   to { opacity: 1; transform: scale(1); }
 }
 
+// ==========================================
+// STYLES PARTAGÉS POUR LES MODALES ADD/EDIT
+// ==========================================
+
 .modal-add-user,
 .modal-edit-user {
   max-width: 800px;
   width: 90%;
   max-height: 90vh;
+}
 
-  .modal-body {
-    padding: 24px;
-    overflow-y: auto;
-    max-height: calc(90vh - 140px);
+.modal-add-user .modal-body,
+.modal-edit-user .modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: calc(90vh - 140px);
 
-    .form-section {
-      margin-bottom: 28px;
-      padding-bottom: 24px;
-      border-bottom: 2px solid var(--border-color);
+  .form-section {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--border-color);
 
-      &:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+
+      i { font-size: 18px; }
+    }
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+
+    &:last-child { margin-bottom: 0; }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+
+      &.full-width { grid-column: 1 / -1; }
+
+      &.checkbox-group { grid-column: 1 / -1; }
+
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-color);
+        margin-bottom: 8px;
+
+        .required { color: #e74c3c; font-weight: 700; }
+
+        i { font-size: 13px; }
+
+        .field-info-icon {
+          font-size: 12px;
+          opacity: 0.6;
+          cursor: help;
+          transition: all 0.2s;
+
+          &:hover {
+            opacity: 1;
+            transform: scale(1.15);
+          }
+        }
       }
 
-      .section-title {
+      input, select, textarea {
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+        background: var(--secondary-color);
+        color: var(--text-color);
+        transition: all 0.2s;
+        font-family: inherit;
+
+        &::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+        &.error {
+          border-color: #e74c3c;
+          box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+        }
+      }
+
+      select { cursor: pointer; }
+
+      textarea { resize: vertical; min-height: 60px; }
+
+      .error-message {
+        font-size: 12px;
+        color: #e74c3c;
+        margin-top: 4px;
+        font-weight: 500;
+      }
+
+      .help-text {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 6px 0 0;
+        font-style: italic;
+      }
+
+      .password-input-group {
+        display: flex;
+        gap: 8px;
+
+        input { flex: 1; }
+
+        .btn {
+          padding: 8px 12px;
+          background: var(--secondary-color);
+          color: var(--text-muted);
+          border: 1px solid var(--border-color);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+
+          &:hover {
+            background: var(--hover-bg);
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+          }
+        }
+      }
+
+      .checkbox-label {
         display: flex;
         align-items: center;
         gap: 10px;
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        user-select: none;
+        padding: 8px 0;
+        font-size: 13px;
+        color: var(--text-color);
 
-        i { font-size: 18px; }
-      }
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-      margin-bottom: 16px;
-
-      &:last-child { margin-bottom: 0; }
-
-      .form-group {
-        display: flex;
-        flex-direction: column;
-
-        &.full-width { grid-column: 1 / -1; }
-
-        &.checkbox-group { grid-column: 1 / -1; }
-
-        label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text-color);
-          margin-bottom: 8px;
-
-          .required { color: #e74c3c; font-weight: 700; }
-
-          i { color: var(--accent-color); font-size: 13px; }
-
-          .field-info-icon {
-            color: var(--accent-color);
-            font-size: 12px;
-            opacity: 0.6;
-            cursor: help;
-            transition: all 0.2s;
-
-            &:hover {
-              opacity: 1;
-              transform: scale(1.15);
-            }
-          }
-        }
-
-        input, select, textarea {
-          padding: 10px 14px;
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          font-size: 14px;
-          background: var(--secondary-color);
-          color: var(--text-color);
-          transition: all 0.2s;
-          font-family: inherit;
-
-          &::placeholder { color: var(--text-muted); opacity: 0.6; }
-
-          &:focus {
-            outline: none;
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(204, 88, 88, 0.1);
-          }
-
-          &.error {
-            border-color: #e74c3c;
-            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
-          }
-        }
-
-        select { cursor: pointer; }
-
-        textarea { resize: vertical; min-height: 60px; }
-
-        input.is-invalid, select.is-invalid {
-          border-color: #e74c3c !important;
-          box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1) !important;
-        }
-
-        .field-error {
-          font-size: 11px;
-          color: #e74c3c;
-          margin-top: 4px;
-          font-weight: 500;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .error-message {
-          font-size: 12px;
-          color: #e74c3c;
-          margin-top: 4px;
-          font-weight: 500;
-        }
-
-        .help-text {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin: 6px 0 0;
-          font-style: italic;
-        }
-
-        .password-input-group {
-          display: flex;
-          gap: 8px;
-
-          input { flex: 1; }
-
-          .btn {
-            padding: 8px 12px;
-            background: var(--secondary-color);
-            color: var(--text-muted);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-
-            &:hover {
-              background: var(--hover-bg);
-              color: var(--accent-color);
-              border-color: var(--accent-color);
-            }
-          }
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 10px;
+        input[type="checkbox"] {
+          position: absolute;
+          opacity: 0;
           cursor: pointer;
-          user-select: none;
-          padding: 8px 0;
-          font-size: 13px;
-          color: var(--text-color);
+          height: 0;
+          width: 0;
+        }
 
-          input[type="checkbox"] {
-            width: 17px;
-            height: 17px;
-            cursor: pointer;
-            accent-color: var(--accent-color);
+        .checkmark {
+          position: relative;
+          width: 18px;
+          height: 18px;
+          border: 2px solid var(--border-color);
+          border-radius: 4px;
+          background: var(--secondary-color);
+          transition: all 0.2s;
+          flex-shrink: 0;
+
+          &::after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 1px;
+            width: 6px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+            opacity: 0;
+            transition: opacity 0.2s;
           }
         }
 
-        .generated-password {
-          font-family: 'Courier New', monospace;
-          font-weight: 600;
-          letter-spacing: 1px;
+        input[type="checkbox"]:checked + .checkmark {
+          &::after { opacity: 1; }
+        }
+
+        .checkbox-text {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          i { font-size: 14px; }
         }
       }
-    }
 
-    .password-section {
-      margin-top: 8px;
-      padding: 16px;
-      background: rgba(204, 88, 88, 0.05);
-      border: 1px solid rgba(204, 88, 88, 0.15);
-      border-radius: 8px;
+      .generated-password {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        letter-spacing: 1px;
+      }
     }
   }
+
+  .password-section {
+    margin-top: 8px;
+    padding: 16px;
+    background: rgba(204, 88, 88, 0.05);
+    border: 1px solid rgba(204, 88, 88, 0.15);
+    border-radius: 8px;
+  }
+}
+
+// ==========================================
+// MODALE AJOUTER - Thème vert
+// ==========================================
+// Footer commun pour add/edit
+.modal-add-user .modal-footer,
+.modal-edit-user .modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+
+  .btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    &.btn-cancel {
+      background: var(--secondary-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+
+      &:hover:not(:disabled) {
+        background: var(--hover-bg);
+        border-color: var(--accent-color);
+      }
+
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
+
+    &.btn-primary.btn-submit {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: white;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(46, 204, 113, 0.25);
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+      }
+
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
+
+    &.btn-info.btn-submit {
+      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+      color: white;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(243, 156, 18, 0.25);
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(243, 156, 18, 0.4);
+      }
+
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
+  }
+}
+
+.modal-add-user .modal-header {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
+  padding: 20px 24px;
+
+  h3 {
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+
+    i { font-size: 24px; }
+  }
+
+  .close-btn {
+    color: white;
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+  }
+}
+
+.modal-add-user {
+  .section-title { color: #2ecc71; }
+
+  label i,
+  .field-info-icon { color: #2ecc71; }
+
+  .field-info-icon:hover { color: #27ae60; }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: #2ecc71;
+    box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+  }
+
+  .checkbox-label:hover {
+    .checkmark { border-color: #2ecc71; background: rgba(46, 204, 113, 0.05); }
+  }
+
+  input[type="checkbox"]:checked + .checkmark {
+    background: #2ecc71;
+    border-color: #2ecc71;
+  }
+
+  .checkbox-text i { color: #2ecc71; }
+}
+
+// ==========================================
+// MODALE MODIFIER - Thème orange
+// ==========================================
+.modal-edit-user .modal-header {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: white;
+  padding: 20px 24px;
+
+  h3 {
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+
+    i { font-size: 24px; }
+  }
+
+  .close-btn {
+    color: white;
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+  }
+}
+
+.modal-edit-user {
+  .section-title { color: #f39c12; }
+
+  label i,
+  .field-info-icon { color: #f39c12; }
+
+  .field-info-icon:hover { color: #e67e22; }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: #f39c12;
+    box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1);
+  }
+
+  .checkbox-label:hover {
+    .checkmark { border-color: #f39c12; background: rgba(243, 156, 18, 0.05); }
+  }
+
+  input[type="checkbox"]:checked + .checkmark {
+    background: #f39c12;
+    border-color: #f39c12;
+  }
+
+  .checkbox-text i { color: #f39c12; }
 }
 
 .modal-detail-user {
@@ -1758,6 +1979,28 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+
+    .btn-cancel {
+      background: var(--secondary-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 10px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+
+      &:hover:not(:disabled) {
+        background: var(--hover-bg);
+        border-color: var(--accent-color);
+      }
+
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
   }
 }
 
@@ -1972,6 +2215,30 @@
 .modal-password-reset {
   max-width: 550px;
   width: 90%;
+
+  .modal-header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white;
+    padding: 20px 24px;
+
+    h3 {
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+
+      i { font-size: 24px; }
+    }
+
+    .close-btn {
+      color: white;
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+    }
+  }
 
   .modal-body {
     padding: 24px;
