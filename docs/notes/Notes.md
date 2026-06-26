@@ -35,7 +35,11 @@
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
 
 # Taches a faire
-  
+  - gestion des utilisateurs
+  - gestion des projets/proprietes/affaires/ssd-gps
+    - gestion des ssd-gps mono-session
+    - gestion des ssd-gps multi-sessions
+      
 
 # Promptes importantes opencode
 ## Phase : configuration du depot git local + distant
