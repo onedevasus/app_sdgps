@@ -456,6 +456,8 @@ export class UserListComponent implements OnInit, OnDestroy {
     const selectedFiltered = this.filteredUsers.filter(u => this.selectedIds.has(u.id));
     const notSelectedFiltered = this.filteredUsers.filter(u => !this.selectedIds.has(u.id));
     this.filteredUsers = [...selectedFiltered, ...notSelectedFiltered];
+    this.currentPage = 1;
+    this.updatePagination();
   }
 
   getSelectedUsersList(): User[] {
