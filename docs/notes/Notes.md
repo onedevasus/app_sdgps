@@ -5,9 +5,12 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
+- [Taches a faire](#taches-a-faire)
 - [Promptes importantes opencode](#promptes-importantes-opencode)
   - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
     - [Compte Github pour git + Github API token](#compte-github-pour-git-github-api-token)
@@ -31,11 +34,12 @@
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
 
-    - configuration du depot git local + distant
-    - tester la version actuelle de l'app
-    - Redaction du CPS de l'app
-    - Redaction des phases du plan de dev de l'app a partir du CPS
-    - Implementation du plan de dev de l'app
+# Taches a faire
+  - configuration du depot git local + distant
+  - tester la version actuelle de l'app
+  - Redaction du CPS de l'app
+  - Redaction des phases du plan de dev de l'app a partir du CPS
+  - Implementation du plan de dev de l'app
 # Promptes importantes opencode
 ## Phase : configuration du depot git local + distant
 ### Compte Github pour git + Github API token 
