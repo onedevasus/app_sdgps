@@ -1,6 +1,6 @@
 # Auto-save watcher: commits uncommitted changes every 30 seconds
 # Usage:
-#   Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
+#   Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\docs\scripts\auto-save-watcher.ps1`""
 
 $RepoPath = "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps"
 
