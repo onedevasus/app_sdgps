@@ -13,25 +13,30 @@
   - [1.2 Architecture applicative](#12-architecture-applicative)
   - [1.3 Conventions](#13-conventions)
 - [2. Workflow Git](#2-workflow-git)
-- [3. Phases de développement](#3-phases-de-développement)
-- [4. Phase 3 — Gestion des Utilisateurs](#4-phase-3--gestion-des-utilisateurs)
-  - [4.1 Définition](#41-définition)
-  - [4.2 Modèle de données](#42-modèle-de-données)
-    - [4.2.1 Rôles — mapping CPS → schéma](#421-rôles--mapping-cps--schéma)
-    - [4.2.2 Migration des rôles existants](#422-migration-des-rôles-existants)
-    - [4.2.3 Champs ajoutés à `CustomUser`](#423-champs-ajoutés-à-customuser)
-    - [4.2.4 Champs ajoutés à `Membership`](#424-champs-ajoutés-à-membership)
-  - [4.3 Matrice des permissions RBAC](#43-matrice-des-permissions-rbac)
-  - [4.4 API Endpoints](#44-api-endpoints)
+- [3. Protection contre la perte de données (Workspace Reset)](#3-protection-contre-la-perte-de-données-workspace-reset)
+  - [3.1 Problématique](#31-problématique)
+  - [3.2 Solutions mises en place](#32-solutions-mises-en-place)
+  - [3.3 Résumé des risques couverts](#33-résumé-des-risques-couverts)
+  - [3.4 Recommandation](#34-recommandation)
+- [4. Phases de développement](#4-phases-de-développement)
+- [5. Phase 3 — Gestion des Utilisateurs](#5-phase-3--gestion-des-utilisateurs)
+  - [5.1 Définition](#51-définition)
+  - [5.2 Modèle de données](#52-modèle-de-données)
+    - [5.2.1 Rôles — mapping CPS → schéma](#521-rôles--mapping-cps--schéma)
+    - [5.2.2 Migration des rôles existants](#522-migration-des-rôles-existants)
+    - [5.2.3 Champs ajoutés à `CustomUser`](#523-champs-ajoutés-à-customuser)
+    - [5.2.4 Champs ajoutés à `Membership`](#524-champs-ajoutés-à-membership)
+  - [5.3 Matrice des permissions RBAC](#53-matrice-des-permissions-rbac)
+  - [5.4 API Endpoints](#54-api-endpoints)
     - [Règles de filtrage backend](#règles-de-filtrage-backend)
-  - [4.5 Composants frontend](#45-composants-frontend)
-    - [4.5.1 Architecture des fichiers](#451-architecture-des-fichiers)
-    - [4.5.2 UserListComponent](#452-userlistcomponent)
-    - [4.5.3 UserDetailComponent](#453-userdetailcomponent)
-    - [4.5.4 RolesPermissionsComponent](#454-rolespermissionscomponent)
-  - [4.6 Mise à jour du routeur et du menu](#46-mise-à-jour-du-routeur-et-du-menu)
-    - [4.6.1 Routes à ajouter](#461-routes-à-ajouter)
-  - [4.7 Tâches d'implémentation](#47-tâches-dimplantation)
+  - [5.5 Composants frontend](#55-composants-frontend)
+    - [5.5.1 Architecture des fichiers](#551-architecture-des-fichiers)
+    - [5.5.2 UserListComponent](#552-userlistcomponent)
+    - [5.5.3 UserDetailComponent](#553-userdetailcomponent)
+    - [5.5.4 RolesPermissionsComponent](#554-rolespermissionscomponent)
+  - [5.6 Mise à jour du routeur et du menu](#56-mise-à-jour-du-routeur-et-du-menu)
+    - [5.6.1 Routes à ajouter](#561-routes-à-ajouter)
+  - [5.7 Tâches d'implémentation](#57-tâches-dimplémentation)
     - [Phase 3.1 — Backend : Modèle et migration](#phase-31--backend--modèle-et-migration)
     - [Phase 3.2 — Backend : API endpoints](#phase-32--backend--api-endpoints)
     - [Phase 3.3 — Frontend : Service et modèle](#phase-33--frontend--service-et-modèle)
@@ -39,13 +44,13 @@
     - [Phase 3.5 — Frontend : UserDetailComponent](#phase-35--frontend--userdetailcomponent)
     - [Phase 3.6 — Frontend : RolesPermissionsComponent](#phase-36--frontend--rolespermissionscomponent)
     - [Phase 3.7 — Configuration des routes](#phase-37--configuration-des-routes)
-  - [4.8 Tests](#48-tests)
-- [5. Phases ultérieures (aperçu)](#5-phases-ultérieures-aperçu)
+  - [5.8 Tests](#58-tests)
+- [6. Phases ultérieures (aperçu)](#6-phases-ultérieures-aperçu)
   - [Phase 4 — Invitations des agents (F13)](#phase-4--invitations-des-agents-f13)
   - [Phase 5 — Gestion des projets (F19-F26)](#phase-5--gestion-des-projets-f19-f26)
   - [Phase 6 — Supervision et rapports (F01, F07, F09, F16, F17)](#phase-6--supervision-et-rapports-f01-f07-f09-f16-f17)
   - [Phase 7 — Fonctionnalités innovantes (F28-F30)](#phase-7--fonctionnalités-innovantes-f28-f30)
-- [6. Glossaire](#6-glossaire)
+- [7. Glossaire](#7-glossaire)
 
 ---
 
@@ -129,7 +134,84 @@ develop
 
 ---
 
-## 3. Phases de développement
+## 3. Protection contre la perte de données (Workspace Reset)
+
+### 3.1 Problématique
+
+**OpenCode** utilise un système interne de **snapshots** pour suivre les modifications de fichiers pendant une session. Lors d'un changement de mode (`plan` → `build` ou `build` → `plan`), OpenCode restaure le snapshot pris à l'entrée du mode précédent, ce qui **efface toutes les modifications non commitées** dans le working directory.
+
+Ce mécanisme est propre à OpenCode — il n'utilise **pas** `git checkout` ni aucune commande git visible. Il agit directement sur le système de fichiers via son propre moteur de snapshots. Les hooks git standards (`pre-checkout`, `post-checkout`) ne sont donc **pas déclenchés** par ce reset.
+
+**Conséquence :** tout travail non commité avant un changement de mode est définitivement perdu.
+
+### 3.2 Solutions mises en place
+
+Trois couches de protection, classées par fiabilité :
+
+#### Couche 1 — Instructions OpenCode (agent)
+
+**Fichier :** `.opencode/instructions.md` (projet) et `~/.config/opencode/instructions.md` (global)
+
+Chargées au démarrage d'OpenCode via la config (`instructions` dans `opencode.json`), ces instructions ordonnent à l'agent IA de commit automatiquement après chaque feature ou bug fix terminé. Applicable à tous les projets via la config globale `~/.config/opencode/opencode.json`.
+
+- ✅ Guide l'agent dans son comportement
+- ⚠️ Dépend du modèle — l'agent peut "oublier" ou mal interpréter
+- ⚠️ Inefficace contre le reset de mode (l'agent n'est pas actif pendant le switch)
+
+#### Couche 2 — Git hook pre-checkout
+
+**Fichier :** `.githooks/pre-checkout`
+
+Activé par `git config core.hooksPath .githooks`. Se déclenche avant chaque `git checkout` / `git switch` et commit automatiquement les modifications non commitées (`git add -A && git commit -m "wip: auto-save before checkout"`).
+
+- ✅ Protège contre les switchs de branche manuels
+- ❌ **Ne protège PAS contre le reset OpenCode** (qui ne passe pas par git)
+- ✅ Protection utile pour les opérations git hors OpenCode
+
+#### Couche 3 — Auto-save watcher (arrière-plan) — **Solution recommandée**
+
+**Fichier :** `.githooks/auto-save-watcher.ps1`
+
+Script PowerShell qui tourne en arrière-plan et vérifie toutes les 30 secondes la présence de fichiers modifiés non commités. Si détection, il commit automatiquement (`git add -A && git commit -m "wip: auto-save [timestamp]"`).
+
+```powershell
+# Lancer le watcher
+Start-Job -FilePath ".githooks\auto-save-watcher.ps1"
+
+# Vérifier son état
+Get-Job
+
+# Arrêter le watcher
+Get-Job | Stop-Job
+```
+
+- ✅ **Protège contre tout scénario** : reset OpenCode, crash, oubli de l'agent, fermeture inattendue
+- ✅ Indépendant du modèle IA et du mécanisme de snapshot OpenCode
+- ⚠️ Crée des commits "wip" fréquents — à squasher avant merge dans `develop`
+- ⚠️ Disparaît à la fermeture du terminal — doit être relancé manuellement ou au démarrage Windows
+
+### 3.3 Résumé des risques couverts
+
+| Scénario | Couche 1 (Instructions) | Couche 2 (pre-checkout) | Couche 3 (Watcher) |
+|----------|:---:|:---:|:---:|
+| Agent oublie de commit | ✅ | ❌ | ✅ |
+| Reset OpenCode (plan→build) | ❌ | ❌ | ✅ |
+| `git checkout` manuel | ❌ | ✅ | ✅ |
+| Crash / fermeture brutale | ❌ | ❌ | ✅ |
+
+### 3.4 Recommandation
+
+Lancer le watcher dès le début de chaque session de travail :
+
+```powershell
+Start-Job -FilePath ".githooks\auto-save-watcher.ps1"
+```
+
+Pour le rendre permanent, ajouter cette commande au démarrage de Windows (via le registre `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` ou le dossier `shell:startup`).
+
+---
+
+## 4. Phases de développement
 
 | Phase | Fonctionnalité | Statut |
 |-------|---------------|--------|
@@ -144,15 +226,15 @@ develop
 
 ---
 
-## 4. Phase 3 — Gestion des Utilisateurs
+## 5. Phase 3 — Gestion des Utilisateurs
 
-### 4.1 Définition
+### 5.1 Définition
 
 Implémenter la gestion complète des utilisateurs de la plateforme conformément aux spécifications F05 et F12 du CPS, avec un contrôle d'accès strict basé sur les trois profils définis.
 
-### 4.2 Modèle de données
+### 5.2 Modèle de données
 
-#### 4.2.1 Rôles — mapping CPS → schéma
+#### 5.2.1 Rôles — mapping CPS → schéma
 
 | Profil CPS | Implémentation |
 |---|---|
@@ -160,7 +242,7 @@ Implémenter la gestion complète des utilisateurs de la plateforme conformémen
 | `ROLE_ORGANISATION_ADMIN` | `Membership.role = 'ROLE_ORGANISATION_ADMIN'` |
 | `ROLE_ORGANISATION_AGENT` | `Membership.role = 'ROLE_ORGANISATION_AGENT'` |
 
-#### 4.2.2 Migration des rôles existants
+#### 5.2.2 Migration des rôles existants
 
 Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 
@@ -171,15 +253,15 @@ Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 | `MANAGER` | `ROLE_ORGANISATION_AGENT` |
 | `USER` | `ROLE_ORGANISATION_AGENT` |
 
-#### 4.2.3 Champs ajoutés à `CustomUser`
+#### 5.2.3 Champs ajoutés à `CustomUser`
 
 - Aucun champ nouveau nécessaire à ce stade (les champs existants `first_name`, `last_name`, `email`, `is_active`, `is_superuser`, `is_deleted` couvrent les besoins)
 
-#### 4.2.4 Champs ajoutés à `Membership`
+#### 5.2.4 Champs ajoutés à `Membership`
 
 - Aucun champ nouveau — seul le choix `role` est modifié (nouvelles valeurs)
 
-### 4.3 Matrice des permissions RBAC
+### 5.3 Matrice des permissions RBAC
 
 | Action | `ROLE_APP_ADMIN` | `ROLE_ORGANISATION_ADMIN` | `ROLE_ORGANISATION_AGENT` |
 |--------|:---:|:---:|:---:|
@@ -192,7 +274,7 @@ Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 | Réinitialiser mot de passe | Tous les rôles | `ROLE_ORGANISATION_AGENT` uniquement | ❌ |
 | Voir les rôles disponibles | ✅ | ✅ | ❌ |
 
-### 4.4 API Endpoints
+### 5.4 API Endpoints
 
 Tous les endpoints sont préfixés par `/api/v1/users/`.
 
@@ -214,9 +296,9 @@ Tous les endpoints sont préfixés par `/api/v1/users/`.
 - Un `ROLE_APP_ADMIN` voit tous les utilisateurs de la plateforme.
 - Les `ROLE_ORGANISATION_AGENT` n'ont pas accès à ces endpoints.
 
-### 4.5 Composants frontend
+### 5.5 Composants frontend
 
-#### 4.5.1 Architecture des fichiers
+#### 5.5.1 Architecture des fichiers
 
 ```
 frontend/src/app/
@@ -244,7 +326,7 @@ frontend/src/app/
                 └── roles-permissions.component.scss
 ```
 
-#### 4.5.2 UserListComponent
+#### 5.5.2 UserListComponent
 
 Page `/admin/utilisateurs/liste` — reprend le patron de `OrganizationListComponent` :
 
@@ -262,7 +344,7 @@ Page `/admin/utilisateurs/liste` — reprend le patron de `OrganizationListCompo
 - **Confirmation suppression** : soft-delete avec message
 - **Menu contextuel** (clic droit) : voir détails, modifier, supprimer, réinitialiser MDP
 
-#### 4.5.3 UserDetailComponent
+#### 5.5.3 UserDetailComponent
 
 Formulaire complet avec sections :
 
@@ -271,17 +353,17 @@ Formulaire complet avec sections :
 3. **Statut & Sécurité** : booléen actif/inactif, date dernière connexion, date changement MDP
 4. **Actions administratives** : bouton "Réinitialiser le mot de passe" (génère un MDP temporaire + option "forcer changement"), bouton "Désactiver/Activer" avec confirmation
 
-#### 4.5.4 RolesPermissionsComponent
+#### 5.5.4 RolesPermissionsComponent
 
 Page `/admin/utilisateurs/roles` — page d'information et de gestion :
 
 - **Cartes des rôles** : 3 profils (ROLE_APP_ADMIN, ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT) avec description, permissions associées, nombre d'utilisateurs
-- **Tableau récapitulatif** : matrice rôles × permissions (comme la section 4.3 ci-dessus)
+- **Tableau récapitulatif** : matrice rôles × permissions (comme la section 5.3 ci-dessus)
 - **Assignation** : possibilité de modifier le rôle d'un utilisateur directement depuis cette page
 
-### 4.6 Mise à jour du routeur et du menu
+### 5.6 Mise à jour du routeur et du menu
 
-#### 4.6.1 Routes à ajouter
+#### 5.6.1 Routes à ajouter
 
 Dans `app-routing.module.ts`, sous le path `admin` :
 
@@ -292,7 +374,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 { path: 'utilisateurs/roles', component: RolesPermissionsComponent, data: { title: 'Rôles & Permissions' } },
 ```
 
-### 4.7 Tâches d'implémentation
+### 5.7 Tâches d'implémentation
 
 #### Phase 3.1 — Backend : Modèle et migration
 
@@ -347,7 +429,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 - Mettre à jour `app-routing.module.ts` avec les nouvelles routes
 - Mettre à jour le breadcrumb mapper si nécessaire
 
-### 4.8 Tests
+### 5.8 Tests
 
 - Tests unitaires backend pour chaque endpoint (DRF `APITestCase`)
 - Tests d'authentification et de permission (chaque endpoint testé avec chaque profil)
@@ -356,7 +438,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 
 ---
 
-## 5. Phases ultérieures (aperçu)
+## 6. Phases ultérieures (aperçu)
 
 ### Phase 4 — Invitations des agents (F13)
 
@@ -382,7 +464,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 
 ---
 
-## 6. Glossaire
+## 7. Glossaire
 
 | Terme | Définition |
 |-------|-----------|
