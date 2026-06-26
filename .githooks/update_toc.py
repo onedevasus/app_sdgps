@@ -3,6 +3,7 @@ import re, sys
 from pathlib import Path
 
 DEFAULT_FILE = "docs/plans/PLAN_DEV.md"
+TOC_LINE_RE = re.compile(r"^\s*-\s+\[.+\]\(#.+\)$")
 
 def slugify(text: str) -> str:
     text = text.lower().strip()
@@ -34,18 +35,31 @@ def build_toc(lines: list) -> list:
             continue
         anchor = slugify(title)
         indent = "  " * (level - 1)
-        prefix = "-"
-        toc.append(f"{indent}{prefix} [{title}](#{anchor})")
+        toc.append(f"{indent}- [{title}](#{anchor})")
     return toc
 
-def find_insert_position(lines: list) -> int | None:
+def is_toc_line(line: str) -> bool:
+    return bool(TOC_LINE_RE.match(line))
+
+def remove_orphan_tocs(lines: list) -> list:
+    first_h2 = None
     for i, line in enumerate(lines):
-        if re.match(r"^#\s+\S", line) and line.strip() != "# Sommaire":
-            for j in range(i + 1, len(lines)):
-                if re.match(r"^#\s+\S", lines[j]) and lines[j].strip() != "# Sommaire":
-                    return j
-            return len(lines)
-    return None
+        if re.match(r"^##\s", line):
+            first_h2 = i
+            break
+    if first_h2 is None:
+        return lines
+    in_code_block = False
+    filtered = []
+    for i, line in enumerate(lines):
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            filtered.append(line)
+            continue
+        if not in_code_block and i < first_h2 and is_toc_line(line):
+            continue
+        filtered.append(line)
+    return filtered
 
 def remove_all_tocs(lines: list) -> list:
     return [line for line in lines if not re.match(r"^#+\s+Sommaire\s*$", line)]
@@ -60,18 +74,15 @@ def main():
     text = file_path.read_text(encoding="utf-8")
     lines = text.split("\n")
     lines = remove_all_tocs(lines)
+    lines = remove_orphan_tocs(lines)
 
-    insert_at = find_insert_position(lines)
-    if insert_at is None:
-        print("Cannot find insertion point for Sommaire")
-        sys.exit(1)
-
+    insert_at = 1
     toc_lines = build_toc(lines)
     if not toc_lines:
         print("No headings found for TOC")
         sys.exit(1)
 
-    new_section = ["## Sommaire", ""] + [l for l in toc_lines] + [""]
+    new_section = ["## Sommaire", ""] + toc_lines + [""]
     new_lines = lines[:insert_at] + new_section + lines[insert_at:]
     new_text = "\n".join(new_lines).strip() + "\n"
     file_path.write_text(new_text, encoding="utf-8")
