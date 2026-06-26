@@ -79,9 +79,29 @@ const routes: Routes = [
         data: { title: 'Liste des Organisations' }
       },
       {
+        path: 'organisations/ajouter',
+        component: PlaceholderComponent,
+        data: { title: 'Ajouter une Organisation' }
+      },
+      {
         path: 'utilisateurs',
         component: UserListComponent,
         data: { title: 'Gestion des Utilisateurs' }
+      },
+      {
+        path: 'utilisateurs/liste',
+        component: UserListComponent,
+        data: { title: 'Liste des Utilisateurs' }
+      },
+      {
+        path: 'utilisateurs/invitations',
+        component: PlaceholderComponent,
+        data: { title: 'Invitations' }
+      },
+      {
+        path: 'utilisateurs/roles',
+        component: RolesPermissionsComponent,
+        data: { title: 'Rôles et Permissions' }
       },
       {
         path: 'utilisateurs/:id',
@@ -104,9 +124,29 @@ const routes: Routes = [
         data: { title: 'Supervision Système' }
       },
       {
+        path: 'supervision/health',
+        component: PlaceholderComponent,
+        data: { title: 'Health Check' }
+      },
+      {
+        path: 'supervision/stats',
+        component: PlaceholderComponent,
+        data: { title: 'Statistiques' }
+      },
+      {
         path: 'quotas',
         component: PlaceholderComponent,
         data: { title: 'Gestion des Quotas' }
+      },
+      {
+        path: 'quotas/stockage',
+        component: PlaceholderComponent,
+        data: { title: 'Espace de stockage' }
+      },
+      {
+        path: 'quotas/limites',
+        component: PlaceholderComponent,
+        data: { title: 'Limites projets' }
       },
       {
         path: 'maintenance',

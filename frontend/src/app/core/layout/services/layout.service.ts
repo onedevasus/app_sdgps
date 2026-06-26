@@ -37,7 +37,7 @@ export class LayoutService {
    * Définir le menu selon le rôle de l'utilisateur
    */
   setMenuByRole(role: string): void {
-    const isAdmin = role === 'superadmin' || role === 'admin' || role === 'ROLE_APP_ADMIN';
+    const isAdmin = role === 'ROLE_SUPER_ADMIN' || role === 'ROLE_APP_ADMIN' || role === 'ROLE_ORGANISATION_ADMIN';
     const menu = isAdmin ? ADMIN_MENU : USER_MENU;
     this.menuItemsSubject.next(menu);
     

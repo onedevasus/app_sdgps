@@ -28,8 +28,12 @@ class RegisterView(APIView):
                 
                 # Générer un token JWT
                 refresh = RefreshToken.for_user(user)
+                # Ajouter les claims personnalisés au token
+                refresh['platform_role'] = user.platform_role or ''
+                refresh['role'] = user.get_primary_role()
+                refresh['is_superuser'] = user.is_superuser
                 access_token = str(refresh.access_token)
-                
+
                 return Response({
                     'token': access_token,
                     'user': {
@@ -37,6 +41,7 @@ class RegisterView(APIView):
                         'email': user.email,
                         'first_name': user.first_name,
                         'last_name': user.last_name,
+                        'nom_societe': user.nom_societe
                     }
                 }, status=status.HTTP_201_CREATED)
             
@@ -107,6 +112,10 @@ class LoginView(APIView):
                 if authenticated_user is not None:
                     # Mot de passe correct - Générer un token JWT
                     refresh = RefreshToken.for_user(authenticated_user)
+                    # Ajouter les claims personnalisés au token
+                    refresh['platform_role'] = authenticated_user.platform_role or ''
+                    refresh['role'] = authenticated_user.get_primary_role()
+                    refresh['is_superuser'] = authenticated_user.is_superuser
                     access_token = str(refresh.access_token)
                     
                     # Mettre à jour la date de dernière connexion
@@ -120,6 +129,7 @@ class LoginView(APIView):
                             'email': authenticated_user.email,
                             'first_name': authenticated_user.first_name,
                             'last_name': authenticated_user.last_name,
+                            'nom_societe': authenticated_user.nom_societe
                         }
                     }, status=status.HTTP_200_OK)
                 else:
@@ -353,8 +363,6 @@ class UserProfileView(APIView):
             'email': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'is_superuser': user.is_superuser,
-            'role': user.get_primary_role(),
             'must_change_password': getattr(user, 'must_change_password', False),
             'password_changed_at': getattr(user, 'password_changed_at', None)
         }, status=status.HTTP_200_OK)

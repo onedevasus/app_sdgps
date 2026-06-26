@@ -17,9 +17,20 @@ User = get_user_model()
 
 ROLES_CONFIG = [
     {
+        'id': 'ROLE_SUPER_ADMIN',
+        'name': 'Super Admin',
+        'description': 'Super administrateur technique avec accès complet à toute la plateforme.',
+        'permissions': [
+            'Accès complet à tous les modules',
+            'Gérer les administrateurs d\'application',
+            'Configuration système et supervision',
+            'Audit et logs complets',
+        ],
+    },
+    {
         'id': 'ROLE_APP_ADMIN',
-        'name': 'Administrateur de l\'application',
-        'description': 'Accès complet à toute la plateforme. Gère les utilisateurs, organisations, configuration système et supervision.',
+        'name': 'Admin App',
+        'description': 'Administrateur d\'application. Gère les utilisateurs, organisations, configuration système et supervision.',
         'permissions': [
             'Voir tous les utilisateurs',
             'Créer/Modifier/Supprimer tout utilisateur',
@@ -57,7 +68,7 @@ ROLES_CONFIG = [
 
 
 def get_user_queryset_for_admin(admin_user):
-    if admin_user.is_superuser:
+    if admin_user.is_superuser or admin_user.is_platform_admin():
         return User.objects.filter(is_deleted=False)
     org_memberships = admin_user.memberships.filter(
         is_active=True,
@@ -74,8 +85,14 @@ def get_user_queryset_for_admin(admin_user):
 def can_manage_user(admin_user, target_user):
     if admin_user.is_superuser:
         return True, None
+    if admin_user.is_platform_admin():
+        if target_user.is_superuser:
+            return False, "Vous ne pouvez pas gérer un super administrateur."
+        return True, None
     if target_user.is_superuser:
-        return False, "Vous ne pouvez pas gérer un administrateur de l'application."
+        return False, "Vous ne pouvez pas gérer un super administrateur."
+    if target_user.is_platform_admin():
+        return False, "Vous ne pouvez pas gérer un administrateur d'application."
     admin_org_ids = set(
         admin_user.memberships.filter(
             is_active=True,
@@ -106,7 +123,7 @@ class UserListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if not (user.is_superuser or user.memberships.filter(
+        if not (user.is_superuser or user.is_platform_admin() or user.memberships.filter(
             is_active=True,
             role='ROLE_ORGANISATION_ADMIN',
         ).exists()):
@@ -124,8 +141,10 @@ class UserListView(generics.ListCreateAPIView):
 
         role = self.request.query_params.get('role', None)
         if role:
+            if role == 'ROLE_SUPER_ADMIN':
+                return User.objects.filter(is_superuser=True, is_deleted=False)
             if role == 'ROLE_APP_ADMIN':
-                return User.objects.filter(is_superuser=True)
+                return User.objects.filter(platform_role='ROLE_APP_ADMIN', is_deleted=False)
             queryset = queryset.filter(memberships__role=role)
 
         is_active = self.request.query_params.get('is_active', None)
@@ -245,7 +264,7 @@ class RolesListView(APIView):
 
     def get(self, request):
         user = request.user
-        if not (user.is_superuser or user.memberships.filter(
+        if not (user.is_superuser or user.is_platform_admin() or user.memberships.filter(
             is_active=True,
             role='ROLE_ORGANISATION_ADMIN',
         ).exists()):
@@ -257,8 +276,10 @@ class RolesListView(APIView):
         roles_data = []
         for role_config in ROLES_CONFIG:
             role_id = role_config['id']
-            if role_id == 'ROLE_APP_ADMIN':
+            if role_id == 'ROLE_SUPER_ADMIN':
                 count = User.objects.filter(is_superuser=True, is_deleted=False).count()
+            elif role_id == 'ROLE_APP_ADMIN':
+                count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_deleted=False).count()
             else:
                 count = User.objects.filter(
                     memberships__role=role_id,

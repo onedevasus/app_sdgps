@@ -18,6 +18,7 @@ export class RolesPermissionsComponent implements OnInit, OnDestroy {
   selectedRole: RoleInfo | null = null;
 
   readonly roleIcons: Record<string, string> = {
+    ROLE_SUPER_ADMIN: 'fa-skull',
     ROLE_APP_ADMIN: 'fa-crown',
     ROLE_ORGANISATION_ADMIN: 'fa-user-tie',
     ROLE_ORGANISATION_AGENT: 'fa-user',
@@ -61,6 +62,7 @@ export class RolesPermissionsComponent implements OnInit, OnDestroy {
 
   getRoleBadgeClass(roleId: string): string {
     switch (roleId) {
+      case 'ROLE_SUPER_ADMIN': return 'badge-super-admin';
       case 'ROLE_APP_ADMIN': return 'badge-admin';
       case 'ROLE_ORGANISATION_ADMIN': return 'badge-org-admin';
       case 'ROLE_ORGANISATION_AGENT': return 'badge-agent';
@@ -70,6 +72,7 @@ export class RolesPermissionsComponent implements OnInit, OnDestroy {
 
   getRoleCardClass(roleId: string): string {
     switch (roleId) {
+      case 'ROLE_SUPER_ADMIN': return 'role-super-admin';
       case 'ROLE_APP_ADMIN': return 'role-admin';
       case 'ROLE_ORGANISATION_ADMIN': return 'role-org-admin';
       case 'ROLE_ORGANISATION_AGENT': return 'role-agent';

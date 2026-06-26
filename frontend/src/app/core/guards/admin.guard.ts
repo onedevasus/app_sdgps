@@ -28,7 +28,7 @@ export class AdminGuard implements CanActivate {
     // Dans la réalité, utilisez jwt-decode ou appelez l'API
     const userRole = this.getUserRoleFromToken(token);
     
-    if (userRole !== 'superadmin' && userRole !== 'admin') {
+    if (userRole !== 'ROLE_SUPER_ADMIN' && userRole !== 'ROLE_APP_ADMIN' && userRole !== 'ROLE_ORGANISATION_ADMIN') {
       // Utilisateur non autorisé
       console.warn('⚠️ Accès refusé - Rôle insuffisant:', userRole);
       this.router.navigate(['/dashboard']);
@@ -41,19 +41,13 @@ export class AdminGuard implements CanActivate {
 
   /**
    * Extraire le rôle depuis le token JWT
-   * TODO: Implémenter avec jwt-decode
    */
   private getUserRoleFromToken(token: string): string {
     try {
-      // Simulation - à remplacer par décodage réel du JWT
-      // const decoded: any = jwt_decode(token);
-      // return decoded.role;
-      
-      // Pour l'instant, retournons superadmin pour test
-      return 'superadmin';
-    } catch (error) {
-      console.error('Erreur décodage token:', error);
-      return 'user';
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.platform_role || payload.role || 'ROLE_ORGANISATION_AGENT';
+    } catch {
+      return 'ROLE_ORGANISATION_AGENT';
     }
   }
 }

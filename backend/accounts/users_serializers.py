@@ -17,8 +17,8 @@ class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name',
-            'is_active', 'is_superuser', 'is_deleted',
+            'id', 'email', 'first_name', 'last_name', 'nom_societe',
+            'is_active', 'is_superuser', 'is_deleted', 'platform_role',
             'role', 'role_display', 'organization_name', 'organization_id',
             'last_connection_at', 'password_changed_at',
             'must_change_password', 'date_joined',
@@ -49,8 +49,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name',
-            'is_active', 'is_superuser', 'is_deleted', 'deleted_at',
+            'id', 'email', 'first_name', 'last_name', 'nom_societe',
+            'is_active', 'is_superuser', 'is_deleted', 'deleted_at', 'platform_role',
             'role', 'role_display', 'organization_name', 'organization_id',
             'memberships',
             'last_connection_at', 'password_changed_at',
@@ -87,19 +87,29 @@ class UserDetailSerializer(serializers.ModelSerializer):
         ]
 
 
+class BlankableUUIDField(serializers.UUIDField):
+    """
+    UUIDField that accepts empty strings as None.
+    """
+    def to_internal_value(self, data):
+        if data == '':
+            return None
+        return super().to_internal_value(data)
+
+
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     role = serializers.ChoiceField(
-        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT'],
+        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT', 'ROLE_APP_ADMIN'],
         default='ROLE_ORGANISATION_AGENT'
     )
-    organization_id = serializers.UUIDField(required=True)
+    organization_id = BlankableUUIDField(required=False, allow_null=True)
     must_change_password = serializers.BooleanField(default=True)
 
     class Meta:
         model = User
         fields = [
-            'email', 'first_name', 'last_name',
+            'email', 'first_name', 'last_name', 'nom_societe',
             'password', 'role', 'organization_id', 'must_change_password',
         ]
 
@@ -108,15 +118,33 @@ class UserCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cet email est déjà utilisé.")
         return value
 
+    def validate_role(self, value):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            if request.user.is_superuser:
+                return value
+            if value == 'ROLE_APP_ADMIN':
+                raise serializers.ValidationError(
+                    "Seul un Super Admin peut créer un compte Admin App."
+                )
+        return value
+
     def validate_organization_id(self, value):
+        role = self.initial_data.get('role', 'ROLE_ORGANISATION_AGENT')
+        if role == 'ROLE_APP_ADMIN':
+            return None
+        if not value:
+            raise serializers.ValidationError("Ce champ est obligatoire.")
         if not Organization.objects.filter(id=value, is_active=True, is_deleted=False).exists():
             raise serializers.ValidationError("L'organisation spécifiée n'existe pas.")
         return value
 
     def create(self, validated_data):
         role = validated_data.pop('role')
-        organization_id = validated_data.pop('organization_id')
+        organization_id = validated_data.pop('organization_id', None)
         must_change_password = validated_data.pop('must_change_password', True)
+
+        is_app_admin = role == 'ROLE_APP_ADMIN'
 
         user = User.objects.create_user(
             username=validated_data['email'],
@@ -124,31 +152,34 @@ class UserCreateSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
+            nom_societe=validated_data.get('nom_societe', ''),
             is_superuser=False,
+            platform_role='ROLE_APP_ADMIN' if is_app_admin else None,
             must_change_password=must_change_password,
         )
 
-        organization = Organization.objects.get(id=organization_id)
-        Membership.objects.create(
-            user=user,
-            organization=organization,
-            role=role,
-        )
+        if organization_id and not is_app_admin:
+            organization = Organization.objects.get(id=organization_id)
+            Membership.objects.create(
+                user=user,
+                organization=organization,
+                role=role,
+            )
 
         return user
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(
-        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT'],
+        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT', 'ROLE_APP_ADMIN'],
         required=False
     )
-    organization_id = serializers.UUIDField(required=False)
+    organization_id = BlankableUUIDField(required=False, allow_null=True)
 
     class Meta:
         model = User
         fields = [
-            'first_name', 'last_name',
+            'first_name', 'last_name', 'nom_societe',
             'is_active', 'role', 'organization_id',
         ]
 
@@ -159,6 +190,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
+        is_app_admin = role == 'ROLE_APP_ADMIN'
+
+        if is_app_admin:
+            instance.platform_role = 'ROLE_APP_ADMIN'
+        elif role and instance.platform_role and role != 'ROLE_APP_ADMIN':
+            instance.platform_role = None
+
         if organization_id:
             organization = Organization.objects.get(id=organization_id)
             membership, created = Membership.objects.get_or_create(
@@ -167,11 +205,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 defaults={'role': role or 'ROLE_ORGANISATION_AGENT', 'is_active': True},
             )
             if not created:
-                if role:
+                if role and not is_app_admin:
                     membership.role = role
                 membership.is_active = True
                 membership.save()
-        elif role:
+        elif role and not is_app_admin:
             membership = instance.memberships.filter(is_active=True).first()
             if membership:
                 membership.role = role

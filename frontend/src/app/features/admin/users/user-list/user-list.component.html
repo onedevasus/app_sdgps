@@ -68,7 +68,8 @@
     <div class="filters-line">
       <select class="filter-select" [value]="selectedRole" (change)="onRoleFilterChange($event)">
         <option value="">Tous les rôles</option>
-        <option value="ROLE_APP_ADMIN">Administrateur</option>
+        <option value="ROLE_SUPER_ADMIN">Super Admin</option>
+        <option value="ROLE_APP_ADMIN">Admin App</option>
         <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
         <option value="ROLE_ORGANISATION_AGENT">Agent</option>
       </select>

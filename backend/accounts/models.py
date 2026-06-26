@@ -241,7 +241,20 @@ class CustomUser(AbstractUser):
     
     # Champ personnalisé : Nom de société
     nom_societe = models.CharField(max_length=200, blank=True)
-    
+
+    # Champ pour rôle plateforme (Admin App)
+    PLATFORM_ROLE_CHOICES = [
+        ('ROLE_APP_ADMIN', 'Admin App'),
+    ]
+    platform_role = models.CharField(
+        max_length=30,
+        choices=PLATFORM_ROLE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Rôle plateforme",
+        help_text="Rôle global sur la plateforme (hors organisations). ROLE_ADMIN_PLATEFORME pour les admins d'application."
+    )
+
     # Email comme identifiant principal (au lieu de username)
     email = models.EmailField(unique=True, verbose_name="Adresse email")
     USERNAME_FIELD = 'email'
@@ -360,12 +373,20 @@ class CustomUser(AbstractUser):
         self.last_connection_at = timezone.now()
         self.save(update_fields=['last_connection_at'])
     
+    def is_platform_admin(self):
+        return bool(self.platform_role == 'ROLE_APP_ADMIN')
+
+    def is_super_admin(self):
+        return self.is_superuser
+
     def get_primary_role(self):
         """
         Retourne le rôle principal de l'utilisateur.
-        Pour le Super Admin, retourne 'ROLE_APP_ADMIN'.
+        Hiérarchie : Super Admin > Admin App > Admin Org > Agent.
         """
         if self.is_superuser:
+            return 'ROLE_SUPER_ADMIN'
+        if self.is_platform_admin():
             return 'ROLE_APP_ADMIN'
 
         membership = self.memberships.filter(is_active=True).order_by('joined_at').first()
@@ -380,8 +401,9 @@ class CustomUser(AbstractUser):
         """
         role = self.get_primary_role()
         role_map = {
-            'ROLE_APP_ADMIN': 'Administrateur de l\'application',
-            'ROLE_ORGANISATION_ADMIN': 'Responsable Admin',
+            'ROLE_SUPER_ADMIN': 'Super Admin',
+            'ROLE_APP_ADMIN': 'Admin App',
+            'ROLE_ORGANISATION_ADMIN': 'Admin Org',
             'ROLE_ORGANISATION_AGENT': 'Agent',
         }
         return role_map.get(role, role.replace('_', ' ').title())

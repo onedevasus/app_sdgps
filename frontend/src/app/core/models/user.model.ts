@@ -1,4 +1,4 @@
-export type UserRole = 'ROLE_APP_ADMIN' | 'ROLE_ORGANISATION_ADMIN' | 'ROLE_ORGANISATION_AGENT';
+export type UserRole = 'ROLE_SUPER_ADMIN' | 'ROLE_APP_ADMIN' | 'ROLE_ORGANISATION_ADMIN' | 'ROLE_ORGANISATION_AGENT';
 
 export interface User {
   id: string;
