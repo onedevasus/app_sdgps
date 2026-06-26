@@ -2,6 +2,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -12,7 +14,8 @@
     - [synchronisation depot local avec depot distant](#synchronisation-depot-local-avec-depot-distant)
     - [Structure des branches dans local et dans depot distant](#structure-des-branches-dans-local-et-dans-depot-distant)
     - [Creation des branches de fonctionnalite](#creation-des-branches-de-fonctionnalite)
-    - [commandes pour controller le watcher.](#commandes-pour-controller-le-watcher)
+    - [Prompte pour commit des modifs et synchronisation avec depot distant configure](#prompte-pour-commit-des-modifs-et-synchronisation-avec-depot-distant-configure)
+    - [promptes opencode + commandes pour controller le watcher.](#promptes-opencode-commandes-pour-controller-le-watcher)
   - [Teste de la version actuelle de l'app](#teste-de-la-version-actuelle-de-lapp)
     - [Identifiants des utilisateurs de tests](#identifiants-des-utilisateurs-de-tests)
     - [Prompte redemarrage serveurs backend + frontend](#prompte-redemarrage-serveurs-backend-frontend)
@@ -39,8 +42,8 @@
 ## Phase : configuration du depot git local + distant
 ### Compte Github pour git + Github API token 
     Configurer le compte suivant spécifiquement pour ce dépôt uniquement. Les infos du compte git sont les suivantes: 
-	email : "120096166+blmerio2022@users.noreply.github.com"
-	name : "blmerio2022"
+	  email : "120096166+blmerio2022@users.noreply.github.com"
+	  name : "blmerio2022"
     Github token compte Blmerio2022: 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
 ### synchronisation depot local avec depot distant
 synchronise ce depot local avec depot distant : https://github.com/blmerio2022/app_sdgps en utilisant ce compte
@@ -52,13 +55,12 @@ ajoute en local et dans depot distant une branche "develop" et l'activer par def
 
 Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour cette branche) et mettre cette branche comme active en local et dans le depot distant
 
-----------------------------------
+### Prompte pour commit des modifs et synchronisation avec depot distant configure
 
-commit changes dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app
+commit les changements dans la branche locale active et synchronise ces commits  avec le dépôt distant global de l'app
 
 
-### commandes pour controller le watcher.
-
+### promptes opencode + commandes pour controller le watcher.
 
 LANCER le watcher
 Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -File `"$pwd\.githooks\auto-save-watcher.ps1`""
