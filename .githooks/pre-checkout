@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# pre-checkout hook: auto-commit uncommitted changes before any checkout/switch
+# Protects against losing work when OpenCode switches modes (plan<->build)
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+if git diff --quiet HEAD 2>/dev/null && git diff --cached --quiet HEAD 2>/dev/null; then
+  exit 0
+fi
+
+git add -A
+git commit -m "wip: auto-save before checkout [$(date '+%Y-%m-%d %H:%M')]"
