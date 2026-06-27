@@ -56,6 +56,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -466,7 +470,6 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
     - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite qu'un superadmin de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
-
 
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
   - Protege les dits utilisateurs de l'auto-edition (possibilite qu'un superadmin edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend. ===> ce n'est pas une bonne maniere de faire. voici pourquoi : 

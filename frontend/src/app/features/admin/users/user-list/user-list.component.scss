@@ -1783,24 +1783,41 @@
         i { font-size: 12px; }
       }
 
-      .static-field-value {
-        font-size: 14px;
-        color: var(--text-muted);
-        background: var(--bg-subtle, #f5f6fa);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 10px 12px;
-        margin: 6px 0 0;
+      .platform-field {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
+        margin: 6px 0 0;
+        min-height: 42px;
 
-        i { font-size: 14px; color: var(--accent-color, #3498db); }
-
-        .field-hint {
+        .platform-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 14px;
           font-size: 12px;
+          font-weight: 500;
+          color: #7f8c8d;
+          background: rgba(149, 165, 166, 0.1);
+          border: 1px solid rgba(149, 165, 166, 0.25);
+          border-radius: 20px;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+          transition: all 0.2s;
+
+          i {
+            font-size: 11px;
+            color: #95a5a6;
+            opacity: 0.8;
+          }
+        }
+
+        .platform-hint {
+          font-size: 11px;
           color: var(--text-muted);
-          opacity: 0.7;
+          opacity: 0.5;
+          font-style: italic;
+          letter-spacing: 0.02em;
         }
       }
 
