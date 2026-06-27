@@ -6,80 +6,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -118,7 +44,7 @@
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
         - [Controle toutes les fonctionnalite de la page](#controle-toutes-les-fonctionnalite-de-la-page)
         - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
-        - [Protection des superadmins](#protection-des-superadmins)
+        - [Protection des superadmins (role : ROLE_SUPER_ADMIN)](#protection-des-superadmins-role-rolesuperadmin)
         - [Protection des admins systeme (Role : ROLE_APP_ADMIN)](#protection-des-admins-systeme-role-roleappadmin)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
@@ -129,9 +55,9 @@
   - gestion des utilisateurs
     - correction + refonte frontend tableau de la liste des utilisateurs.
     - tester toutes les fonctionnalites du tableau
-    - tester les roles
+    - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs
 
-    - tests backend + frontend de la gestion des utilisateurs
+    - implementer les tests backend + frontend de la gestion des utilisateurs
   - gestion des projets/proprietes/affaires/ssd-gps
     - gestion des ssd-gps mono-session
     - gestion des ssd-gps multi-sessions
@@ -465,7 +391,7 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
 
   - Ajoute une section dans docs/notes/Notes.md apres section "Taches a faire" qui va contenir tous les roles definies dans l'app avec leurs noms backend et frontend et une explication de chaque role.
 
-##### Protection des superadmins
+##### Protection des superadmins (role : ROLE_SUPER_ADMIN)
 
 Quelles sont les protectioms implementees actuellement dans l'app pour le role : ROLE_SUPER_ADMIN.
 
@@ -505,11 +431,48 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 
 Quelles sont les protections implementees actuellement dans l'app pour le role : ROLE_APP_ADMIN.
 
+Quelles protections propose tu a jouter pour le rôle ROLE_APP_ADMIN, en suivant les bonnes manieres de dev.
 
-  - Implemente les protection suivantes sur les comptes utilisateurs des superadmins : 
-    - Empêcher un super admin de se désactiver/supprimer/modifier lui-même
-    - Empêcher la désactivation/suppression du dernier super admin actif (garantie de non-lockout)
-    - Logger toutes les modifications touchant un super admin
+Protection contre : 
+- auto-desactivation / auto-suppresion / 
+- auto-changement de rôle / auto-reset du MDP
+- Modifier/supprimer un autre App Admin
+- Empêcher suppression/désactivation du dernier App Admin
+- is_superuser read-only
+- 
+
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
+  - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un utilisateur avec role ROLE_APP_ADMIN de desactiver lui meme) via backend et frontend.
+
+
+
+
+
+
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
+  - Protege les dits utilisateurs de l'auto-suppresion (possibilite que a un utilisateur avec role ROLE_APP_ADMIN de supprime lui meme) . la protection doit etre effectuee au niveau du backend et frontend. le frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
+  - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite que a un utilisateur avec role ROLE_APP_ADMIN de change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
+    - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite que a un utilisateur avec role ROLE_APP_ADMIN de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
+  - Protege les dits utilisateurs de l'auto-edition (possibilite  que a un utilisateur avec role ROLE_APP_ADMIN d'edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend. ===> ce n'est pas une bonne maniere de faire. voici pourquoi : 
+      - Aucun risque de sécurité : changer son prénom/nom n'est pas une escalade de privilèges
+    - Expérience utilisateur dégradée : un App admin ne pourrait pas corriger une faute dans son propre nom sans appeler quelqu'un d'autre
+    - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
+    
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
+- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (  que a un utilisateur avec role ROLE_APP_ADMIN de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
+
+
+
+
+
 
 
 

@@ -1051,7 +1051,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (formVal.first_name !== this.editUser.first_name) payload.first_name = formVal.first_name;
     if (formVal.last_name !== this.editUser.last_name) payload.last_name = formVal.last_name;
     if (formVal.is_active !== this.editUser.is_active) payload.is_active = formVal.is_active;
-    if (!this.editUser.is_superuser && formVal.role !== this.editUser.role) payload.role = formVal.role;
+    if (!this.editUser.is_superuser && !this.isCurrentUser(this.editUser) && formVal.role !== this.editUser.role) payload.role = formVal.role;
     if (formVal.organization_id !== (this.editUser.organization_id || '')) payload.organization_id = formVal.organization_id;
 
     this.userService.updateUser(this.editUser.id, payload).pipe(takeUntil(this.destroy$)).subscribe({
@@ -1235,6 +1235,83 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.users
       .filter(u => this.selectedIds.has(String(u.id)) && u.is_superuser && u.is_active && !u.is_deleted)
       .map(u => String(u.id));
+  }
+
+  get activeAppAdminCount(): number {
+    return this.users.filter(u => u.role === 'ROLE_APP_ADMIN' && u.is_active && !u.is_deleted).length;
+  }
+
+  isCriticalAppAdmin(user: User): boolean {
+    return user.role === 'ROLE_APP_ADMIN' && user.is_active && !user.is_deleted && this.activeAppAdminCount <= 2;
+  }
+
+  get criticalAppAdminSelectedIds(): string[] {
+    return this.users
+      .filter(u => this.selectedIds.has(String(u.id)) && u.role === 'ROLE_APP_ADMIN' && u.is_active && !u.is_deleted)
+      .map(u => String(u.id));
+  }
+
+  get criticalAppAdminSelectedCount(): number {
+    return this.criticalAppAdminSelectedIds.length;
+  }
+
+  get currentUserRole(): string {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return 'ROLE_ORGANISATION_AGENT';
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.platform_role || payload.role || 'ROLE_ORGANISATION_AGENT';
+    } catch {
+      return 'ROLE_ORGANISATION_AGENT';
+    }
+  }
+
+  isAppAdmin(user: User): boolean {
+    return user.role === 'ROLE_APP_ADMIN';
+  }
+
+  /** Empêcher un App Admin de gérer un autre App Admin (y compris lui-même) */
+  isBlockedForAppAdmin(user: User): boolean {
+    return this.currentUserRole === 'ROLE_APP_ADMIN' && this.isAppAdmin(user);
+  }
+
+  isActionDisabled(user: User): boolean {
+    return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || user.is_deleted;
+  }
+
+  isToggleDeleteDisabled(user: User): boolean {
+    return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user) || user.is_deleted;
+  }
+
+  actionTitle(user: User, action: 'edit' | 'reset' | 'toggle' | 'delete'): string {
+    if (user.is_deleted) return 'Compte supprimé';
+    if (this.isBlockedForAppAdmin(user)) {
+      if (this.isCurrentUser(user)) {
+        const msgs: Record<string, string> = {
+          edit: 'Vous ne pouvez pas modifier votre propre compte',
+          reset: 'Vous ne pouvez pas réinitialiser votre propre mot de passe',
+          toggle: 'Vous ne pouvez pas modifier votre statut',
+          delete: 'Vous ne pouvez pas vous supprimer',
+        };
+        return msgs[action];
+      }
+      return 'Seul un Super Admin peut gérer un Admin Système';
+    }
+    if (this.isCurrentUser(user)) {
+      const msgs: Record<string, string> = {
+        edit: 'Vous ne pouvez pas modifier votre propre compte',
+        reset: 'Vous ne pouvez pas réinitialiser votre propre mot de passe',
+        toggle: 'Vous ne pouvez pas vous désactiver',
+        delete: 'Vous ne pouvez pas vous supprimer',
+      };
+      return msgs[action];
+    }
+    if (action === 'toggle' && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
+    if (action === 'delete' && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
+    if (action === 'toggle' && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
+    if (action === 'delete' && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
+    const labels: Record<string, string> = { edit: 'Modifier', reset: 'Réinitialiser le mot de passe', toggle: user.is_active ? 'Désactiver' : 'Activer', delete: 'Supprimer' };
+    return labels[action];
   }
 
   get criticalSuperAdminSelectedCount(): number {

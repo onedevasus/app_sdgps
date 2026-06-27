@@ -190,6 +190,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Seul un Super Admin peut attribuer le rôle Admin Système."
                 )
+            if self.instance and self.instance.pk == request.user.pk:
+                if request.user.is_superuser or request.user.is_platform_admin():
+                    if value != self.instance.get_primary_role():
+                        raise serializers.ValidationError(
+                            "Vous ne pouvez pas modifier votre propre rôle."
+                        )
         return value
 
     def update(self, instance, validated_data):
@@ -208,6 +214,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                         {'is_active': 'Utilisez l\'action Désactiver/Activer pour modifier le statut d\'un super administrateur.'}
                     )
             organization_id = None  # Les super admins n'ont pas d'organisation
+
+        if instance.is_platform_admin():
+            if role is not None:
+                request = self.context.get('request')
+                if request and request.user.pk == instance.pk:
+                    raise serializers.ValidationError(
+                        {'role': 'Vous ne pouvez pas modifier votre propre rôle.'}
+                    )
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

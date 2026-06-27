@@ -91,6 +91,8 @@ def can_manage_user(admin_user, target_user):
     if admin_user.is_platform_admin():
         if target_user.is_superuser:
             return False, "Vous ne pouvez pas gérer un super administrateur."
+        if target_user.is_platform_admin() and admin_user.pk != target_user.pk:
+            return False, "Vous ne pouvez pas gérer un autre administrateur d'application."
         return True, None
     if target_user.is_superuser:
         return False, "Vous ne pouvez pas gérer un super administrateur."
@@ -208,6 +210,15 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied('Impossible de supprimer le dernier super administrateur actif.')
 
+        if instance.is_platform_admin():
+            if instance.pk == self.request.user.pk:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('Vous ne pouvez pas supprimer votre propre compte administrateur système.')
+            active_app_admin_count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_active=True, is_deleted=False).count()
+            if active_app_admin_count <= 1:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('Impossible de supprimer le dernier administrateur système actif.')
+
         instance.is_deleted = True
         instance.deleted_at = timezone.now()
         instance.is_active = False
@@ -237,6 +248,22 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         f"via PATCH: {instance.email} par {self.request.user.email}"
                     )
 
+        if instance.is_platform_admin():
+            if 'is_active' in validated_data:
+                if validated_data['is_active'] != instance.is_active:
+                    if instance.pk == self.request.user.pk:
+                        from rest_framework.exceptions import PermissionDenied
+                        raise PermissionDenied('Vous ne pouvez pas désactiver votre propre compte administrateur système.')
+                    if instance.is_active:
+                        active_app_admin_count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_active=True, is_deleted=False).count()
+                        if active_app_admin_count <= 1:
+                            from rest_framework.exceptions import PermissionDenied
+                            raise PermissionDenied('Impossible de désactiver le dernier administrateur système actif.')
+                    logger.warning(
+                        f"Admin système {'désactivé' if not validated_data['is_active'] else 'activé'} "
+                        f"via PATCH: {instance.email} par {self.request.user.email}"
+                    )
+
         serializer.save()
 
         if instance.is_superuser:
@@ -259,7 +286,7 @@ class UserResetPasswordView(APIView):
         if not allowed:
             return Response({'detail': msg}, status=status.HTTP_403_FORBIDDEN)
 
-        if user.is_superuser and user.pk == request.user.pk:
+        if user.pk == request.user.pk and (user.is_superuser or user.is_platform_admin()):
             return Response(
                 {'detail': 'Vous ne pouvez pas réinitialiser votre propre mot de passe via cette interface. Utilisez la page de profil.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -315,6 +342,20 @@ class UserToggleActiveView(APIView):
                 if active_super_count <= 1:
                     return Response(
                         {'detail': 'Impossible de désactiver le dernier super administrateur actif.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+        if user.is_platform_admin():
+            if user.pk == request.user.pk:
+                return Response(
+                    {'detail': 'Vous ne pouvez pas désactiver votre propre compte administrateur système.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            if user.is_active:
+                active_app_admin_count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_active=True, is_deleted=False).count()
+                if active_app_admin_count <= 1:
+                    return Response(
+                        {'detail': 'Impossible de désactiver le dernier administrateur système actif.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
 

@@ -181,16 +181,16 @@
                 <button class="btn-icon" (click)="openDetailModal(user)" title="Voir les détails">
                   <i class="fas fa-eye"></i>
                 </button>
-                <button class="btn-icon" (click)="openEditModal(user)" title="Modifier">
+                <button class="btn-icon" [class.btn-icon-disabled]="isBlockedForAppAdmin(user)" [disabled]="isBlockedForAppAdmin(user)" (click)="!isBlockedForAppAdmin(user) && openEditModal(user)" [title]="actionTitle(user, 'edit')">
                   <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-disabled]="isCurrentUser(user) || user.is_deleted" [disabled]="isCurrentUser(user) || user.is_deleted" (click)="!isCurrentUser(user) && !user.is_deleted && openResetPasswordModal(user)" title="{{ user.is_deleted ? 'Compte supprimé' : (isCurrentUser(user) ? 'Vous ne pouvez pas réinitialiser votre propre mot de passe' : 'Réinitialiser le mot de passe') }}">
+                <button class="btn-icon" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openResetPasswordModal(user)" [title]="actionTitle(user, 'reset')">
                   <i class="fas fa-key"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user) || user.is_deleted" [disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user) || user.is_deleted" (click)="!isCurrentUser(user) && !isCriticalSuperAdmin(user) && !user.is_deleted && openToggleModal(user)" title="{{ user.is_deleted ? 'Compte supprimé' : (isCurrentUser(user) ? 'Vous ne pouvez pas vous désactiver' : isCriticalSuperAdmin(user) ? 'Impossible : cela laisserait moins de deux super administrateurs actifs' : (user.is_active ? 'Désactiver' : 'Activer')) }}">
+                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openToggleModal(user)" [title]="actionTitle(user, 'toggle')">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
-                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user) || user.is_deleted" [disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user) || user.is_deleted" (click)="!isCurrentUser(user) && !isCriticalSuperAdmin(user) && !user.is_deleted && openDeleteModal(user)" title="{{ user.is_deleted ? 'Compte supprimé' : (isCurrentUser(user) ? 'Vous ne pouvez pas vous supprimer' : isCriticalSuperAdmin(user) ? 'Impossible : cela laisserait moins de deux super administrateurs actifs' : 'Supprimer') }}">
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openDeleteModal(user)" [title]="actionTitle(user, 'delete')">
                   <i class="fas fa-trash"></i>
                 </button>
                 <button class="btn-icon btn-icon-restore" *ngIf="user.is_deleted" (click)="openRestoreModal(user)" title="Restaurer">
@@ -456,20 +456,20 @@
     <i class="fas fa-eye"></i>
     <span>Voir les détails</span>
   </div>
-  <div class="context-menu-item" (click)="openEditFromContext()">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isBlockedForAppAdmin(contextMenuUser)" (click)="contextMenuUser && !isBlockedForAppAdmin(contextMenuUser) && openEditFromContext()">
     <i class="fas fa-edit"></i>
     <span>Modifier</span>
   </div>
-  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && (isCurrentUser(contextMenuUser) || contextMenuUser.is_deleted)" (click)="!isCurrentUser(contextMenuUser!) && !contextMenuUser?.is_deleted && openResetPasswordFromContext()">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isActionDisabled(contextMenuUser)" (click)="contextMenuUser && !isActionDisabled(contextMenuUser) && openResetPasswordFromContext()">
     <i class="fas fa-key"></i>
     <span>Réinitialiser MDP</span>
   </div>
-  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && (isCurrentUser(contextMenuUser) || contextMenuUser.is_deleted)" (click)="!isCurrentUser(contextMenuUser!) && !contextMenuUser?.is_deleted && openToggleFromContext()">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isActionDisabled(contextMenuUser)" (click)="contextMenuUser && !isActionDisabled(contextMenuUser) && openToggleFromContext()">
     <i class="fas" [class.fa-toggle-off]="contextMenuUser?.is_active" [class.fa-toggle-on]="!contextMenuUser?.is_active"></i>
     <span>{{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}</span>
   </div>
-  <div class="context-menu-divider" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted"></div>
-  <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && (isCurrentUser(contextMenuUser) || contextMenuUser.is_deleted)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted" (click)="!isCurrentUser(contextMenuUser!) && !contextMenuUser?.is_deleted && openDeleteFromContext()">
+  <div class="context-menu-divider" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)"></div>
+  <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && isActionDisabled(contextMenuUser)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)" (click)="contextMenuUser && !isActionDisabled(contextMenuUser) && openDeleteFromContext()">
     <i class="fas fa-trash"></i>
     <span>Supprimer</span>
   </div>
@@ -710,9 +710,9 @@
               </label>
               <select id="edit-role" formControlName="role"
                       [class.error]="editForm.get('role')?.invalid && editForm.get('role')?.touched"
-                      [disabled]="!!editUser?.is_superuser"
-                      [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ''">
-                <option value="ROLE_SUPER_ADMIN">Super Admin</option>
+                      [disabled]="!!editUser?.is_superuser || (!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser))"
+                      [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : '')">
+                <option value="ROLE_SUPER_ADMIN" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Super Admin</option>
                 <option value="ROLE_APP_ADMIN">Admin Système</option>
                 <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
                 <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
@@ -723,6 +723,10 @@
               <p class="disabled-note" *ngIf="editUser?.is_superuser">
                 <i class="fas fa-shield-alt"></i>
                 Le rôle d'un super administrateur ne peut pas être modifié.
+              </p>
+              <p class="disabled-note" *ngIf="!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)">
+                <i class="fas fa-shield-alt"></i>
+                Seul un Super Admin peut modifier le rôle d'un Admin Système.
               </p>
             </div>
             <div class="form-group" *ngIf="editUser && !editUser.is_superuser && editUser.role !== 'ROLE_APP_ADMIN'">
@@ -760,8 +764,8 @@
           <div class="form-row">
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
-                <input type="checkbox" formControlName="is_active" [disabled]="!!(editUser && isCurrentUser(editUser))" title="{{ editUser && isCurrentUser(editUser) ? 'Vous ne pouvez pas désactiver votre propre compte' : '' }}">
-                <span class="checkmark" [class.checkmark-disabled]="editUser && isCurrentUser(editUser)"></span>
+                <input type="checkbox" formControlName="is_active" [disabled]="!!(editUser && (isCurrentUser(editUser) || isCriticalAppAdmin(editUser)))" title="{{ editUser && isCurrentUser(editUser) ? 'Vous ne pouvez pas désactiver votre propre compte' : (editUser && isCriticalAppAdmin(editUser) ? 'Impossible : cela laisserait moins de deux administrateurs système actifs' : '') }}">
+                <span class="checkmark" [class.checkmark-disabled]="editUser && (isCurrentUser(editUser) || isCriticalAppAdmin(editUser))"></span>
                 <span class="checkbox-text">
                   <i class="fas fa-check-circle"></i>
                   Compte actif
@@ -956,6 +960,11 @@
             <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
             La suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - 1 }}.
           </p>
+          <p class="super-admin-critical-warning" *ngIf="deleteUser && isCriticalAppAdmin(deleteUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
+            La suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - 1 }}.
+          </p>
         </div>
       </div>
       <div class="delete-warning" *ngIf="isBulkDelete">
@@ -985,6 +994,12 @@
             <strong>Attention :</strong> {{ criticalSuperAdminSelectedCount }} super administrateur(s) actif(s) sélectionné(s).
             La suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - criticalSuperAdminSelectedCount }}.
             Les super admins ne peuvent pas être supprimés s'il en reste moins de deux actifs.
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="criticalAppAdminSelectedCount > 0">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> {{ criticalAppAdminSelectedCount }} administrateur(s) système actif(s) sélectionné(s).
+            La suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - criticalAppAdminSelectedCount }}.
+            Les admins système ne peuvent pas être supprimés s'il en reste moins de deux actifs.
           </p>
         </div>
       </div>
@@ -1038,6 +1053,11 @@
             <i class="fas fa-shield-halved"></i>
             <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
             {{ toggleAction === 'désactiver' ? 'La désactivation réduirait le nombre de super admins actifs à ' + (activeSuperAdminCount - 1) + '.' : '' }}
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="toggleTargetUser && isCriticalAppAdmin(toggleTargetUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
+            {{ toggleAction === 'désactiver' ? 'La désactivation réduirait le nombre d\'admins système actifs à ' + (activeAppAdminCount - 1) + '.' : '' }}
           </p>
         </div>
       </div>
