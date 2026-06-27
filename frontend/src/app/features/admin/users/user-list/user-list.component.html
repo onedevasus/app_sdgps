@@ -42,7 +42,7 @@
           <i class="fas fa-columns"></i>
         </button>
 
-        <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0" title="Supprimer la sélection">
+        <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0 || isCurrentUserSelected()" title="{{ isCurrentUserSelected() ? 'Décochez votre compte pour supprimer' : 'Supprimer la sélection' }}">
           <i class="fas fa-trash"></i>
         </button>
       </div>
@@ -86,6 +86,20 @@
     </div>
   </div>
 
+  <!-- Bannière d'avertissement sélection compte courant -->
+  <div class="selection-warning-banner" *ngIf="isCurrentUserSelected()">
+    <div class="banner-content">
+      <div class="banner-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="banner-text">
+        <strong>Compte personnel sélectionné</strong>
+        <span>Vous avez sélectionné votre propre compte. Décochez-le pour pouvoir supprimer la sélection.</span>
+      </div>
+      <button class="banner-close" (click)="deselectAll()" title="Tout dé-sélectionner">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
   <!-- Wrapper du tableau -->
   <ng-container *ngIf="!loading; else loadingTpl">
     <div class="table-wrapper">
@@ -109,10 +123,14 @@
           </thead>
           <tbody>
             <tr *ngFor="let user of paginatedUsers"
-                [class.selected]="selectedIds.has(user.id)"
+                [class.selected]="isSelected(user)"
+                [class.row-current-user]="isCurrentUser(user)"
+                [class.row-deleted]="user.is_deleted"
+                [class.row-selected-warning]="isCurrentUser(user) && isSelected(user)"
                 (contextmenu)="onRowRightClick($event, user)">
               <td class="checkbox-col">
-                <input type="checkbox" [checked]="selectedIds.has(user.id)" (change)="toggleSelection(user.id)">
+                <input type="checkbox" [checked]="isSelected(user)" (change)="toggleSelection(user.id)">
+                <i class="fas fa-exclamation-triangle self-warning-icon" *ngIf="isCurrentUser(user) && isSelected(user)" title="Vous ne pouvez pas supprimer votre propre compte"></i>
               </td>
               <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onCellRightClick($event, user, col.field)">
                 <!-- Nom complet -->
@@ -153,6 +171,10 @@
                 </span>
               </td>
               <td class="actions-col">
+                <span class="current-user-badge" *ngIf="isCurrentUser(user)" title="Vous êtes connecté(e)">
+                  <i class="fas fa-user-circle"></i>
+                  Vous
+                </span>
                 <button class="btn-icon" (click)="openDetailModal(user)" title="Voir les détails">
                   <i class="fas fa-eye"></i>
                 </button>
@@ -162,10 +184,10 @@
                 <button class="btn-icon" (click)="openResetPasswordModal(user)" title="Réinitialiser le mot de passe">
                   <i class="fas fa-key"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openToggleModal(user)" title="{{ isCurrentUser(user) ? 'Impossible de désactiver votre propre compte' : (user.is_active ? 'Désactiver' : 'Activer') }}">
+                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openToggleModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous désactiver' : (user.is_active ? 'Désactiver' : 'Activer') }}">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
-                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openDeleteModal(user)" title="{{ isCurrentUser(user) ? 'Impossible de supprimer votre propre compte' : 'Supprimer' }}">
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openDeleteModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous supprimer' : 'Supprimer' }}">
                   <i class="fas fa-trash"></i>
                 </button>
               </td>
@@ -411,8 +433,8 @@
      [style.left.px]="contextMenuPosition.x"
      (click)="$event.stopPropagation()">
   <div class="context-menu-item" (click)="toggleRowSelectionFromContext()">
-    <i class="fas" [class.fa-check-square]="contextMenuUser && selectedIds.has(contextMenuUser.id)" [class.fa-square]="!contextMenuUser || !selectedIds.has(contextMenuUser.id)"></i>
-    <span>{{ contextMenuUser && selectedIds.has(contextMenuUser.id) ? 'Désélectionner cette ligne' : 'Sélectionner cette ligne' }}</span>
+    <i class="fas" [class.fa-check-square]="contextMenuUser && isSelected(contextMenuUser)" [class.fa-square]="!contextMenuUser || !isSelected(contextMenuUser)"></i>
+    <span>{{ contextMenuUser && isSelected(contextMenuUser) ? 'Désélectionner cette ligne' : 'Sélectionner cette ligne' }}</span>
   </div>
   <div class="context-menu-item" (click)="selectAllFromContext()">
     <i class="fas fa-check-double"></i>

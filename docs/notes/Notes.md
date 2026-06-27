@@ -26,6 +26,24 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -413,12 +431,35 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
 
 ##### Protection des superadmins
 
-  - Quelles sont les protectioms implementees actuellement dans l'app pour les deux roles : ROLE_SUPER_ADMIN.
+Quelles sont les protectioms implementees actuellement dans l'app pour les deux roles : ROLE_SUPER_ADMIN.
 
-  - Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
-    - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un superadmin desactiver lui meme) via backend et frontend : via toggle, menu contextuel et check-box statut dans le modal editer.
-    - Protege les dits utilisateurs de l'auto-suppresion (possibilite qu'un superadmin supprime lui meme) via backend et frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
+Protection contre : 
+- auto-desactivation / auto-suppresion / 
+- auto-changement de rôle / auto-reset du MDP
+- Dernier super admin actif
+- is_superuser read-only
+- 
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+  - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un superadmin desactiver lui meme) via backend et frontend : via toggle, menu contextuel et check-box statut dans le modal editer.
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+  - Protege les dits utilisateurs de l'auto-suppresion (possibilite qu'un superadmin supprime lui meme) . la protection doit etre effectuee au niveau du backend et frontend. le frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
+  - Propose une bonne maniere plus intuitive pour proteger les utilisateurs dont role est ROLE_SUPER_ADMIN de la suppression soit  individuel soit groupee via le boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
+  - le boutton supprimer la selection dans la barre des outils du tableau n'est pas desactiver quand le superadmin connecte est inclus dans la selection. le message du tooltip doit etre concis toute en etre claire, montrant a l'utilisateur quoi faire.
+  - Propose une bonne maniere de marquer (faire resortir) le compte actuellement connecte dans le tableau des utilisateurs le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+
+
+
+
     - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite qu'un superadmin change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+    - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite qu'un superadmin reset son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+    - Protege les dits utilisateurs de l'auto-edition (possibilite qu'un superadmin edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+    - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
+
+
 
 
 

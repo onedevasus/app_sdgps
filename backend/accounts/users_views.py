@@ -67,19 +67,22 @@ ROLES_CONFIG = [
 ]
 
 
-def get_user_queryset_for_admin(admin_user):
+def get_user_queryset_for_admin(admin_user, include_deleted=False):
+    base_filter = {} if include_deleted else {'is_deleted': False}
     if admin_user.is_superuser or admin_user.is_platform_admin():
-        return User.objects.filter(is_deleted=False)
+        return User.objects.filter(**base_filter)
     org_memberships = admin_user.memberships.filter(
         is_active=True,
         role='ROLE_ORGANISATION_ADMIN',
     ).values_list('organization_id', flat=True)
-    return User.objects.filter(
-        memberships__organization_id__in=org_memberships,
-        memberships__is_active=True,
-        memberships__role='ROLE_ORGANISATION_AGENT',
-        is_deleted=False,
-    ).distinct()
+    filters = {
+        'memberships__organization_id__in': org_memberships,
+        'memberships__is_active': True,
+        'memberships__role': 'ROLE_ORGANISATION_AGENT',
+    }
+    if not include_deleted:
+        filters['is_deleted'] = False
+    return User.objects.filter(**filters).distinct()
 
 
 def can_manage_user(admin_user, target_user):
@@ -129,7 +132,8 @@ class UserListView(generics.ListCreateAPIView):
         ).exists()):
             return User.objects.none()
 
-        queryset = get_user_queryset_for_admin(user)
+        show_deleted = self.request.query_params.get('show_deleted', '').lower() in ('true', '1', 'yes')
+        queryset = get_user_queryset_for_admin(user, include_deleted=show_deleted)
 
         search = self.request.query_params.get('search', None)
         if search:
@@ -142,9 +146,15 @@ class UserListView(generics.ListCreateAPIView):
         role = self.request.query_params.get('role', None)
         if role:
             if role == 'ROLE_SUPER_ADMIN':
-                return User.objects.filter(is_superuser=True, is_deleted=False)
+                q = User.objects.filter(is_superuser=True)
+                if not show_deleted:
+                    q = q.filter(is_deleted=False)
+                return q
             if role == 'ROLE_APP_ADMIN':
-                return User.objects.filter(platform_role='ROLE_APP_ADMIN', is_deleted=False)
+                q = User.objects.filter(platform_role='ROLE_APP_ADMIN')
+                if not show_deleted:
+                    q = q.filter(is_deleted=False)
+                return q
             queryset = queryset.filter(memberships__role=role)
 
         is_active = self.request.query_params.get('is_active', None)

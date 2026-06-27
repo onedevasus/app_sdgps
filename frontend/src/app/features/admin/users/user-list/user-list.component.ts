@@ -188,7 +188,11 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   loadUsers(): void {
     this.loading = true;
-    this.userService.getUsers().pipe(takeUntil(this.destroy$)).subscribe({
+    const params: any = {};
+    if (this.selectedStatus === 'deleted') {
+      params.show_deleted = true;
+    }
+    this.userService.getUsers(params).pipe(takeUntil(this.destroy$)).subscribe({
       next: (users) => {
         this.users = users;
         this.applyFiltersAndSort();
@@ -275,7 +279,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     let result = [...this.users];
 
     if (this.displayMode === 'selected') {
-      result = result.filter(u => this.selectedIds.has(u.id));
+      result = result.filter(u => this.selectedIds.has(String(u.id)));
     }
 
     if (this.searchText) {
@@ -334,7 +338,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   updatePagination(): void {
     const start = (this.currentPage - 1) * this.pageSize;
     this.paginatedUsers = this.filteredUsers.slice(start, start + this.pageSize);
-    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(u.id));
+    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(String(u.id)));
   }
 
   get totalPages(): number {
@@ -379,8 +383,13 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   onStatusFilterChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
+    const prevStatus = this.selectedStatus;
     this.selectedStatus = select.value;
-    this.applyFiltersAndSort();
+    if (this.selectedStatus === 'deleted' || prevStatus === 'deleted') {
+      this.loadUsers();
+    } else {
+      this.applyFiltersAndSort();
+    }
   }
 
   onOrganizationFilterChange(event: Event): void {
@@ -419,16 +428,17 @@ export class UserListComponent implements OnInit, OnDestroy {
   // ============================================
 
   toggleSelection(id: string): void {
-    if (this.selectedIds.has(id)) {
-      this.selectedIds.delete(id);
+    const idStr = String(id);
+    if (this.selectedIds.has(idStr)) {
+      this.selectedIds.delete(idStr);
     } else {
-      this.selectedIds.add(id);
+      this.selectedIds.add(idStr);
     }
-    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(u.id));
+    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(String(u.id)));
   }
 
   selectAll(): void {
-    this.filteredUsers.forEach(u => this.selectedIds.add(u.id));
+    this.filteredUsers.forEach(u => this.selectedIds.add(String(u.id)));
     this.isAllSelected = true;
   }
 
@@ -447,30 +457,40 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   invertSelection(): void {
     this.paginatedUsers.forEach(u => {
-      if (this.selectedIds.has(u.id)) {
-        this.selectedIds.delete(u.id);
+      const idStr = String(u.id);
+      if (this.selectedIds.has(idStr)) {
+        this.selectedIds.delete(idStr);
       } else {
-        this.selectedIds.add(u.id);
+        this.selectedIds.add(idStr);
       }
     });
-    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(u.id));
+    this.isAllSelected = this.paginatedUsers.length > 0 && this.paginatedUsers.every(u => this.selectedIds.has(String(u.id)));
+  }
+
+  isSelected(user: User): boolean {
+    return this.selectedIds.has(String(user.id));
+  }
+
+  isCurrentUserSelected(): boolean {
+    if (this.currentUserId === null) return false;
+    return this.selectedIds.has(String(this.currentUserId));
   }
 
   moveSelectionToTop(): void {
     if (this.selectedIds.size === 0) return;
-    const selected = this.users.filter(u => this.selectedIds.has(u.id));
-    const notSelected = this.users.filter(u => !this.selectedIds.has(u.id));
+    const selected = this.users.filter(u => this.selectedIds.has(String(u.id)));
+    const notSelected = this.users.filter(u => !this.selectedIds.has(String(u.id)));
     this.users = [...selected, ...notSelected];
     this.applyFiltersAndSort();
-    const selectedFiltered = this.filteredUsers.filter(u => this.selectedIds.has(u.id));
-    const notSelectedFiltered = this.filteredUsers.filter(u => !this.selectedIds.has(u.id));
+    const selectedFiltered = this.filteredUsers.filter(u => this.selectedIds.has(String(u.id)));
+    const notSelectedFiltered = this.filteredUsers.filter(u => !this.selectedIds.has(String(u.id)));
     this.filteredUsers = [...selectedFiltered, ...notSelectedFiltered];
     this.currentPage = 1;
     this.updatePagination();
   }
 
   getSelectedUsersList(): User[] {
-    return this.users.filter(u => this.selectedIds.has(u.id));
+    return this.users.filter(u => this.selectedIds.has(String(u.id)));
   }
 
   // ============================================
@@ -833,7 +853,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   exportCSV(selectedOnly: boolean = false): void {
     this.showExportMenu = false;
     const data = selectedOnly
-      ? this.filteredUsers.filter(u => this.selectedIds.has(u.id))
+      ? this.filteredUsers.filter(u => this.selectedIds.has(String(u.id)))
       : this.filteredUsers;
     if (data.length === 0) {
       this.toastService.warning('Export', 'Aucune donnée à exporter');
@@ -1039,6 +1059,15 @@ export class UserListComponent implements OnInit, OnDestroy {
   confirmDelete(): void {
     if (this.isBulkDelete) {
       if (this.bulkDeleting || this.selectedIds.size === 0) return;
+      if (this.isCurrentUserSelected()) {
+        this.selectedIds.delete(String(this.currentUserId!));
+        if (this.selectedIds.size === 0) {
+          this.toastService.warning('Opération annulée', 'Vous ne pouvez pas supprimer votre propre compte.');
+          this.closeDeleteModal();
+          return;
+        }
+        this.toastService.warning('Attention', 'Votre propre compte a été exclu de la suppression.');
+      }
       this.bulkDeleting = true;
       const ids = Array.from(this.selectedIds);
       let completed = 0;
