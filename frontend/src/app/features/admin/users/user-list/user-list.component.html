@@ -162,10 +162,10 @@
                 <button class="btn-icon" (click)="openResetPasswordModal(user)" title="Réinitialiser le mot de passe">
                   <i class="fas fa-key"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" (click)="openToggleModal(user)" title="{{ user.is_active ? 'Désactiver' : 'Activer' }}">
+                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openToggleModal(user)" title="{{ isCurrentUser(user) ? 'Impossible de désactiver votre propre compte' : (user.is_active ? 'Désactiver' : 'Activer') }}">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
-                <button class="btn-icon btn-icon-danger" (click)="openDeleteModal(user)" title="Supprimer">
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openDeleteModal(user)" title="{{ isCurrentUser(user) ? 'Impossible de supprimer votre propre compte' : 'Supprimer' }}">
                   <i class="fas fa-trash"></i>
                 </button>
               </td>
@@ -436,12 +436,12 @@
     <i class="fas fa-key"></i>
     <span>Réinitialiser MDP</span>
   </div>
-  <div class="context-menu-item" (click)="openToggleModal(contextMenuUser!)">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openToggleModal(contextMenuUser!)">
     <i class="fas" [class.fa-toggle-off]="contextMenuUser?.is_active" [class.fa-toggle-on]="!contextMenuUser?.is_active"></i>
     <span>{{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}</span>
   </div>
-  <div class="context-menu-divider"></div>
-  <div class="context-menu-item context-menu-item-danger" (click)="openDeleteFromContext()">
+  <div class="context-menu-divider" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser)"></div>
+  <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openDeleteFromContext()">
     <i class="fas fa-trash"></i>
     <span>Supprimer</span>
   </div>

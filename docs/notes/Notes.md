@@ -30,6 +30,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -59,6 +69,9 @@
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
+        - [Gestion des roles des utilisateurs dans le tableau](#gestion-des-roles-des-utilisateurs-dans-le-tableau)
+        - [Protection des superadmins](#protection-des-superadmins)
+        - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
 # Taches a faire
   - Divers
@@ -312,11 +325,25 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.
   -  restyler/redesigner le boutton confirmer de la modale de Désactiver/Activer le Compte en le mettant dans un style élégant, pro et conforme au design System de l'app.
   - Corrige l'action d'activation/desactivation d'un compte utilisateur dans l'app. l'app affiche un message d'erreur toast "Erreur lors du changement de statut" lors de la desactivation de tout compte.
+
+
+##### Gestion des roles des utilisateurs dans le tableau
+
+  - Ajouter dans la bdd de l'app 1 autre compte superadmin + 2 compte avec role admin de l'app + 3 comptes avec role admin d'organisation ( 3 comptes pour 3 organisations differentes) + 3 comptes avec role d'agent dans organisation ( 3 comptes pour 3 organisations differentes).
+
+  - les noms des roles ne s'affichent pas tous dans les differentes contexte de la page "/admin/utilisateurs/liste". 
+  - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
+
+
+
+##### Protection des superadmins
+
   - Implemente les protection suivantes sur les comptes utilisateurs des superadmins : 
     - Empêcher un super admin de se désactiver/supprimer/modifier lui-même
     - Empêcher la désactivation/suppression du dernier super admin actif (garantie de non-lockout)
     - Logger toutes les modifications touchant un super admin
 
-  - les noms des roles ne s'affichent pas tous dans les differentes contexte de la page "/admin/utilisateurs/liste". 
-  - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
+
+##### Recuperation des comptes supprimees
+
   - ajouter la possibiliter de recuperer les comptes supprimes

@@ -603,6 +603,12 @@
                     color: #27ae60;
                   }
                 }
+
+                &.btn-icon-disabled {
+                  opacity: 0.35;
+                  cursor: not-allowed;
+                  pointer-events: none;
+                }
               }
 
               .cell-primary {
@@ -1459,6 +1465,12 @@
   .context-menu-item-danger {
     i { color: var(--danger-color, #e74c3c); }
     &:hover i { color: white; }
+  }
+
+  .context-menu-item-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .context-menu-divider {

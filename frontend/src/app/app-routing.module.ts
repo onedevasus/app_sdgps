@@ -85,6 +85,7 @@ const routes: Routes = [
       },
       {
         path: 'utilisateurs',
+        pathMatch: 'full',
         component: UserListComponent,
         data: { title: 'Gestion des Utilisateurs' }
       },

@@ -6,6 +6,7 @@ import { UserService } from '../../../../core/services/user.service';
 import { OrganizationService } from '../../../../core/services/organization.service';
 import { UserPreferencesService } from '../../../../core/services/user-preferences.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AuthService } from '../../../../core/auth/auth.service';
 import { User, CreateUserPayload, UpdateUserPayload, UserRole } from '../../../../core/models/user.model';
 import { Organization } from '../../../../core/models/organization.model';
 
@@ -131,14 +132,18 @@ export class UserListComponent implements OnInit, OnDestroy {
   showAddPassword = true;
   generatedPassword = '';
 
+  currentUserId: number | null = null;
+
   constructor(
     private userService: UserService,
     private organizationService: OrganizationService,
     private preferencesService: UserPreferencesService,
     private toastService: ToastService,
+    private authService: AuthService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
   ) {
+    this.currentUserId = this.authService.getUserId();
     this.addForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       first_name: ['', Validators.required],
@@ -1100,6 +1105,10 @@ export class UserListComponent implements OnInit, OnDestroy {
       },
       error: () => this.toastService.error('Erreur', 'Erreur lors de la réinitialisation'),
     });
+  }
+
+  isCurrentUser(user: User): boolean {
+    return this.currentUserId !== null && Number(user.id) === this.currentUserId;
   }
 
   openToggleModal(user: User): void {
