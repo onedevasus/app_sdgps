@@ -172,6 +172,17 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.loadPreferences();
     this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
     document.addEventListener('click', this.boundHandleClickOutside);
+
+    this.addForm.get('role')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(role => {
+      const orgCtrl = this.addForm.get('organization_id');
+      if (role === 'ROLE_APP_ADMIN') {
+        orgCtrl?.clearValidators();
+        orgCtrl?.setValue('');
+      } else {
+        orgCtrl?.setValidators([Validators.required]);
+      }
+      orgCtrl?.updateValueAndValidity();
+    });
   }
 
   ngOnDestroy(): void {

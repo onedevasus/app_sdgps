@@ -52,6 +52,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -460,21 +464,25 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
   - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite qu'un superadmin change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
 
-
-
-
-
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
     - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite qu'un superadmin de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
 
 
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+  - Protege les dits utilisateurs de l'auto-edition (possibilite qu'un superadmin edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend. ===> ce n'est pas une bonne maniere de faire. voici pourquoi : 
+      - Aucun risque de sécurité : changer son prénom/nom n'est pas une escalade de privilèges
+    - Expérience utilisateur dégradée : un super admin ne pourrait pas corriger une faute dans son propre nom sans appeler quelqu'un d'autre
+    - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
 
 
 
 
 
-    - Protege les dits utilisateurs de l'auto-edition (possibilite qu'un superadmin edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend.
-    - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
+
+
+
+
+  - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
 
 
 

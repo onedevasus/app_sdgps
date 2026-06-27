@@ -198,6 +198,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {'is_active': 'Utilisez l\'action Désactiver/Activer pour modifier le statut d\'un super administrateur.'}
                     )
+            organization_id = None  # Les super admins n'ont pas d'organisation
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -206,6 +207,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         if is_app_admin:
             instance.platform_role = 'ROLE_APP_ADMIN'
+            organization_id = None  # Les admins système n'ont pas d'organisation
         elif role and instance.platform_role and role != 'ROLE_APP_ADMIN':
             instance.platform_role = None
 

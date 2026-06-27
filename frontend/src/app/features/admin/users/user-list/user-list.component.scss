@@ -1783,6 +1783,27 @@
         i { font-size: 12px; }
       }
 
+      .static-field-value {
+        font-size: 14px;
+        color: var(--text-muted);
+        background: var(--bg-subtle, #f5f6fa);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 6px 0 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        i { font-size: 14px; color: var(--accent-color, #3498db); }
+
+        .field-hint {
+          font-size: 12px;
+          color: var(--text-muted);
+          opacity: 0.7;
+        }
+      }
+
       .password-input-group {
         display: flex;
         gap: 8px;
