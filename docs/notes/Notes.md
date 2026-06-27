@@ -4,18 +4,14 @@
 
 
 
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
 - [Taches a faire](#taches-a-faire)
+- [Rôles de l'application](#rôles-de-lapplication)
+  - [Définition des rôles](#définition-des-rôles)
+  - [Hiérarchie](#hiérarchie)
+  - [Correspondance backend/frontend](#correspondance-backendfrontend)
 - [Comptes de test utilisateurs](#comptes-de-test-utilisateurs)
   - [Identifiants de connexion](#identifiants-de-connexion)
   - [Réinitialisation des données en cas de reset BDD](#réinitialisation-des-données-en-cas-de-reset-bdd)
@@ -62,6 +58,38 @@
     - gestion des ssd-gps mono-session
     - gestion des ssd-gps multi-sessions
       
+
+# Rôles de l'application
+
+## Définition des rôles
+
+| Rôle backend | Badge tableau | Affichage long | Niveau | Description |
+|-------------|--------------|----------------|--------|-------------|
+| `ROLE_SUPER_ADMIN` | Super Admin | Super Admin | Plateforme | Accès total à toutes les fonctionnalités. Gère les admins système, la configuration globale, les logs d'audit. Peut créer/modifier/supprimer tout utilisateur, y compris les admins système. Protégé contre l'auto-suppression et la suppression du dernier super admin actif. |
+| `ROLE_APP_ADMIN` (plateforme) | Admin Système | Admin Système | Plateforme | Gère l'ensemble de la plateforme : utilisateurs, organisations, configuration système, rapports consolidés. Peut créer/modifier/supprimer tout utilisateur sauf les Super Admins. |
+| `ROLE_ORGANISATION_ADMIN` (membership) | Admin Org | Admin Organisation | Organisation | Gère les agents de son organisation, valide les opérations sensibles, configure les paramètres spécifiques à l'organisation. Peut créer/modifier/supprimer uniquement les agents de son organisation. |
+| `ROLE_ORGANISATION_AGENT` (membership) | Agent Org | Agent Organisation | Organisation | Profil opérationnel. Gère les projets, la saisie et l'import des données, la génération des rapports et documents. Ne peut pas créer/modifier/supprimer d'autres utilisateurs. |
+
+## Hiérarchie
+
+```
+Super Admin > Admin Système > Admin Organisation > Agent Organisation
+```
+
+- Les rôles **Super Admin** et **Admin Système** sont des rôles **plateforme** (attachés à l'utilisateur, pas à une organisation).
+- Les rôles **Admin Organisation** et **Agent Organisation** sont des rôles **d'organisation** (définis via Membership, un utilisateur peut avoir des rôles différents dans différentes organisations).
+
+## Correspondance backend/frontend
+
+| Backend (code) | Backend (affichage) | Frontend (badge) | Frontend (autre) |
+|---------------|--------------------|-----------------|-----------------|
+| `ROLE_SUPER_ADMIN` | `get_primary_role_display()` → Super Admin | user.role_display → Super Admin | getRoleLongName() → Super Admin |
+| `ROLE_APP_ADMIN` | `get_primary_role_display()` → Admin Système | user.role_display → Admin Système | getRoleLongName() → Admin Système |
+| `ROLE_ORGANISATION_ADMIN` | `get_primary_role_display()` → Admin Org \| Membership.get_role_display() → Admin Organisation | user.role_display → Admin Org | getRoleLongName() → Admin Organisation |
+| `ROLE_ORGANISATION_AGENT` | `get_primary_role_display()` → Agent Org \| Membership.get_role_display() → Agent Organisation | user.role_display → Agent Org | getRoleLongName() → Agent Organisation |
+
+> **Note :** Les membreships utilisent `Organization.ROLE_CHOICES` (Django `get_FOO_display()` → noms longs), tandis que `get_primary_role_display()` a son propre mapping (noms courts pour le badge tableau).
+
 
 # Comptes de test utilisateurs
 
@@ -341,8 +369,7 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.
   -  restyler/redesigner le boutton confirmer de la modale de Désactiver/Activer le Compte en le mettant dans un style élégant, pro et conforme au design System de l'app.
   - Corrige l'action d'activation/desactivation d'un compte utilisateur dans l'app. l'app affiche un message d'erreur toast "Erreur lors du changement de statut" lors de la desactivation de tout compte.
-  - restyler/redesigner le modale "Réinitialiser le Mot de Passe"
-  en la mettant dans un style élégant, pro et conforme au design System de l'app. ajouter dans le modale la section pour generer/regenerer le mdp. 
+  - restyler/redesigner le modale "Réinitialiser le Mot de Passe" en la mettant dans un style élégant, pro et conforme au design System de l'app. ajouter dans le modale la section pour generer/regenerer le mdp. 
 
 
 
@@ -356,7 +383,7 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - Renomme le role "Agent" en "Agent Org".
   - A ton avis est ce une bonne chose de changer les noms frontend de ces roles pour des noms plus explicites ou bien garder ces memes noms en frontend.
 
-  
+  - Ajoute une section dans docs/notes/Notes.md apres section "Taches a faire" qui va contenir tous les roles definies dans l'app avec leurs noms backend et frontend et une explication de chaque role.
 
   - les noms des roles ne s'affichent pas tous dans les differentes contexte de la page "/admin/utilisateurs/liste". 
   - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
@@ -369,6 +396,8 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
     - Empêcher un super admin de se désactiver/supprimer/modifier lui-même
     - Empêcher la désactivation/suppression du dernier super admin actif (garantie de non-lockout)
     - Logger toutes les modifications touchant un super admin
+
+
 
 
 ##### Recuperation des comptes supprimees
