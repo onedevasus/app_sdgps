@@ -12,38 +12,13 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
 - [Taches a faire](#taches-a-faire)
+- [Comptes de test utilisateurs](#comptes-de-test-utilisateurs)
+  - [Identifiants de connexion](#identifiants-de-connexion)
+  - [Réinitialisation des données en cas de reset BDD](#réinitialisation-des-données-en-cas-de-reset-bdd)
 - [Promptes importantes opencode](#promptes-importantes-opencode)
   - [Phase : configuration du depot git local + distant](#phase-configuration-du-depot-git-local-distant)
     - [Compte Github pour git + Github API token](#compte-github-pour-git-github-api-token)
@@ -69,7 +44,7 @@
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
-        - [Gestion des roles des utilisateurs dans le tableau](#gestion-des-roles-des-utilisateurs-dans-le-tableau)
+        - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
         - [Protection des superadmins](#protection-des-superadmins)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
@@ -87,6 +62,47 @@
     - gestion des ssd-gps mono-session
     - gestion des ssd-gps multi-sessions
       
+
+# Comptes de test utilisateurs
+
+## Identifiants de connexion
+
+| Nom complet | Email | Mot de passe | Rôle | Organisation |
+|------------|-------|-------------|------|-------------|
+| Abderrazzak Boulmane | boulmaneabderrazzak@gmail.com | Abderrazzak@1234 | Super Admin | — |
+| Admin Principal | superadmin2@sdgps.ma | SuperAdmin@2026 | Super Admin | — |
+| Amine Benali | appadmin1@sdgps.ma | AppAdmin@2026 | App Admin | — |
+| Sara El Amrani | appadmin2@sdgps.ma | AppAdmin@2026 | App Admin | — |
+| Karim Tazi | orgadmin1@sdgps.ma | OrgAdmin@2026 | Admin Org | Cabinet Tech & Innovation |
+| Nadia Fassi | orgadmin2@sdgps.ma | OrgAdmin@2026 | Admin Org | Fiduciaire Atlas Conseil |
+| Hicham Bennani | orgadmin3@sdgps.ma | OrgAdmin@2026 | Admin Org | Bureau d'Études Génie Civil |
+| Youssef Idrissi | agent1@sdgps.ma | Agent@2026 | Agent Org | Cabinet Tech & Innovation |
+| Fatima Zahra | agent2@sdgps.ma | Agent@2026 | Agent Org | Fiduciaire Atlas Conseil |
+| Omar Saidi | agent3@sdgps.ma | Agent@2026 | Agent Org | Bureau d'Études Génie Civil |
+| Abderrazzak Boulmane | abderrazzak.cadazilal@gmail.com | Test@1234 | Agent Org | — (sans org) |
+
+## Réinitialisation des données en cas de reset BDD
+
+Si la base de données est réinitialisée (suppression du volume Docker ou `migrate --run-syncdb`), exécuter les commandes suivantes dans l'ordre :
+
+```bash
+# 1. Créer les organisations de démonstration (20 orgs PRIVATE + PUBLIC)
+docker exec sdgps-backend python manage.py seed_demo_orgs
+
+# 2. Créer les organisations de test (3 orgs) + les utilisateurs de test (9 comptes)
+docker exec sdgps-backend python manage.py seed_test_users
+
+# 3. Vérifier la création
+docker exec sdgps-backend python manage.py shell -c "
+from django.contrib.auth import get_user_model
+User = get_user_model()
+print(f'Total utilisateurs: {User.objects.count()}')
+for u in User.objects.all().order_by('-is_superuser', 'email'):
+    print(f'  {u.email:35s} | {u.get_primary_role():25s}')
+"
+```
+
+> **Note :** La commande `seed_test_users` est idempotente — elle ignore les comptes déjà existants. Les organisations créées sont marquées `is_test_data=True` et filtrées en production.
 
 # Promptes importantes opencode
 ## Phase : configuration du depot git local + distant
@@ -325,11 +341,22 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.
   -  restyler/redesigner le boutton confirmer de la modale de Désactiver/Activer le Compte en le mettant dans un style élégant, pro et conforme au design System de l'app.
   - Corrige l'action d'activation/desactivation d'un compte utilisateur dans l'app. l'app affiche un message d'erreur toast "Erreur lors du changement de statut" lors de la desactivation de tout compte.
+  - restyler/redesigner le modale "Réinitialiser le Mot de Passe"
+  en la mettant dans un style élégant, pro et conforme au design System de l'app. ajouter dans le modale la section pour generer/regenerer le mdp. 
 
 
-##### Gestion des roles des utilisateurs dans le tableau
+
+##### Gestion affichage des roles des utilisateurs dans le tableau
 
   - Ajouter dans la bdd de l'app 1 autre compte superadmin + 2 compte avec role admin de l'app + 3 comptes avec role admin d'organisation ( 3 comptes pour 3 organisations differentes) + 3 comptes avec role d'agent dans organisation ( 3 comptes pour 3 organisations differentes).
+  - Ajoute une section dans docs/notes/Notes.md apres section "Taches a faire" qui va contenir les infos de connexion de tous les utilisateurs actuels dans l'app  (utilisateurs importants pour les tests de l'app). sous forme d'un tableau : nom complet / email / mdp / role / organisation. ajoute les instructions pour reajoutees ces donnees dans la bdd en cas de son reinitialisation.
+  
+  - Quelles sont les contextes dans la page de la liste des utilisateurs dans lesquelles les noms des roles s'affichent.
+  - Uniformiser en utilisant "Admin Org" au lieu de "Responsable Admin".
+  - Renomme le role "Agent" en "Agent Org".
+  - A ton avis est ce une bonne chose de changer les noms frontend de ces roles pour des noms plus explicites ou bien garder ces memes noms en frontend.
+
+  
 
   - les noms des roles ne s'affichent pas tous dans les differentes contexte de la page "/admin/utilisateurs/liste". 
   - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.

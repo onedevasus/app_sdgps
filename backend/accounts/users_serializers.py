@@ -125,7 +125,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 return value
             if value == 'ROLE_APP_ADMIN':
                 raise serializers.ValidationError(
-                    "Seul un Super Admin peut créer un compte Admin App."
+                    "Seul un Super Admin peut créer un compte Admin Système."
                 )
         return value
 

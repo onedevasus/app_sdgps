@@ -1164,10 +1164,20 @@ export class UserListComponent implements OnInit, OnDestroy {
     }
   }
 
+  getRoleLongName(role: string): string {
+    switch (role) {
+      case 'ROLE_SUPER_ADMIN': return 'Super Admin';
+      case 'ROLE_APP_ADMIN': return 'Admin Système';
+      case 'ROLE_ORGANISATION_ADMIN': return 'Admin Organisation';
+      case 'ROLE_ORGANISATION_AGENT': return 'Agent Organisation';
+      default: return role;
+    }
+  }
+
   getCellValue(user: User, field: string): string {
     switch (field) {
       case 'first_name': return `${user.first_name} ${user.last_name}`;
-      case 'role': return user.role_display;
+      case 'role': return this.getRoleLongName(user.role);
       case 'is_active': return user.is_active ? 'Actif' : (user.is_deleted ? 'Supprimé' : 'Inactif');
       case 'is_deleted': return user.is_deleted ? 'Oui' : 'Non';
       case 'is_superuser': return user.is_superuser ? 'Oui' : 'Non';

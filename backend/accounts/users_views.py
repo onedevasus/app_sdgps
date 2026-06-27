@@ -29,7 +29,7 @@ ROLES_CONFIG = [
     },
     {
         'id': 'ROLE_APP_ADMIN',
-        'name': 'Admin App',
+        'name': 'Admin Système',
         'description': 'Administrateur d\'application. Gère les utilisateurs, organisations, configuration système et supervision.',
         'permissions': [
             'Voir tous les utilisateurs',
@@ -42,7 +42,7 @@ ROLES_CONFIG = [
     },
     {
         'id': 'ROLE_ORGANISATION_ADMIN',
-        'name': 'Responsable Admin',
+        'name': 'Admin Organisation',
         'description': 'Gère les agents de son organisation. Valide les opérations et configure les paramètres spécifiques.',
         'permissions': [
             'Voir les agents de son organisation',
@@ -54,7 +54,7 @@ ROLES_CONFIG = [
     },
     {
         'id': 'ROLE_ORGANISATION_AGENT',
-        'name': 'Agent',
+        'name': 'Agent Organisation',
         'description': 'Profil opérationnel. Gère les projets, la saisie de données et la génération de documents.',
         'permissions': [
             'Gérer ses projets',

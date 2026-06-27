@@ -69,9 +69,9 @@
       <select class="filter-select" [value]="selectedRole" (change)="onRoleFilterChange($event)">
         <option value="">Tous les rôles</option>
         <option value="ROLE_SUPER_ADMIN">Super Admin</option>
-        <option value="ROLE_APP_ADMIN">Admin App</option>
-        <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
-        <option value="ROLE_ORGANISATION_AGENT">Agent</option>
+        <option value="ROLE_APP_ADMIN">Admin Système</option>
+        <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+        <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
       </select>
       <select class="filter-select" [value]="selectedStatus" (change)="onStatusFilterChange($event)">
         <option value="">Tous les statuts</option>
@@ -533,8 +533,8 @@
                 <i class="fas fa-info-circle field-info-icon" title="Niveau de privilèges de l'utilisateur"></i>
               </label>
               <select id="add-role" formControlName="role" [class.error]="addForm.get('role')?.invalid && addForm.get('role')?.touched">
-                <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
-                <option value="ROLE_ORGANISATION_AGENT">Agent</option>
+                <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+                <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>
               <div class="error-message" *ngIf="addForm.get('role')?.invalid && addForm.get('role')?.touched">
                 Le rôle est requis.
@@ -663,8 +663,8 @@
                 <i class="fas fa-info-circle field-info-icon" title="Niveau de privilèges de l'utilisateur"></i>
               </label>
               <select id="edit-role" formControlName="role" [class.error]="editForm.get('role')?.invalid && editForm.get('role')?.touched">
-                <option value="ROLE_ORGANISATION_ADMIN">Responsable Admin</option>
-                <option value="ROLE_ORGANISATION_AGENT">Agent</option>
+                <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+                <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>
               <div class="error-message" *ngIf="editForm.get('role')?.invalid && editForm.get('role')?.touched">
                 Le rôle est requis.
@@ -762,7 +762,7 @@
           <div class="detail-field">
             <label><i class="fas fa-user-tag"></i> Rôle</label>
             <div class="detail-value">
-              <span class="badge" [ngClass]="getRoleBadgeClass(showDetailUser.role)">{{ showDetailUser.role_display }}</span>
+              <span class="badge" [ngClass]="getRoleBadgeClass(showDetailUser.role)">{{ getRoleLongName(showDetailUser.role) }}</span>
             </div>
           </div>
           <div class="detail-field">
@@ -835,7 +835,7 @@
           <div class="detail-field full-width">
             <label><i class="fas fa-building"></i> {{ m.organization_name }}</label>
             <div class="detail-value">
-              <span class="badge" [ngClass]="getRoleBadgeClass(m.role)">{{ m.role_display }}</span>
+              <span class="badge" [ngClass]="getRoleBadgeClass(m.role)">{{ getRoleLongName(m.role) }}</span>
               <span style="margin-left: 12px; font-size: 12px; color: var(--text-muted);">
                 Depuis le {{ m.joined_at | date:'dd/MM/yyyy' }}
               </span>

@@ -22,8 +22,8 @@ class Organization(models.Model):
     
     # Rôles disponibles dans l'organisation (hiérarchie)
     ROLE_CHOICES = [
-        ('ROLE_ORGANISATION_ADMIN', 'Responsable Admin'),
-        ('ROLE_ORGANISATION_AGENT', 'Agent'),
+        ('ROLE_ORGANISATION_ADMIN', 'Admin Organisation'),
+        ('ROLE_ORGANISATION_AGENT', 'Agent Organisation'),
     ]
 
     # Identifiants
@@ -244,7 +244,7 @@ class CustomUser(AbstractUser):
 
     # Champ pour rôle plateforme (Admin App)
     PLATFORM_ROLE_CHOICES = [
-        ('ROLE_APP_ADMIN', 'Admin App'),
+        ('ROLE_APP_ADMIN', 'Admin Système'),
     ]
     platform_role = models.CharField(
         max_length=30,
@@ -402,9 +402,9 @@ class CustomUser(AbstractUser):
         role = self.get_primary_role()
         role_map = {
             'ROLE_SUPER_ADMIN': 'Super Admin',
-            'ROLE_APP_ADMIN': 'Admin App',
+            'ROLE_APP_ADMIN': 'Admin Système',
             'ROLE_ORGANISATION_ADMIN': 'Admin Org',
-            'ROLE_ORGANISATION_AGENT': 'Agent',
+            'ROLE_ORGANISATION_AGENT': 'Agent Org',
         }
         return role_map.get(role, role.replace('_', ' ').title())
 
