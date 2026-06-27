@@ -244,7 +244,7 @@ class CustomUser(AbstractUser):
 
     # Champ pour rôle plateforme (Admin App)
     PLATFORM_ROLE_CHOICES = [
-        ('ROLE_APP_ADMIN', 'Admin Système'),
+        ('ROLE_ADMIN_SYSTEME', 'Admin Système'),
     ]
     platform_role = models.CharField(
         max_length=30,
@@ -374,7 +374,7 @@ class CustomUser(AbstractUser):
         self.save(update_fields=['last_connection_at'])
     
     def is_platform_admin(self):
-        return bool(self.platform_role == 'ROLE_APP_ADMIN')
+        return bool(self.platform_role == 'ROLE_ADMIN_SYSTEME')
 
     def is_super_admin(self):
         return self.is_superuser
@@ -387,7 +387,7 @@ class CustomUser(AbstractUser):
         if self.is_superuser:
             return 'ROLE_SUPER_ADMIN'
         if self.is_platform_admin():
-            return 'ROLE_APP_ADMIN'
+            return 'ROLE_ADMIN_SYSTEME'
 
         membership = self.memberships.filter(is_active=True).order_by('joined_at').first()
         if membership:
@@ -402,7 +402,7 @@ class CustomUser(AbstractUser):
         role = self.get_primary_role()
         role_map = {
             'ROLE_SUPER_ADMIN': 'Super Admin',
-            'ROLE_APP_ADMIN': 'Admin Système',
+            'ROLE_ADMIN_SYSTEME': 'Admin Système',
             'ROLE_ORGANISATION_ADMIN': 'Admin Org',
             'ROLE_ORGANISATION_AGENT': 'Agent Org',
         }

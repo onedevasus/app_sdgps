@@ -100,7 +100,7 @@ class BlankableUUIDField(serializers.UUIDField):
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     role = serializers.ChoiceField(
-        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT', 'ROLE_APP_ADMIN'],
+        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT', 'ROLE_ADMIN_SYSTEME'],
         default='ROLE_ORGANISATION_AGENT'
     )
     organization_id = BlankableUUIDField(required=False, allow_null=True)
@@ -123,7 +123,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         if request and hasattr(request, 'user'):
             if request.user.is_superuser:
                 return value
-            if value == 'ROLE_APP_ADMIN':
+            if value == 'ROLE_ADMIN_SYSTEME':
                 raise serializers.ValidationError(
                     "Seul un Super Admin peut créer un compte Admin Système."
                 )
@@ -131,7 +131,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     def validate_organization_id(self, value):
         role = self.initial_data.get('role', 'ROLE_ORGANISATION_AGENT')
-        if role == 'ROLE_APP_ADMIN':
+        if role == 'ROLE_ADMIN_SYSTEME':
             return None
         if not value:
             raise serializers.ValidationError("Ce champ est obligatoire.")
@@ -144,7 +144,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         organization_id = validated_data.pop('organization_id', None)
         must_change_password = validated_data.pop('must_change_password', True)
 
-        is_app_admin = role == 'ROLE_APP_ADMIN'
+        is_app_admin = role == 'ROLE_ADMIN_SYSTEME'
 
         user = User.objects.create_user(
             username=validated_data['email'],
@@ -154,7 +154,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', ''),
             nom_societe=validated_data.get('nom_societe', ''),
             is_superuser=False,
-            platform_role='ROLE_APP_ADMIN' if is_app_admin else None,
+            platform_role='ROLE_ADMIN_SYSTEME' if is_app_admin else None,
             must_change_password=must_change_password,
         )
 
@@ -171,7 +171,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(
-        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT', 'ROLE_APP_ADMIN'],
+        choices=['ROLE_ORGANISATION_ADMIN', 'ROLE_ORGANISATION_AGENT', 'ROLE_ADMIN_SYSTEME'],
         required=False
     )
     organization_id = BlankableUUIDField(required=False, allow_null=True)
@@ -186,7 +186,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
-            if value == 'ROLE_APP_ADMIN' and not request.user.is_superuser:
+            if value == 'ROLE_ADMIN_SYSTEME' and not request.user.is_superuser:
                 raise serializers.ValidationError(
                     "Seul un Super Admin peut attribuer le rôle Admin Système."
                 )
@@ -226,12 +226,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
-        is_app_admin = role == 'ROLE_APP_ADMIN'
+        is_app_admin = role == 'ROLE_ADMIN_SYSTEME'
 
         if is_app_admin:
-            instance.platform_role = 'ROLE_APP_ADMIN'
+            instance.platform_role = 'ROLE_ADMIN_SYSTEME'
             organization_id = None  # Les admins système n'ont pas d'organisation
-        elif role and instance.platform_role and role != 'ROLE_APP_ADMIN':
+        elif role and instance.platform_role and role != 'ROLE_ADMIN_SYSTEME':
             instance.platform_role = None
 
         if organization_id:

@@ -67,7 +67,7 @@ export class DashboardLayoutComponent implements OnInit {
       email: 'boulmaneabderrazzak@gmail.com',
       first_name: 'Abderrazzak',
       last_name: 'Boulmane',
-      role: 'ROLE_APP_ADMIN',
+      role: 'ROLE_ADMIN_SYSTEME',
       avatar: undefined
     };
     

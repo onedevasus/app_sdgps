@@ -28,11 +28,11 @@ ROLES_CONFIG = [
         ],
     },
     {
-        'id': 'ROLE_APP_ADMIN',
+        'id': 'ROLE_ADMIN_SYSTEME',
         'name': 'Admin Système',
         'description': 'Administrateur d\'application. Gère les utilisateurs, organisations, configuration système et supervision.',
         'permissions': [
-            'Voir tous les utilisateurs',
+            'Voir tous les utilisateurs (hors Super Admins)',
             'Créer/Modifier/Supprimer tout utilisateur',
             'Réinitialiser le mot de passe de tout utilisateur',
             'Voir toutes les organisations',
@@ -69,8 +69,10 @@ ROLES_CONFIG = [
 
 def get_user_queryset_for_admin(admin_user, include_deleted=False):
     base_filter = {} if include_deleted else {'is_deleted': False}
-    if admin_user.is_superuser or admin_user.is_platform_admin():
+    if admin_user.is_superuser:
         return User.objects.filter(**base_filter)
+    if admin_user.is_platform_admin():
+        return User.objects.filter(**base_filter).exclude(is_superuser=True)
     org_memberships = admin_user.memberships.filter(
         is_active=True,
         role='ROLE_ORGANISATION_ADMIN',
@@ -152,8 +154,8 @@ class UserListView(generics.ListCreateAPIView):
                 if not show_deleted:
                     q = q.filter(is_deleted=False)
                 return q
-            if role == 'ROLE_APP_ADMIN':
-                q = User.objects.filter(platform_role='ROLE_APP_ADMIN')
+            if role == 'ROLE_ADMIN_SYSTEME':
+                q = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME')
                 if not show_deleted:
                     q = q.filter(is_deleted=False)
                 return q
@@ -214,7 +216,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
             if instance.pk == self.request.user.pk:
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied('Vous ne pouvez pas supprimer votre propre compte administrateur système.')
-            active_app_admin_count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_active=True, is_deleted=False).count()
+            active_app_admin_count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False).count()
             if active_app_admin_count <= 1:
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied('Impossible de supprimer le dernier administrateur système actif.')
@@ -255,7 +257,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         from rest_framework.exceptions import PermissionDenied
                         raise PermissionDenied('Vous ne pouvez pas désactiver votre propre compte administrateur système.')
                     if instance.is_active:
-                        active_app_admin_count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_active=True, is_deleted=False).count()
+                        active_app_admin_count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False).count()
                         if active_app_admin_count <= 1:
                             from rest_framework.exceptions import PermissionDenied
                             raise PermissionDenied('Impossible de désactiver le dernier administrateur système actif.')
@@ -352,7 +354,7 @@ class UserToggleActiveView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             if user.is_active:
-                active_app_admin_count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_active=True, is_deleted=False).count()
+                active_app_admin_count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False).count()
                 if active_app_admin_count <= 1:
                     return Response(
                         {'detail': 'Impossible de désactiver le dernier administrateur système actif.'},
@@ -393,8 +395,8 @@ class RolesListView(APIView):
             role_id = role_config['id']
             if role_id == 'ROLE_SUPER_ADMIN':
                 count = User.objects.filter(is_superuser=True, is_deleted=False).count()
-            elif role_id == 'ROLE_APP_ADMIN':
-                count = User.objects.filter(platform_role='ROLE_APP_ADMIN', is_deleted=False).count()
+            elif role_id == 'ROLE_ADMIN_SYSTEME':
+                count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_deleted=False).count()
             else:
                 count = User.objects.filter(
                     memberships__role=role_id,

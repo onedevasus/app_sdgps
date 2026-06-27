@@ -28,7 +28,7 @@ export class AdminGuard implements CanActivate {
     // Dans la réalité, utilisez jwt-decode ou appelez l'API
     const userRole = this.getUserRoleFromToken(token);
     
-    if (userRole !== 'ROLE_SUPER_ADMIN' && userRole !== 'ROLE_APP_ADMIN' && userRole !== 'ROLE_ORGANISATION_ADMIN') {
+    if (userRole !== 'ROLE_SUPER_ADMIN' && userRole !== 'ROLE_ADMIN_SYSTEME' && userRole !== 'ROLE_ORGANISATION_ADMIN') {
       // Utilisateur non autorisé
       console.warn('⚠️ Accès refusé - Rôle insuffisant:', userRole);
       this.router.navigate(['/dashboard']);

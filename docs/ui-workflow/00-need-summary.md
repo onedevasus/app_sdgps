@@ -1,11 +1,11 @@
 # UI 需求摘要 — User List Page Redesign
 - **执行模式**：深度模式
 - **产品定位**：SDGPS 后台管理系统 — 用户管理页面重建
-- **目标用户**：管理员（ROLE_APP_ADMIN, ROLE_ORGANISATION_ADMIN）
+- **目标用户**：管理员（ROLE_ADMIN_SYSTEME, ROLE_ORGANISATION_ADMIN）
 - **核心功能（P0/P1/P2）**：
   - P0: 显示用户列表（表格），支持搜索、筛选、排序、分页
   - P0: 添加/编辑/删除用户（模态框 CRUD）
-  - P0: 角色管理（ROLE_APP_ADMIN / ROLE_ORGANISATION_ADMIN / ROLE_ORGANISATION_AGENT）
+  - P0: 角色管理（ROLE_ADMIN_SYSTEME / ROLE_ORGANISATION_ADMIN / ROLE_ORGANISATION_AGENT）
   - P0: 用户状态管理（激活/停用/软删除）
   - P1: 可配置列（显示/隐藏/拖拽排序）
   - P1: 导出 Excel（全部/已选）

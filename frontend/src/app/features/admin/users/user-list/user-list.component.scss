@@ -1807,29 +1807,29 @@
       .platform-field {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         margin: 6px 0 0;
-        min-height: 42px;
 
         .platform-badge {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 5px 14px;
-          font-size: 12px;
-          font-weight: 500;
-          color: #7f8c8d;
-          background: rgba(149, 165, 166, 0.1);
-          border: 1px solid rgba(149, 165, 166, 0.25);
-          border-radius: 20px;
+          gap: 8px;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #5a6a7a;
+          background: rgba(149, 165, 166, 0.06);
+          border: 1px solid rgba(149, 165, 166, 0.18);
+          border-radius: 8px;
           letter-spacing: 0.01em;
           white-space: nowrap;
           transition: all 0.2s;
+          cursor: default;
 
           i {
-            font-size: 11px;
-            color: #95a5a6;
-            opacity: 0.8;
+            font-size: 13px;
+            color: #90a0b0;
+            opacity: 0.7;
           }
         }
 
@@ -2288,6 +2288,46 @@
               }
 
               i { font-size: 12px; }
+            }
+          }
+
+          .platform-field {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            background: var(--secondary-color);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            min-height: 42px;
+            opacity: 0.75;
+            cursor: default;
+            user-select: none;
+
+            .platform-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 13px;
+              font-weight: 600;
+              color: #5a6a7a;
+              letter-spacing: 0.01em;
+              white-space: nowrap;
+
+              i {
+                font-size: 14px;
+                color: #90a0b0;
+                opacity: 0.6;
+              }
+            }
+
+            .platform-hint {
+              font-size: 11px;
+              color: var(--text-muted);
+              opacity: 0.45;
+              font-style: italic;
+              letter-spacing: 0.02em;
+              margin-left: auto;
             }
           }
         }

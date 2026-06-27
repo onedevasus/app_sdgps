@@ -72,8 +72,8 @@
       <select class="filter-select" [value]="selectedRole" (change)="onRoleFilterChange($event)">
         <option value="">Tous les rôles</option>
         <option value="ROLE_SUPER_ADMIN">Super Admin</option>
-        <option value="ROLE_APP_ADMIN">Admin Système</option>
-        <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+                <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
+                <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
         <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
       </select>
       <select class="filter-select" [value]="selectedStatus" (change)="onStatusFilterChange($event)">
@@ -565,7 +565,7 @@
                 <i class="fas fa-info-circle field-info-icon" title="Niveau de privilèges de l'utilisateur"></i>
               </label>
               <select id="add-role" formControlName="role" [class.error]="addForm.get('role')?.invalid && addForm.get('role')?.touched">
-                <option value="ROLE_APP_ADMIN">Admin Système</option>
+                <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
                 <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
                 <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>
@@ -573,7 +573,7 @@
                 Le rôle est requis.
               </div>
             </div>
-            <div class="form-group" *ngIf="addForm.get('role')?.value !== 'ROLE_APP_ADMIN'">
+            <div class="form-group" *ngIf="addForm.get('role')?.value !== 'ROLE_ADMIN_SYSTEME'">
               <label for="add-org">
                 <i class="fas fa-building"></i>
                 Organisation <span class="required">*</span>
@@ -587,7 +587,7 @@
                 L'organisation est requise.
               </div>
             </div>
-            <div class="form-group" *ngIf="addForm.get('role')?.value === 'ROLE_APP_ADMIN'">
+            <div class="form-group" *ngIf="addForm.get('role')?.value === 'ROLE_ADMIN_SYSTEME'">
               <label>
                 <i class="fas fa-building"></i>
                 Organisation
@@ -713,7 +713,7 @@
                       [disabled]="!!editUser?.is_superuser || (!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser))"
                       [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : '')">
                 <option value="ROLE_SUPER_ADMIN" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Super Admin</option>
-                <option value="ROLE_APP_ADMIN">Admin Système</option>
+                <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
                 <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
                 <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>
@@ -729,7 +729,7 @@
                 Seul un Super Admin peut modifier le rôle d'un Admin Système.
               </p>
             </div>
-            <div class="form-group" *ngIf="editUser && !editUser.is_superuser && editUser.role !== 'ROLE_APP_ADMIN'">
+            <div class="form-group" *ngIf="editUser && !editUser.is_superuser && editUser.role !== 'ROLE_ADMIN_SYSTEME'">
               <label for="edit-org">
                 <i class="fas fa-building"></i>
                 Organisation
@@ -739,7 +739,7 @@
                 <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
               </select>
             </div>
-            <div class="form-group" *ngIf="editUser && (editUser.is_superuser || editUser.role === 'ROLE_APP_ADMIN')">
+            <div class="form-group" *ngIf="editUser && (editUser.is_superuser || editUser.role === 'ROLE_ADMIN_SYSTEME')">
               <label>
                 <i class="fas fa-building"></i>
                 Organisation
@@ -841,9 +841,19 @@
               <span class="badge" [ngClass]="getRoleBadgeClass(showDetailUser.role)">{{ getRoleLongName(showDetailUser.role) }}</span>
             </div>
           </div>
-          <div class="detail-field">
+          <div class="detail-field" *ngIf="showDetailUser && !showDetailUser.is_superuser && showDetailUser.role !== 'ROLE_ADMIN_SYSTEME'">
             <label><i class="fas fa-building"></i> Organisation</label>
             <div class="detail-value">{{ showDetailUser.organization_name || 'Non assigné' }}</div>
+          </div>
+          <div class="detail-field" *ngIf="showDetailUser && (showDetailUser.is_superuser || showDetailUser.role === 'ROLE_ADMIN_SYSTEME')">
+            <label><i class="fas fa-building"></i> Organisation</label>
+            <div class="platform-field">
+              <span class="platform-badge">
+                <i class="fas fa-globe"></i>
+                <span>Non applicable</span>
+              </span>
+              <span class="platform-hint">rôle plateforme</span>
+            </div>
           </div>
         </div>
       </div>

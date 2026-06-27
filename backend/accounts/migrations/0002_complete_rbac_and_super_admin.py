@@ -71,7 +71,7 @@ def create_super_admin(apps, schema_editor):
         nom_societe='SDGPS Administration',
         is_staff=True,
         is_superuser=True,
-        must_change_password=True,  # ← FORCER CHANGEMENT MDP
+        must_change_password=False,  # ← Changement MDP désactivé
         password_changed_at=None
     )
     

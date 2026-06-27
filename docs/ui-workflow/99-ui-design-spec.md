@@ -9,7 +9,7 @@
 - **Produit** : SDGPS (Système de Génération de Documents et Pièces) — Back-office d'administration
 - **Page** : `/admin/utilisateurs` — Gestion des comptes utilisateurs
 - **Objectif** : Reconstruire UserListComponent (~860 lignes) en s'inspirant d'OrganizationListComponent (~1668 lignes)
-- **Utilisateurs** : ROLE_APP_ADMIN (super admin) ✓ | ROLE_ORGANISATION_ADMIN (admin restreint) ✓
+- **Utilisateurs** : ROLE_ADMIN_SYSTEME (super admin) ✓ | ROLE_ORGANISATION_ADMIN (admin restreint) ✓
 
 ## 2. 关键页面与形态
 
@@ -56,10 +56,10 @@ Société, Superuser, Changement MDP, Dernier changement MDP, Date d'inscription
 8. **Menu contextuel** → Clic droit colonne (Masquer/Configurer) / Ligne (Détails/Modifier/MDP/Supprimer)
 
 ### RBAC
-| Action | ROLE_APP_ADMIN | ROLE_ORGANISATION_ADMIN |
+| Action | ROLE_ADMIN_SYSTEME | ROLE_ORGANISATION_ADMIN |
 |--------|:---:|:---:|
 | Voir tous les utilisateurs | ✅ | ❌ (son org seulement) |
-| Créer ROLE_APP_ADMIN | ✅ | ❌ |
+| Créer ROLE_ADMIN_SYSTEME | ✅ | ❌ |
 | Voir colonnes cachées (audit) | ✅ | ❌ |
 | Configurer colonnes | ✅ | ✅ |
 | Export CSV | ✅ | ✅ |

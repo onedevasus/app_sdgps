@@ -18,6 +18,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Plan de Développement — Application SDGPS](#plan-de-développement-application-sdgps)
@@ -98,7 +110,7 @@
 - Interface utilisateur en français
 - API RESTful
 - Soft-delete pour les données critiques (organisations, utilisateurs)
-- RBAC avec 3 profils : ROLE_APP_ADMIN, ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT
+- RBAC avec 3 profils : ROLE_ADMIN_SYSTEME, ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT
 
 ---
 
@@ -259,7 +271,7 @@ Implémenter la gestion complète des utilisateurs de la plateforme conformémen
 
 | Profil CPS | Implémentation |
 |---|---|
-| `ROLE_APP_ADMIN` | `CustomUser.is_superuser = True` (pas de Membership associé) |
+| `ROLE_ADMIN_SYSTEME` | `CustomUser.is_superuser = True` (pas de Membership associé) |
 | `ROLE_ORGANISATION_ADMIN` | `Membership.role = 'ROLE_ORGANISATION_ADMIN'` |
 | `ROLE_ORGANISATION_AGENT` | `Membership.role = 'ROLE_ORGANISATION_AGENT'` |
 
@@ -284,7 +296,7 @@ Les valeurs actuelles de `Membership.role` sont migrées comme suit :
 
 ### 5.3 Matrice des permissions RBAC
 
-| Action | `ROLE_APP_ADMIN` | `ROLE_ORGANISATION_ADMIN` | `ROLE_ORGANISATION_AGENT` |
+| Action | `ROLE_ADMIN_SYSTEME` | `ROLE_ORGANISATION_ADMIN` | `ROLE_ORGANISATION_AGENT` |
 |--------|:---:|:---:|:---:|
 | Lister les utilisateurs | Tous | Agents de son organisation | ❌ |
 | Voir un utilisateur | Tous | Agents de son organisation | ❌ |
@@ -314,7 +326,7 @@ Tous les endpoints sont préfixés par `/api/v1/users/`.
 #### Règles de filtrage backend
 
 - Un `ROLE_ORGANISATION_ADMIN` ne voit que les utilisateurs ayant un `Membership` dans sa (ses) organisation(s) avec le rôle `ROLE_ORGANISATION_AGENT`.
-- Un `ROLE_APP_ADMIN` voit tous les utilisateurs de la plateforme.
+- Un `ROLE_ADMIN_SYSTEME` voit tous les utilisateurs de la plateforme.
 - Les `ROLE_ORGANISATION_AGENT` n'ont pas accès à ces endpoints.
 
 ### 5.5 Composants frontend
@@ -352,7 +364,7 @@ frontend/src/app/
 Page `/admin/utilisateurs/liste` — reprend le patron de `OrganizationListComponent` :
 
 - **En-tête** : titre + bouton "Ajouter un utilisateur" (visible selon permissions)
-- **Filtres** : par rôle (`ROLE_ORGANISATION_ADMIN`, `ROLE_ORGANISATION_AGENT`), par statut (actif/inactif/supprimé), par organisation (ROLE_APP_ADMIN uniquement)
+- **Filtres** : par rôle (`ROLE_ORGANISATION_ADMIN`, `ROLE_ORGANISATION_AGENT`), par statut (actif/inactif/supprimé), par organisation (ROLE_ADMIN_SYSTEME uniquement)
 - **Tableau** :
   - Colonnes : nom complet, email, rôle, organisation, statut (badge), date de création, dernière connexion, actions
   - Checkbox avec sélection multiple
@@ -378,7 +390,7 @@ Formulaire complet avec sections :
 
 Page `/admin/utilisateurs/roles` — page d'information et de gestion :
 
-- **Cartes des rôles** : 3 profils (ROLE_APP_ADMIN, ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT) avec description, permissions associées, nombre d'utilisateurs
+- **Cartes des rôles** : 3 profils (ROLE_ADMIN_SYSTEME, ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT) avec description, permissions associées, nombre d'utilisateurs
 - **Tableau récapitulatif** : matrice rôles × permissions (comme la section 5.3 ci-dessus)
 - **Assignation** : possibilité de modifier le rôle d'un utilisateur directement depuis cette page
 
@@ -489,7 +501,7 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 
 | Terme | Définition |
 |-------|-----------|
-| **ROLE_APP_ADMIN** | Administrateur de l'application — plus haut niveau, gère toute la plateforme |
+| **ROLE_ADMIN_SYSTEME** | Administrateur de l'application — plus haut niveau, gère toute la plateforme |
 | **ROLE_ORGANISATION_ADMIN** | Responsable Admin d'une organisation — gère les agents de son organisation |
 | **ROLE_ORGANISATION_AGENT** | Agent d'une organisation — profil opérationnel, gestion des projets |
 | **RBAC** | Role-Based Access Control — contrôle d'accès basé sur les rôles |

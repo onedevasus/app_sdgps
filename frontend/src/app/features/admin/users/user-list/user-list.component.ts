@@ -181,7 +181,7 @@ export class UserListComponent implements OnInit, OnDestroy {
 
     this.addForm.get('role')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(role => {
       const orgCtrl = this.addForm.get('organization_id');
-      if (role === 'ROLE_APP_ADMIN') {
+      if (role === 'ROLE_ADMIN_SYSTEME') {
         orgCtrl?.clearValidators();
         orgCtrl?.setValue('');
       } else {
@@ -1238,16 +1238,16 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   get activeAppAdminCount(): number {
-    return this.users.filter(u => u.role === 'ROLE_APP_ADMIN' && u.is_active && !u.is_deleted).length;
+    return this.users.filter(u => u.role === 'ROLE_ADMIN_SYSTEME' && u.is_active && !u.is_deleted).length;
   }
 
   isCriticalAppAdmin(user: User): boolean {
-    return user.role === 'ROLE_APP_ADMIN' && user.is_active && !user.is_deleted && this.activeAppAdminCount <= 2;
+    return user.role === 'ROLE_ADMIN_SYSTEME' && user.is_active && !user.is_deleted && this.activeAppAdminCount <= 2;
   }
 
   get criticalAppAdminSelectedIds(): string[] {
     return this.users
-      .filter(u => this.selectedIds.has(String(u.id)) && u.role === 'ROLE_APP_ADMIN' && u.is_active && !u.is_deleted)
+      .filter(u => this.selectedIds.has(String(u.id)) && u.role === 'ROLE_ADMIN_SYSTEME' && u.is_active && !u.is_deleted)
       .map(u => String(u.id));
   }
 
@@ -1267,12 +1267,12 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   isAppAdmin(user: User): boolean {
-    return user.role === 'ROLE_APP_ADMIN';
+    return user.role === 'ROLE_ADMIN_SYSTEME';
   }
 
   /** Empêcher un App Admin de gérer un autre App Admin (y compris lui-même) */
   isBlockedForAppAdmin(user: User): boolean {
-    return this.currentUserRole === 'ROLE_APP_ADMIN' && this.isAppAdmin(user);
+    return this.currentUserRole === 'ROLE_ADMIN_SYSTEME' && this.isAppAdmin(user);
   }
 
   isActionDisabled(user: User): boolean {
@@ -1428,7 +1428,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   getRoleBadgeClass(role: string): string {
     switch (role) {
       case 'ROLE_SUPER_ADMIN': return 'badge-super-admin';
-      case 'ROLE_APP_ADMIN': return 'badge-admin';
+      case 'ROLE_ADMIN_SYSTEME': return 'badge-admin';
       case 'ROLE_ORGANISATION_ADMIN': return 'badge-org-admin';
       case 'ROLE_ORGANISATION_AGENT': return 'badge-agent';
       default: return 'badge-default';
@@ -1438,7 +1438,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   getRoleLongName(role: string): string {
     switch (role) {
       case 'ROLE_SUPER_ADMIN': return 'Super Admin';
-      case 'ROLE_APP_ADMIN': return 'Admin Système';
+      case 'ROLE_ADMIN_SYSTEME': return 'Admin Système';
       case 'ROLE_ORGANISATION_ADMIN': return 'Admin Organisation';
       case 'ROLE_ORGANISATION_AGENT': return 'Agent Organisation';
       default: return role;

@@ -6,6 +6,58 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -45,7 +97,7 @@
         - [Controle toutes les fonctionnalite de la page](#controle-toutes-les-fonctionnalite-de-la-page)
         - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
         - [Protection des superadmins (role : ROLE_SUPER_ADMIN)](#protection-des-superadmins-role-rolesuperadmin)
-        - [Protection des admins systeme (Role : ROLE_APP_ADMIN)](#protection-des-admins-systeme-role-roleappadmin)
+        - [Protection des admins systeme (Role : ROLE_ADMIN_SYSTEME)](#protection-des-admins-systeme-role-roleadminsysteme)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
 # Taches a faire
@@ -53,7 +105,8 @@
     - Personnaliser les messages des commites du watcher en passant par opencode.
     - Configurer le compte git Blmerio2022 pour qu'il soit utilise toujours et par defaut dans ce projet.
   - gestion des utilisateurs
-    - correction + refonte frontend tableau de la liste des utilisateurs.
+    - correction + refonte frontend tableau de la liste des utilisateurs. (fait)
+    - Protection des roles des utilisateurs.  (en cours)
     - tester toutes les fonctionnalites du tableau
     - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs
 
@@ -70,7 +123,7 @@
 | Rôle backend | Badge tableau | Affichage long | Niveau | Description |
 |-------------|--------------|----------------|--------|-------------|
 | `ROLE_SUPER_ADMIN` | Super Admin | Super Admin | Plateforme | Accès total à toutes les fonctionnalités. Gère les admins système, la configuration globale, les logs d'audit. Peut créer/modifier/supprimer tout utilisateur, y compris les admins système. Protégé contre l'auto-suppression et la suppression du dernier super admin actif. |
-| `ROLE_APP_ADMIN` (plateforme) | Admin Système | Admin Système | Plateforme | Gère l'ensemble de la plateforme : utilisateurs, organisations, configuration système, rapports consolidés. Peut créer/modifier/supprimer tout utilisateur sauf les Super Admins. |
+| `ROLE_ADMIN_SYSTEME` (plateforme) | Admin Système | Admin Système | Plateforme | Gère l'ensemble de la plateforme : utilisateurs, organisations, configuration système, rapports consolidés. Peut créer/modifier/supprimer tout utilisateur sauf les Super Admins. |
 | `ROLE_ORGANISATION_ADMIN` (membership) | Admin Org | Admin Organisation | Organisation | Gère les agents de son organisation, valide les opérations sensibles, configure les paramètres spécifiques à l'organisation. Peut créer/modifier/supprimer uniquement les agents de son organisation. |
 | `ROLE_ORGANISATION_AGENT` (membership) | Agent Org | Agent Organisation | Organisation | Profil opérationnel. Gère les projets, la saisie et l'import des données, la génération des rapports et documents. Ne peut pas créer/modifier/supprimer d'autres utilisateurs. |
 
@@ -88,7 +141,7 @@ Super Admin > Admin Système > Admin Organisation > Agent Organisation
 | Backend (code) | Backend (affichage) | Frontend (badge) | Frontend (autre) |
 |---------------|--------------------|-----------------|-----------------|
 | `ROLE_SUPER_ADMIN` | `get_primary_role_display()` → Super Admin | user.role_display → Super Admin | getRoleLongName() → Super Admin |
-| `ROLE_APP_ADMIN` | `get_primary_role_display()` → Admin Système | user.role_display → Admin Système | getRoleLongName() → Admin Système |
+| `ROLE_ADMIN_SYSTEME` | `get_primary_role_display()` → Admin Système | user.role_display → Admin Système | getRoleLongName() → Admin Système |
 | `ROLE_ORGANISATION_ADMIN` | `get_primary_role_display()` → Admin Org \| Membership.get_role_display() → Admin Organisation | user.role_display → Admin Org | getRoleLongName() → Admin Organisation |
 | `ROLE_ORGANISATION_AGENT` | `get_primary_role_display()` → Agent Org \| Membership.get_role_display() → Agent Organisation | user.role_display → Agent Org | getRoleLongName() → Agent Organisation |
 
@@ -102,7 +155,7 @@ Super Admin > Admin Système > Admin Organisation > Agent Organisation
 | Nom complet | Email | Mot de passe | Rôle | Organisation |
 |------------|-------|-------------|------|-------------|
 | Abderrazzak Boulmane | boulmaneabderrazzak@gmail.com | Abderrazzak@1234 | Super Admin | — |
-| Admin Principal | superadmin2@sdgps.ma | SuperAdmin@2026 | Super Admin | — |
+| Jamila Boulmane | boulmanejamila@gmail.com | SuperAdmin@2026 | Super Admin | — |
 | Amine Benali | appadmin1@sdgps.ma | AppAdmin@2026 | App Admin | — |
 | Sara El Amrani | appadmin2@sdgps.ma | AppAdmin@2026 | App Admin | — |
 | Karim Tazi | orgadmin1@sdgps.ma | OrgAdmin@2026 | Admin Org | Cabinet Tech & Innovation |
@@ -221,7 +274,7 @@ II. Acteurs et Rôles
 III. Description des Fonctionnalités
 
 
-3.1 Espace Administration - ROLE_APP_ADMIN
+3.1 Espace Administration - ROLE_ADMIN_SYSTEME
 
 
 3.2 Responsable Admin d'une organisation (ROLE_ORGANISATION_ADMIN)
@@ -256,7 +309,7 @@ VII. Glossaire : Définitions des termes métier
 
 L'application distingue quatre profils utilisateurs, chacun disposant de droits stricts.
 
-Administrateur de l'app (ROLE_APP_ADMIN):
+Administrateur de l'app (ROLE_ADMIN_SYSTEME):
 
 	Configuration globale, gestion des utilisateurs,
 	paramétrage global de l'app, supervision des organisations, rapports consolidés.
@@ -315,9 +368,9 @@ L'objectif maintenant est de developper la fonctionnalite de gestion des utilisa
 
 La plateforme distingue trois profils utilisateurs, chacun disposant de droits et responsabilités spécifiques :
 
-    Administrateur de l'application (ROLE_APP_ADMIN)
+    Administrateur de l'application (ROLE_ADMIN_SYSTEME)
     Profil de plus haut niveau. Gère l'ensemble de la plateforme : configuration globale, gestion des utilisateurs et organisations, paramétrage système, supervision des activités et consultation des rapports consolidés.
-    L'administrateur de l'application (ROLE_APP_ADMIN) peut creer/modifier/supprimer n'importe quel utilisateur : les Administrateur de l'application (ROLE_APP_ADMIN), les Responsables Admin d'une organisation (ROLE_ORGANISATION_ADMIN) et les Agents d'une organisation (ROLE_ORGANISATION_AGENT). il peut egalement reinitialiser le mdp de n'importe quel autre utilisateur y compris ceux des Administrateurs de l'application (ROLE_APP_ADMIN)
+    L'administrateur de l'application (ROLE_ADMIN_SYSTEME) peut creer/modifier/supprimer n'importe quel utilisateur : les Administrateur de l'application (ROLE_ADMIN_SYSTEME), les Responsables Admin d'une organisation (ROLE_ORGANISATION_ADMIN) et les Agents d'une organisation (ROLE_ORGANISATION_AGENT). il peut egalement reinitialiser le mdp de n'importe quel autre utilisateur y compris ceux des Administrateurs de l'application (ROLE_ADMIN_SYSTEME)
 
     Responsable Admin d'une organisation (ROLE_ORGANISATION_ADMIN)
     Profil de gestion au niveau d'une organisation (service ANCFCC ou cabinet privé). Gère les agents de son organisation, valide les opérations sensibles, supervise les projets et configure les paramètres spécifiques à son organisation.
@@ -352,9 +405,9 @@ L'architecture à suivre serait cohérente avec organization-list : module dédi
 
 L'objectif est de rediger le plan de dev de l'app dans docs/plans/PLAN_DEV.md. ce plan doit contenir une phase pour toutes ces fonctionnalites de gestion des utilisateurs. utilise speckit pour clarifier les points ambigues et manquantes.
 
-pour question 1 : utilise CustomUser.is_superuser = True (pas lié à une org) pour ROLE_APP_ADMIN et les profils ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT pour les valeurs de Membership.role au lieu des valeurs :  OWNER, ADMIN, MANAGER, USER. pour question n2 : cette fonctionnalite est reportée à une phase ultérieure. pour question n3 : option A.
+pour question 1 : utilise CustomUser.is_superuser = True (pas lié à une org) pour ROLE_ADMIN_SYSTEME et les profils ROLE_ORGANISATION_ADMIN, ROLE_ORGANISATION_AGENT pour les valeurs de Membership.role au lieu des valeurs :  OWNER, ADMIN, MANAGER, USER. pour question n2 : cette fonctionnalite est reportée à une phase ultérieure. pour question n3 : option A.
 
-pour question n1 :  option (A) L'admin définit un mot de passe temporaire + option "forcer changement au premier login". pour question n2 : on garde les deux l'admin peut supprimer un utilisateur ( fait un soft-delete (comme pour les organisations avec is_deleted)) et encore garder l'option de Désactivation : un utilisateur peut etre desactive  via is_active. pour la question n3 : pour l'instant garder seulement les superuser presents, ne pas créer dès cette phase d'autres utilisateurs ROLE_APP_ADMIN.
+pour question n1 :  option (A) L'admin définit un mot de passe temporaire + option "forcer changement au premier login". pour question n2 : on garde les deux l'admin peut supprimer un utilisateur ( fait un soft-delete (comme pour les organisations avec is_deleted)) et encore garder l'option de Désactivation : un utilisateur peut etre desactive  via is_active. pour la question n3 : pour l'instant garder seulement les superuser presents, ne pas créer dès cette phase d'autres utilisateurs ROLE_ADMIN_SYSTEME.
 
 Ajouter au repo local et distant la branche main pour production et develop comme point de depart des fonctionnalites nouvelles dans l'app. a chaque phase une nouvelle branche de fonctionnalite sera cree et une fois testee et validee sera fusionnee dans develop. Ajouter ces instructions au plsn de dev. Configurer le compte suivant spécifiquement pour ce dépôt uniquement. Les infos du compte git sont les suivantes: 
 email : "120096166+blmerio2022@users.noreply.github.com"
@@ -427,11 +480,25 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
 
 
-##### Protection des admins systeme (Role : ROLE_APP_ADMIN)
+##### Protection des admins systeme (Role : ROLE_ADMIN_SYSTEME)
 
-Quelles sont les protections implementees actuellement dans l'app pour le role : ROLE_APP_ADMIN.
+Pour les "Admin Systeme"  (role = ROLE_ADMIN_SYSTEME) est ce n'est pas une bonne maniere de ne pas afficher les comptes des superadmins dans le tableau de la liste des utilisateurs.
+Que pense tu de refactoriser le nom du ROLE_ADMIN_SYSTEME en ROLE_ADMIN_SYSTEME pour conformite avec le nom frontend du role.
 
-Quelles protections propose tu a jouter pour le rôle ROLE_APP_ADMIN, en suivant les bonnes manieres de dev.
+Quelles sont les protections implementees actuellement dans l'app pour le role : ROLE_ADMIN_SYSTEME.
+
+Quelles protections propose tu a jouter pour le rôle ROLE_ADMIN_SYSTEME, en suivant les bonnes manieres de dev.
+
+
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+  - Corrige le champs Organisation dans les modals lecture/modification des utilisateurs dont role est ROLE_ADMIN_SYSTEME de la meme facon que pour les utilisateurs dont role est ROLE_SUPER_ADMIN.
+  - restyler/redesigner l'icon + texte "Non applicable (rôle plateforme)" en la mettant dans un style élégant, pro et conforme au design System de l'app.
+  - Est ce une bonne chose que les utilisateurs admin systeme peuvent creer d'autres utilisateurs de meme role (role ROLE_ADMIN_SYSTEME)
+
+
+
+
 
 Protection contre : 
 - auto-desactivation / auto-suppresion / 
@@ -442,8 +509,8 @@ Protection contre :
 - 
 
 
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
-  - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un utilisateur avec role ROLE_APP_ADMIN de desactiver lui meme) via backend et frontend.
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
+  - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un utilisateur avec role ROLE_ADMIN_SYSTEME de desactiver lui meme) via backend et frontend.
 
 
 
@@ -451,23 +518,23 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 
 
 
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
-  - Protege les dits utilisateurs de l'auto-suppresion (possibilite que a un utilisateur avec role ROLE_APP_ADMIN de supprime lui meme) . la protection doit etre effectuee au niveau du backend et frontend. le frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
+  - Protege les dits utilisateurs de l'auto-suppresion (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprime lui meme) . la protection doit etre effectuee au niveau du backend et frontend. le frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
 
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
-  - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite que a un utilisateur avec role ROLE_APP_ADMIN de change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
+  - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
 
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
-    - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite que a un utilisateur avec role ROLE_APP_ADMIN de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
+    - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
 
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
-  - Protege les dits utilisateurs de l'auto-edition (possibilite  que a un utilisateur avec role ROLE_APP_ADMIN d'edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend. ===> ce n'est pas une bonne maniere de faire. voici pourquoi : 
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
+  - Protege les dits utilisateurs de l'auto-edition (possibilite  que a un utilisateur avec role ROLE_ADMIN_SYSTEME d'edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend. ===> ce n'est pas une bonne maniere de faire. voici pourquoi : 
       - Aucun risque de sécurité : changer son prénom/nom n'est pas une escalade de privilèges
     - Expérience utilisateur dégradée : un App admin ne pourrait pas corriger une faute dans son propre nom sans appeler quelqu'un d'autre
     - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
     
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_APP_ADMIN :
-- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (  que a un utilisateur avec role ROLE_APP_ADMIN de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
+- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (  que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
 
 
 

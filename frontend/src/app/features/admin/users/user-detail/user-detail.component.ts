@@ -182,7 +182,7 @@ export class UserDetailComponent implements OnInit, OnDestroy {
   getRoleBadgeClass(role: string): string {
     switch (role) {
       case 'ROLE_SUPER_ADMIN': return 'badge-super-admin';
-      case 'ROLE_APP_ADMIN': return 'badge-admin';
+      case 'ROLE_ADMIN_SYSTEME': return 'badge-admin';
       case 'ROLE_ORGANISATION_ADMIN': return 'badge-org-admin';
       case 'ROLE_ORGANISATION_AGENT': return 'badge-agent';
       default: return 'badge-default';

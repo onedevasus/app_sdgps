@@ -8,7 +8,7 @@ Analyse complète de la navigation, hiérarchie et structure des 8 parcours util
 ## Décisions clés
 1. Les 6 modales suivent un pattern de cohérence standardisé (Header icône + titre → Body → Footer Annuler/Action)
 2. 14 colonnes totales dont 7 visibles par défaut + 7 cachées
-3. RBAC : ROLE_APP_ADMIN voit tout, ROLE_ORGANISATION_ADMIN restreint
+3. RBAC : ROLE_ADMIN_SYSTEME voit tout, ROLE_ORGANISATION_ADMIN restreint
 4. États vides différenciés : "Aucun utilisateur" vs "Aucun résultat"
 5. Labels en français cohérents
 
