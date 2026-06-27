@@ -571,6 +571,27 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.closeAllContextMenus();
   }
 
+  openResetPasswordFromContext(): void {
+    if (this.contextMenuUser) {
+      this.openResetPasswordModal(this.contextMenuUser);
+    }
+    this.closeAllContextMenus();
+  }
+
+  openToggleFromContext(): void {
+    if (this.contextMenuUser) {
+      this.openToggleModal(this.contextMenuUser);
+    }
+    this.closeAllContextMenus();
+  }
+
+  openRestoreFromContext(): void {
+    if (this.contextMenuUser) {
+      this.openRestoreModal(this.contextMenuUser);
+    }
+    this.closeAllContextMenus();
+  }
+
   // ============================================
   // Mode d'affichage / Filtre
   // ============================================

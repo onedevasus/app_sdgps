@@ -460,11 +460,11 @@
     <i class="fas fa-edit"></i>
     <span>Modifier</span>
   </div>
-  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openResetPasswordModal(contextMenuUser!)">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openResetPasswordFromContext()">
     <i class="fas fa-key"></i>
     <span>Réinitialiser MDP</span>
   </div>
-  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openToggleModal(contextMenuUser!)">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openToggleFromContext()">
     <i class="fas" [class.fa-toggle-off]="contextMenuUser?.is_active" [class.fa-toggle-on]="!contextMenuUser?.is_active"></i>
     <span>{{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}</span>
   </div>
@@ -473,7 +473,7 @@
     <i class="fas fa-trash"></i>
     <span>Supprimer</span>
   </div>
-  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuUser?.is_deleted" (click)="openRestoreModal(contextMenuUser!)">
+  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuUser?.is_deleted" (click)="openRestoreFromContext()">
     <i class="fas fa-undo"></i>
     <span>Restaurer</span>
   </div>
