@@ -181,7 +181,7 @@
                 <button class="btn-icon" (click)="openDetailModal(user)" title="Voir les détails">
                   <i class="fas fa-eye"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-disabled]="user.is_deleted" [disabled]="user.is_deleted" (click)="!user.is_deleted && openEditModal(user)" title="{{ user.is_deleted ? 'Compte supprimé' : 'Modifier' }}">
+                <button class="btn-icon" (click)="openEditModal(user)" title="Modifier">
                   <i class="fas fa-edit"></i>
                 </button>
                 <button class="btn-icon" [class.btn-icon-disabled]="isCurrentUser(user) || user.is_deleted" [disabled]="isCurrentUser(user) || user.is_deleted" (click)="!isCurrentUser(user) && !user.is_deleted && openResetPasswordModal(user)" title="{{ user.is_deleted ? 'Compte supprimé' : (isCurrentUser(user) ? 'Vous ne pouvez pas réinitialiser votre propre mot de passe' : 'Réinitialiser le mot de passe') }}">
@@ -456,7 +456,7 @@
     <i class="fas fa-eye"></i>
     <span>Voir les détails</span>
   </div>
-  <div class="context-menu-item" *ngIf="!contextMenuUser?.is_deleted" (click)="openEditFromContext()">
+  <div class="context-menu-item" (click)="openEditFromContext()">
     <i class="fas fa-edit"></i>
     <span>Modifier</span>
   </div>
