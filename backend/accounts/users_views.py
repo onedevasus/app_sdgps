@@ -188,11 +188,49 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         from django.utils import timezone
+
+        if instance.is_superuser:
+            if instance.pk == self.request.user.pk:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('Vous ne pouvez pas supprimer votre propre compte super administrateur.')
+            active_super_count = User.objects.filter(is_superuser=True, is_active=True, is_deleted=False).count()
+            if active_super_count <= 1:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('Impossible de supprimer le dernier super administrateur actif.')
+
         instance.is_deleted = True
         instance.deleted_at = timezone.now()
         instance.is_active = False
         instance.save(update_fields=['is_deleted', 'deleted_at', 'is_active'])
-        logger.info(f"Utilisateur supprimé (soft delete): {instance.email} par {self.request.user.email}")
+        if instance.is_superuser:
+            logger.warning(f"Super admin supprimé (soft delete): {instance.email} par {self.request.user.email}")
+        else:
+            logger.info(f"Utilisateur supprimé (soft delete): {instance.email} par {self.request.user.email}")
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        validated_data = serializer.validated_data
+
+        if instance.is_superuser:
+            if 'is_active' in validated_data:
+                if validated_data['is_active'] != instance.is_active:
+                    if instance.pk == self.request.user.pk:
+                        from rest_framework.exceptions import PermissionDenied
+                        raise PermissionDenied('Vous ne pouvez pas désactiver votre propre compte super administrateur.')
+                    if instance.is_active:
+                        active_super_count = User.objects.filter(is_superuser=True, is_active=True).count()
+                        if active_super_count <= 1:
+                            from rest_framework.exceptions import PermissionDenied
+                            raise PermissionDenied('Impossible de désactiver le dernier super administrateur actif.')
+                    logger.warning(
+                        f"Super admin {'désactivé' if not validated_data['is_active'] else 'activé'} "
+                        f"via PATCH: {instance.email} par {self.request.user.email}"
+                    )
+
+        serializer.save()
+
+        if instance.is_superuser:
+            logger.warning(f"Super admin modifié: {instance.email} par {self.request.user.email}")
 
 
 class UserResetPasswordView(APIView):
@@ -211,6 +249,12 @@ class UserResetPasswordView(APIView):
         if not allowed:
             return Response({'detail': msg}, status=status.HTTP_403_FORBIDDEN)
 
+        if user.is_superuser and user.pk == request.user.pk:
+            return Response(
+                {'detail': 'Vous ne pouvez pas réinitialiser votre propre mot de passe via cette interface. Utilisez la page de profil.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = ResetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -222,7 +266,10 @@ class UserResetPasswordView(APIView):
         user.must_change_password = serializer.validated_data.get('must_change_password', True)
         user.save(update_fields=['password', 'must_change_password'])
 
-        logger.info(f"Mot de passe réinitialisé pour {user.email} par {request.user.email}")
+        if user.is_superuser:
+            logger.warning(f"Mot de passe réinitialisé pour le super admin {user.email} par {request.user.email}")
+        else:
+            logger.info(f"Mot de passe réinitialisé pour {user.email} par {request.user.email}")
 
         return Response({
             'detail': 'Mot de passe réinitialisé avec succès.',
@@ -247,11 +294,28 @@ class UserToggleActiveView(APIView):
         if not allowed:
             return Response({'detail': msg}, status=status.HTTP_403_FORBIDDEN)
 
+        if user.is_superuser:
+            if user.pk == request.user.pk:
+                return Response(
+                    {'detail': 'Vous ne pouvez pas désactiver votre propre compte super administrateur.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            if user.is_active:
+                active_super_count = User.objects.filter(is_superuser=True, is_active=True).count()
+                if active_super_count <= 1:
+                    return Response(
+                        {'detail': 'Impossible de désactiver le dernier super administrateur actif.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
         user.is_active = not user.is_active
         user.save(update_fields=['is_active'])
 
         status_text = 'activé' if user.is_active else 'désactivé'
-        logger.info(f"Utilisateur {status_text}: {user.email} par {request.user.email}")
+        if user.is_superuser:
+            logger.warning(f"Super admin {status_text}: {user.email} par {request.user.email}")
+        else:
+            logger.info(f"Utilisateur {status_text}: {user.email} par {request.user.email}")
 
         return Response({
             'detail': f"Utilisateur {status_text} avec succès.",

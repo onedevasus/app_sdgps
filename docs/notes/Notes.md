@@ -16,6 +16,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -298,5 +312,11 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.
   -  restyler/redesigner le boutton confirmer de la modale de Désactiver/Activer le Compte en le mettant dans un style élégant, pro et conforme au design System de l'app.
   - Corrige l'action d'activation/desactivation d'un compte utilisateur dans l'app. l'app affiche un message d'erreur toast "Erreur lors du changement de statut" lors de la desactivation de tout compte.
-  - les noms des roles ne s'affichent pas tous dans  les differentes contexte de la page "/admin/utilisateurs/liste". 
+  - Implemente les protection suivantes sur les comptes utilisateurs des superadmins : 
+    - Empêcher un super admin de se désactiver/supprimer/modifier lui-même
+    - Empêcher la désactivation/suppression du dernier super admin actif (garantie de non-lockout)
+    - Logger toutes les modifications touchant un super admin
+
+  - les noms des roles ne s'affichent pas tous dans les differentes contexte de la page "/admin/utilisateurs/liste". 
   - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
+  - ajouter la possibiliter de recuperer les comptes supprimes
