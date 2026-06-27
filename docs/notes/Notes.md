@@ -44,6 +44,14 @@
 
 
 
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -449,13 +457,22 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
   - le boutton supprimer la selection dans la barre des outils du tableau n'est pas desactiver quand le superadmin connecte est inclus dans la selection. le message du tooltip doit etre concis toute en etre claire, montrant a l'utilisateur quoi faire.
   - Propose une bonne maniere de marquer (faire resortir) le compte actuellement connecte dans le tableau des utilisateurs le tout dans un style élégant, pro et conforme au design System de l'app.
 
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+  - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite qu'un superadmin change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
 
 
 
 
 
-    - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite qu'un superadmin change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
-    - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite qu'un superadmin reset son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+    - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite qu'un superadmin de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+
+
+
+
+
+
+
     - Protege les dits utilisateurs de l'auto-edition (possibilite qu'un superadmin edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend.
     - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
 

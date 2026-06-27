@@ -978,6 +978,11 @@ export class UserListComponent implements OnInit, OnDestroy {
       role: user.role,
       organization_id: user.organization_id || '',
     });
+    if (user.is_superuser) {
+      this.editForm.get('role')?.disable();
+    } else {
+      this.editForm.get('role')?.enable();
+    }
     this.showEditModal = true;
     document.body.style.overflow = 'hidden';
   }
@@ -986,6 +991,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (this.submitting) return;
     this.showEditModal = false;
     this.editUser = null;
+    this.editForm.get('role')?.enable();
     document.body.style.overflow = '';
   }
 
@@ -1002,7 +1008,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (formVal.first_name !== this.editUser.first_name) payload.first_name = formVal.first_name;
     if (formVal.last_name !== this.editUser.last_name) payload.last_name = formVal.last_name;
     if (formVal.is_active !== this.editUser.is_active) payload.is_active = formVal.is_active;
-    if (formVal.role !== this.editUser.role) payload.role = formVal.role;
+    if (!this.editUser.is_superuser && formVal.role !== this.editUser.role) payload.role = formVal.role;
     if (formVal.organization_id !== (this.editUser.organization_id || '')) payload.organization_id = formVal.organization_id;
 
     this.userService.updateUser(this.editUser.id, payload).pipe(takeUntil(this.destroy$)).subscribe({
@@ -1119,12 +1125,11 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   openResetPasswordModal(user: User): void {
+    if (this.isCurrentUser(user)) return;
     this.resetPasswordUser = user;
     this.newPassword = '';
     this.resetting = false;
     this.regenerating = false;
-    this.showPassword = false;
-    this.copied = false;
     this.showResetPasswordModal = true;
     document.body.style.overflow = 'hidden';
   }
