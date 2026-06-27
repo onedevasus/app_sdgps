@@ -8,6 +8,24 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -44,8 +62,10 @@
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
+        - [Controle toutes les fonctionnalite de la page](#controle-toutes-les-fonctionnalite-de-la-page)
         - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
-        - [Protection des superadmins + admins systeme](#protection-des-superadmins-admins-systeme)
+        - [Protection des superadmins](#protection-des-superadmins)
+        - [Protection des admins systeme](#protection-des-admins-systeme)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
 # Taches a faire
@@ -366,6 +386,8 @@ passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 
 #### correction + refonte frontend tableau de la liste des utilisateurs.
 
+##### Controle toutes les fonctionnalite de la page
+
 Maintenant je veux corriger les points suivantes dans le tableau de la liste des utilisateurs :
   - correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
   -	restyler/redesigner le boutton close (boutton en haut a droite de la fenetre) des modales en le mettant dans un style élégant, pro et conforme au design System de l'app.
@@ -389,7 +411,19 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
 
   - Ajoute une section dans docs/notes/Notes.md apres section "Taches a faire" qui va contenir tous les roles definies dans l'app avec leurs noms backend et frontend et une explication de chaque role.
 
-##### Protection des superadmins + admins systeme
+##### Protection des superadmins
+
+  - Quelles sont les protectioms implementees actuellement dans l'app pour les deux roles : ROLE_SUPER_ADMIN.
+
+  - Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+    - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un superadmin desactiver lui meme) via backend et frontend : via toggle, menu contextuel et check-box statut dans le modal editer.
+    - Protege les dits utilisateurs de l'auto-suppresion (possibilite qu'un superadmin supprime lui meme) via backend et frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
+    - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite qu'un superadmin change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
+
+
+
+##### Protection des admins systeme
+
 
   - Implemente les protection suivantes sur les comptes utilisateurs des superadmins : 
     - Empêcher un super admin de se désactiver/supprimer/modifier lui-même
