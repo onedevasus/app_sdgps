@@ -703,6 +703,7 @@
                       [disabled]="!!editUser?.is_superuser"
                       [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ''">
                 <option value="ROLE_SUPER_ADMIN">Super Admin</option>
+                <option value="ROLE_APP_ADMIN">Admin Système</option>
                 <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
                 <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>

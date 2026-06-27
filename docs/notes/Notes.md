@@ -60,6 +60,12 @@
 
 
 
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -476,16 +482,12 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
       - Aucun risque de sécurité : changer son prénom/nom n'est pas une escalade de privilèges
     - Expérience utilisateur dégradée : un super admin ne pourrait pas corriger une faute dans son propre nom sans appeler quelqu'un d'autre
     - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
+    
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
 
 
 
-
-
-
-
-
-
-  - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
 
 
 

@@ -183,6 +183,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'is_active', 'role', 'organization_id',
         ]
 
+    def validate_role(self, value):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            if value == 'ROLE_APP_ADMIN' and not request.user.is_superuser:
+                raise serializers.ValidationError(
+                    "Seul un Super Admin peut attribuer le rôle Admin Système."
+                )
+        return value
+
     def update(self, instance, validated_data):
         role = validated_data.pop('role', None)
         organization_id = validated_data.pop('organization_id', None)
