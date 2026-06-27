@@ -46,6 +46,14 @@ export class UserService {
     return this.http.post<any>(`${this.apiUrl}${id}/toggle-active/`, {});
   }
 
+  restoreUser(id: string): Observable<User> {
+    return this.http.post<User>(`${this.apiUrl}${id}/restore/`, {});
+  }
+
+  bulkRestoreUsers(ids: string[]): Observable<{ restored_count: number; errors: any[] }> {
+    return this.http.post<{ restored_count: number; errors: any[] }>(`${this.apiUrl}bulk-restore/`, { user_ids: ids });
+  }
+
   getRoles(): Observable<RoleInfo[]> {
     return this.http.get<RoleInfo[]>(`${this.apiUrl}roles/`);
   }

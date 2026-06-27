@@ -771,6 +771,15 @@
                   }
                 }
 
+                &.btn-icon-restore {
+                  color: #27ae60;
+
+                  &:hover {
+                    background: rgba(39, 174, 96, 0.12);
+                    color: #1e8449;
+                  }
+                }
+
                 &.btn-icon-disabled {
                   opacity: 0.35;
                   cursor: not-allowed;
@@ -1634,6 +1643,12 @@
     &:hover i { color: white; }
   }
 
+  .context-menu-item-restore {
+    i { color: #27ae60; }
+    &:hover i { color: white; }
+    &:hover { background: #27ae60; }
+  }
+
   .context-menu-item-disabled {
     opacity: 0.35;
     cursor: not-allowed;
@@ -2306,7 +2321,8 @@
 }
 
 .modal-delete-confirm,
-.modal-toggle-confirm {
+.modal-toggle-confirm,
+.modal-restore-confirm {
   max-width: 550px;
   width: 90%;
 
@@ -2575,7 +2591,8 @@
   }
 }
 
-.modal-toggle-confirm {
+.modal-toggle-confirm,
+.modal-restore-confirm {
   .modal-footer {
     .btn.btn-danger {
       background: var(--accent-color);

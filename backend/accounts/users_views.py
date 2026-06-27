@@ -367,3 +367,70 @@ class RolesListView(APIView):
             })
 
         return Response(roles_data, status=status.HTTP_200_OK)
+
+
+class UserRestoreView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk, is_deleted=True)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'Utilisateur non trouvé ou n\'est pas supprimé.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        allowed, msg = can_manage_user(request.user, user)
+        if not allowed:
+            return Response({'detail': msg}, status=status.HTTP_403_FORBIDDEN)
+
+        user.is_deleted = False
+        user.is_active = True
+        user.deleted_at = None
+        user.save(update_fields=['is_deleted', 'is_active', 'deleted_at'])
+
+        logger.warning(f"Compte restauré: {user.email} par {request.user.email}")
+
+        serializer = UserDetailSerializer(user, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserBulkRestoreView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user_ids = request.data.get('user_ids', [])
+        if not isinstance(user_ids, list) or not user_ids:
+            return Response(
+                {'detail': 'La liste user_ids est requise et doit être non vide.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        restored_count = 0
+        errors = []
+
+        for uid in user_ids:
+            try:
+                user = User.objects.get(pk=uid, is_deleted=True)
+            except User.DoesNotExist:
+                errors.append({'id': uid, 'detail': 'Utilisateur non trouvé ou n\'est pas supprimé.'})
+                continue
+
+            allowed, msg = can_manage_user(request.user, user)
+            if not allowed:
+                errors.append({'id': uid, 'detail': msg})
+                continue
+
+            user.is_deleted = False
+            user.is_active = True
+            user.deleted_at = None
+            user.save(update_fields=['is_deleted', 'is_active', 'deleted_at'])
+
+            logger.warning(f"Compte restauré (bulk): {user.email} par {request.user.email}")
+            restored_count += 1
+
+        return Response({
+            'restored_count': restored_count,
+            'errors': errors,
+        }, status=status.HTTP_200_OK)

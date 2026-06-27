@@ -45,6 +45,9 @@
         <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0 || isCurrentUserSelected()" title="{{ isCurrentUserSelected() ? 'Décochez votre compte pour supprimer' : 'Supprimer la sélection' }}">
           <i class="fas fa-trash"></i>
         </button>
+        <button class="btn btn-success" (click)="openBulkRestoreModal()" [disabled]="selectedIds.size === 0" title="Restaurer la sélection">
+          <i class="fas fa-undo"></i>
+        </button>
       </div>
 
       <div class="toolbar-right">
@@ -189,6 +192,9 @@
                 </button>
                 <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user)" [disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user)" (click)="!isCurrentUser(user) && !isCriticalSuperAdmin(user) && openDeleteModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous supprimer' : isCriticalSuperAdmin(user) ? 'Impossible : cela laisserait moins de deux super administrateurs actifs' : 'Supprimer' }}">
                   <i class="fas fa-trash"></i>
+                </button>
+                <button class="btn-icon btn-icon-restore" *ngIf="user.is_deleted" (click)="openRestoreModal(user)" title="Restaurer">
+                  <i class="fas fa-undo"></i>
                 </button>
               </td>
             </tr>
@@ -466,6 +472,10 @@
   <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && isCurrentUser(contextMenuUser)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser)" (click)="!isCurrentUser(contextMenuUser!) && openDeleteFromContext()">
     <i class="fas fa-trash"></i>
     <span>Supprimer</span>
+  </div>
+  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuUser?.is_deleted" (click)="openRestoreModal(contextMenuUser!)">
+    <i class="fas fa-undo"></i>
+    <span>Restaurer</span>
   </div>
 </div>
 
@@ -1041,6 +1051,73 @@
       <button type="button" class="btn" [class.btn-danger]="toggleAction === 'désactiver'" [class.btn-success]="toggleAction === 'activer'" (click)="confirmToggle()">
         <i class="fas fa-check"></i>
         Confirmer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Restaurer un utilisateur          -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showRestoreModal" (click)="closeRestoreModal()">
+  <div class="modal-content modal-restore-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-success">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-undo"></i> Restaurer le Compte</h3>
+      </div>
+      <button class="close-btn" (click)="closeRestoreModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="delete-warning" *ngIf="!isBulkRestore && restoreUser_target">
+        <div class="warning-icon warning-icon-success">
+          <i class="fas fa-undo"></i>
+        </div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment restaurer ce compte ?</h4>
+          <p class="user-name">"{{ restoreUser_target.first_name }} {{ restoreUser_target.last_name }}" ({{ restoreUser_target.email }})</p>
+          <p class="warning-text">
+            Le compte sera <strong>réactivé</strong> et l'utilisateur <strong>pourra à nouveau se connecter</strong>.
+            Son mot de passe actuel restera inchangé.
+          </p>
+        </div>
+      </div>
+      <div class="delete-warning" *ngIf="isBulkRestore">
+        <div class="warning-icon warning-icon-success">
+          <i class="fas fa-undo"></i>
+        </div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment restaurer {{ getSelectedUsersList().length }} utilisateur(s) ?</h4>
+          <p class="warning-text">
+            Les comptes seront <strong>réactivés</strong> et les utilisateurs <strong>pourront à nouveau se connecter</strong>.
+          </p>
+          <div class="user-list-preview" *ngIf="getSelectedUsersList().length > 0">
+            <p class="user-list-title">Utilisateurs sélectionnés :</p>
+            <ul class="user-list">
+              <li *ngFor="let u of getSelectedUsersList() | slice:0:5">
+                <i class="fas fa-user"></i>
+                {{ u.first_name }} {{ u.last_name }} ({{ u.email }})
+              </li>
+              <li *ngIf="getSelectedUsersList().length > 5" class="more-items">
+                <i class="fas fa-ellipsis-h"></i>
+                et {{ getSelectedUsersList().length - 5 }} autre(s)
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeRestoreModal()" [disabled]="restoring">
+        <i class="fas fa-times"></i>
+        Annuler
+      </button>
+      <button type="button" class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
+        <i class="fas" [class.fa-spinner]="restoring" [class.fa-spin]="restoring" [class.fa-undo]="!restoring"></i>
+        {{ restoring ? 'Restauration...' : 'Oui, Restaurer' }}
       </button>
     </div>
   </div>

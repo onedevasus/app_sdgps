@@ -2,7 +2,7 @@ from django.urls import path
 from .users_views import (
     UserListView, UserDetailView,
     UserResetPasswordView, UserToggleActiveView,
-    RolesListView,
+    RolesListView, UserRestoreView, UserBulkRestoreView,
 )
 
 urlpatterns = [
@@ -11,4 +11,6 @@ urlpatterns = [
     path('<int:pk>/', UserDetailView.as_view(), name='user-detail'),
     path('<int:pk>/reset-password/', UserResetPasswordView.as_view(), name='user-reset-password'),
     path('<int:pk>/toggle-active/', UserToggleActiveView.as_view(), name='user-toggle-active'),
+    path('<int:pk>/restore/', UserRestoreView.as_view(), name='user-restore'),
+    path('bulk-restore/', UserBulkRestoreView.as_view(), name='user-bulk-restore'),
 ]

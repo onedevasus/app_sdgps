@@ -98,6 +98,12 @@ export class UserListComponent implements OnInit, OnDestroy {
   deleting = false;
   bulkDeleting = false;
 
+  // Restore Modal
+  showRestoreModal = false;
+  restoreUser_target: User | null = null;
+  isBulkRestore = false;
+  restoring = false;
+
   // Reset Password Modal
   showResetPasswordModal = false;
   resetPasswordUser: User | null = null;
@@ -1235,6 +1241,70 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   // ============================================
+  // Restauration de comptes
+  // ============================================
+
+  openRestoreModal(user: User): void {
+    this.restoreUser_target = user;
+    this.isBulkRestore = false;
+    this.restoring = false;
+    this.showRestoreModal = true;
+    document.body.style.overflow = 'hidden';
+  }
+
+  openBulkRestoreModal(): void {
+    this.restoreUser_target = null;
+    this.isBulkRestore = true;
+    this.restoring = false;
+    this.showRestoreModal = true;
+    document.body.style.overflow = 'hidden';
+  }
+
+  closeRestoreModal(): void {
+    if (this.restoring) return;
+    this.showRestoreModal = false;
+    this.restoreUser_target = null;
+    this.isBulkRestore = false;
+    document.body.style.overflow = '';
+  }
+
+  confirmRestore(): void {
+    if (this.isBulkRestore) {
+      if (this.restoring || this.selectedIds.size === 0) return;
+      this.restoring = true;
+      const ids = Array.from(this.selectedIds);
+      this.userService.bulkRestoreUsers(ids).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (res) => {
+          this.restoring = false;
+          this.toastService.success('Succès', `${res.restored_count} utilisateur(s) restauré(s)`);
+          this.closeRestoreModal();
+          this.selectedIds.clear();
+          this.loadUsers();
+        },
+        error: () => {
+          this.restoring = false;
+          this.toastService.error('Erreur', 'Erreur lors de la restauration');
+        },
+      });
+    } else if (this.restoreUser_target) {
+      if (this.restoring) return;
+      this.restoring = true;
+      this.userService.restoreUser(this.restoreUser_target.id).pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.restoring = false;
+          this.toastService.success('Succès', `Compte de "${this.restoreUser_target!.first_name} ${this.restoreUser_target!.last_name}" restauré`);
+          this.closeRestoreModal();
+          this.loadUsers();
+        },
+        error: () => {
+          this.restoring = false;
+          this.toastService.error('Erreur', 'Erreur lors de la restauration');
+        },
+      });
+    }
+  }
+
+  // ============================================
   // Menu contextuel des lignes (clic droit)
   // ============================================
 
@@ -1312,5 +1382,6 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (this.showDeleteModal) { this.closeDeleteModal(); return; }
     if (this.showResetPasswordModal) { this.closeResetPasswordModal(); return; }
     if (this.showConfirmToggleModal) { this.closeToggleModal(); return; }
+    if (this.showRestoreModal) { this.closeRestoreModal(); return; }
   }
 }

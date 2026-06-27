@@ -74,6 +74,12 @@
 
 
 
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -510,4 +516,4 @@ Quelles sont les protections implementees actuellement dans l'app pour le role :
 
 ##### Recuperation des comptes supprimees
 
-  - ajouter la possibiliter de recuperer les comptes supprimes
+Quelle solution propose tu pour ajouter la possibiliter de recuperer les comptes utilisateurs supprimes.
