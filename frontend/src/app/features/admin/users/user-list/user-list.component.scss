@@ -567,6 +567,12 @@
                 .btn-icon {
                   opacity: 0.4;
                   pointer-events: none;
+
+                  &.btn-icon-restore,
+                  &:not(.btn-icon-disabled) {
+                    opacity: 1;
+                    pointer-events: auto;
+                  }
                 }
               }
 
