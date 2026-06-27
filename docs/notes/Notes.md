@@ -4,6 +4,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -41,7 +45,7 @@
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
         - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
-        - [Protection des superadmins](#protection-des-superadmins)
+        - [Protection des superadmins + admins systeme](#protection-des-superadmins-admins-systeme)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
 # Taches a faire
@@ -385,12 +389,7 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
 
   - Ajoute une section dans docs/notes/Notes.md apres section "Taches a faire" qui va contenir tous les roles definies dans l'app avec leurs noms backend et frontend et une explication de chaque role.
 
-  - les noms des roles ne s'affichent pas tous dans les differentes contexte de la page "/admin/utilisateurs/liste". 
-  - presence + correction des nom des roles dans les differentes contexte de cette page. noms des roles dans colonne role du tabelau differents de ceux desa autres contextes.
-
-
-
-##### Protection des superadmins
+##### Protection des superadmins + admins systeme
 
   - Implemente les protection suivantes sur les comptes utilisateurs des superadmins : 
     - Empêcher un super admin de se désactiver/supprimer/modifier lui-même

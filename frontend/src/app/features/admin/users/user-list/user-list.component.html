@@ -973,9 +973,12 @@
 <!-- ========================================== -->
 <div class="modal-overlay" *ngIf="showResetPasswordModal" (click)="closeResetPasswordModal()">
   <div class="modal-content modal-password-reset" (click)="$event.stopPropagation()">
-    <div class="modal-header">
+    <div class="modal-header" [class.modal-header-success]="!!newPassword">
       <div class="modal-header-left">
-        <h3><i class="fas fa-key"></i> Réinitialiser le Mot de Passe</h3>
+        <h3>
+          <i class="fas" [class.fa-key]="!newPassword" [class.fa-check-circle]="!!newPassword"></i>
+          {{ newPassword ? 'Mot de passe généré' : 'Réinitialiser le Mot de Passe' }}
+        </h3>
       </div>
       <button class="close-btn" (click)="closeResetPasswordModal()">
         <i class="fas fa-times"></i>
@@ -983,24 +986,71 @@
     </div>
 
     <div class="modal-body">
-      <p *ngIf="resetPasswordUser && !newPassword">
-        Voulez-vous réinitialiser le mot de passe de <strong>{{ resetPasswordUser.first_name }} {{ resetPasswordUser.last_name }}</strong> ({{ resetPasswordUser.email }}) ?
-      </p>
-      <div *ngIf="newPassword" class="new-password-display">
-        <p>Le mot de passe a été réinitialisé avec succès.</p>
-        <div class="password-display">
-          <input type="text" [value]="newPassword" readonly>
-          <button class="btn" (click)="copyToClipboard(newPassword)">
-            <i class="fas fa-copy"></i> Copier
-          </button>
+      <!-- Étape 1 : Confirmation avant réinitialisation -->
+      <div *ngIf="resetPasswordUser && !newPassword && !resetting" class="reset-confirm">
+        <div class="reset-user-info">
+          <div class="user-avatar">
+            {{ resetPasswordUser.first_name.charAt(0) }}{{ resetPasswordUser.last_name.charAt(0) }}
+          </div>
+          <div class="user-details">
+            <h4>{{ resetPasswordUser.first_name }} {{ resetPasswordUser.last_name }}</h4>
+            <span class="user-email">{{ resetPasswordUser.email }}</span>
+          </div>
         </div>
-        <p class="warning-text">Communiquez ce mot de passe à l'utilisateur. Il devra le changer à la prochaine connexion.</p>
+        <div class="reset-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <p>Voulez-vous réinitialiser le mot de passe de cet utilisateur ? Un nouveau mot de passe sécurisé sera généré. L'utilisateur devra le changer à la prochaine connexion.</p>
+        </div>
+      </div>
+
+      <!-- État chargement -->
+      <div *ngIf="resetting" class="reset-loading">
+        <div class="spinner"></div>
+        <p>Génération du mot de passe...</p>
+      </div>
+
+      <!-- Étape 2 : Mot de passe généré -->
+      <div *ngIf="newPassword" class="password-result">
+        <div class="success-banner">
+          <i class="fas fa-check-circle"></i>
+          <span>Mot de passe réinitialisé avec succès</span>
+        </div>
+
+        <div class="password-card">
+          <div class="password-field">
+            <label>Nouveau mot de passe</label>
+            <div class="password-input-group">
+              <input [type]="showPassword ? 'text' : 'password'" [value]="newPassword" readonly>
+              <button class="btn-icon-toggle" (click)="showPassword = !showPassword" [title]="showPassword ? 'Masquer' : 'Afficher'">
+                <i class="fas" [class.fa-eye]="!showPassword" [class.fa-eye-slash]="showPassword"></i>
+              </button>
+              <button class="btn-icon-copy" (click)="copyToClipboard(newPassword)" [class.copied]="copied" [title]="copied ? 'Copié !' : 'Copier'">
+                <i class="fas" [class.fa-check]="copied" [class.fa-copy]="!copied"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="password-actions">
+            <button class="btn btn-regenerate" (click)="regenerateResetPassword()" [disabled]="regenerating">
+              <i class="fas" [class.fa-spinner]="regenerating" [class.fa-spin]="regenerating" [class.fa-sync]="!regenerating"></i>
+              {{ regenerating ? 'Génération...' : 'Régénérer' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="password-note">
+          <i class="fas fa-info-circle"></i>
+          <p>Communiquez ce mot de passe à l'utilisateur. Il devra le changer lors de sa prochaine connexion.</p>
+        </div>
       </div>
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-cancel" (click)="closeResetPasswordModal()">{{ newPassword ? 'Fermer' : 'Annuler' }}</button>
-      <button class="btn btn-primary" *ngIf="!newPassword" (click)="confirmResetPassword()">
+      <button class="btn btn-cancel" (click)="closeResetPasswordModal()" [disabled]="resetting">
+        <i class="fas fa-times"></i>
+        {{ newPassword ? 'Fermer' : 'Annuler' }}
+      </button>
+      <button class="btn btn-reset" *ngIf="!newPassword && !resetting" (click)="confirmResetPassword()">
         <i class="fas fa-key"></i>
         Réinitialiser
       </button>

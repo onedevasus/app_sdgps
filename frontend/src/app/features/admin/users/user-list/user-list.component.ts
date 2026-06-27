@@ -102,6 +102,10 @@ export class UserListComponent implements OnInit, OnDestroy {
   showResetPasswordModal = false;
   resetPasswordUser: User | null = null;
   newPassword = '';
+  resetting = false;
+  regenerating = false;
+  showPassword = false;
+  copied = false;
 
   // Column Config Modal
   showColumnConfig = false;
@@ -905,7 +909,9 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   copyToClipboard(text: string): void {
     navigator.clipboard.writeText(text).then(() => {
+      this.copied = true;
       this.toastService.success('Succès', 'Copié dans le presse-papier');
+      setTimeout(() => { this.copied = false; }, 2000);
     });
   }
 
@@ -1086,6 +1092,10 @@ export class UserListComponent implements OnInit, OnDestroy {
   openResetPasswordModal(user: User): void {
     this.resetPasswordUser = user;
     this.newPassword = '';
+    this.resetting = false;
+    this.regenerating = false;
+    this.showPassword = false;
+    this.copied = false;
     this.showResetPasswordModal = true;
     document.body.style.overflow = 'hidden';
   }
@@ -1094,16 +1104,41 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.showResetPasswordModal = false;
     this.resetPasswordUser = null;
     this.newPassword = '';
+    this.resetting = false;
+    this.regenerating = false;
+    this.showPassword = false;
+    this.copied = false;
     document.body.style.overflow = '';
   }
 
   confirmResetPassword(): void {
     if (!this.resetPasswordUser) return;
+    this.resetting = true;
     this.userService.resetPassword(this.resetPasswordUser.id, { must_change_password: true }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         this.newPassword = res.new_password;
+        this.resetting = false;
       },
-      error: () => this.toastService.error('Erreur', 'Erreur lors de la réinitialisation'),
+      error: () => {
+        this.resetting = false;
+        this.toastService.error('Erreur', 'Erreur lors de la réinitialisation');
+      },
+    });
+  }
+
+  regenerateResetPassword(): void {
+    if (!this.resetPasswordUser) return;
+    this.regenerating = true;
+    this.copied = false;
+    this.userService.resetPassword(this.resetPasswordUser.id, { must_change_password: true }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        this.newPassword = res.new_password;
+        this.regenerating = false;
+      },
+      error: () => {
+        this.regenerating = false;
+        this.toastService.error('Erreur', 'Erreur lors de la régénération');
+      },
     });
   }
 
