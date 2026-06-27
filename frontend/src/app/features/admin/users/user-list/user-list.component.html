@@ -45,7 +45,7 @@
         <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0 || isCurrentUserSelected()" title="{{ isCurrentUserSelected() ? 'Décochez votre compte pour supprimer' : 'Supprimer la sélection' }}">
           <i class="fas fa-trash"></i>
         </button>
-        <button class="btn btn-success" (click)="openBulkRestoreModal()" [disabled]="selectedIds.size === 0" title="Restaurer la sélection">
+        <button class="btn btn-success" (click)="openBulkRestoreModal()" [disabled]="!allSelectedAreDeleted" title="{{ allSelectedAreDeleted ? 'Restaurer la sélection' : 'La sélection contient des comptes non supprimés' }}">
           <i class="fas fa-undo"></i>
         </button>
       </div>

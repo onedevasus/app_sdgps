@@ -510,6 +510,11 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.users.filter(u => this.selectedIds.has(String(u.id)));
   }
 
+  get allSelectedAreDeleted(): boolean {
+    if (this.selectedIds.size === 0) return false;
+    return this.getSelectedUsersList().every(u => u.is_deleted);
+  }
+
   // ============================================
   // Menu contextuel cellules (clic droit)
   // ============================================
