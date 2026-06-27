@@ -1191,6 +1191,24 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.currentUserId !== null && Number(user.id) === this.currentUserId;
   }
 
+  get activeSuperAdminCount(): number {
+    return this.users.filter(u => u.is_superuser && u.is_active && !u.is_deleted).length;
+  }
+
+  isCriticalSuperAdmin(user: User): boolean {
+    return user.is_superuser && user.is_active && !user.is_deleted && this.activeSuperAdminCount <= 2;
+  }
+
+  get criticalSuperAdminSelectedIds(): string[] {
+    return this.users
+      .filter(u => this.selectedIds.has(String(u.id)) && u.is_superuser && u.is_active && !u.is_deleted)
+      .map(u => String(u.id));
+  }
+
+  get criticalSuperAdminSelectedCount(): number {
+    return this.criticalSuperAdminSelectedIds.length;
+  }
+
   openToggleModal(user: User): void {
     this.toggleTargetUser = user;
     this.toggleAction = user.is_active ? 'désactiver' : 'activer';

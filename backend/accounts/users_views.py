@@ -228,7 +228,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         from rest_framework.exceptions import PermissionDenied
                         raise PermissionDenied('Vous ne pouvez pas désactiver votre propre compte super administrateur.')
                     if instance.is_active:
-                        active_super_count = User.objects.filter(is_superuser=True, is_active=True).count()
+                        active_super_count = User.objects.filter(is_superuser=True, is_active=True, is_deleted=False).count()
                         if active_super_count <= 1:
                             from rest_framework.exceptions import PermissionDenied
                             raise PermissionDenied('Impossible de désactiver le dernier super administrateur actif.')

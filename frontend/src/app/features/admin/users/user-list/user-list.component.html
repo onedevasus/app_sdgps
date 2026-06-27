@@ -184,10 +184,10 @@
                 <button class="btn-icon" [class.btn-icon-disabled]="isCurrentUser(user)" [disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openResetPasswordModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas réinitialiser votre propre mot de passe' : 'Réinitialiser le mot de passe' }}">
                   <i class="fas fa-key"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openToggleModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous désactiver' : (user.is_active ? 'Désactiver' : 'Activer') }}">
+                <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user)" [disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user)" (click)="!isCurrentUser(user) && !isCriticalSuperAdmin(user) && openToggleModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous désactiver' : isCriticalSuperAdmin(user) ? 'Impossible : cela laisserait moins de deux super administrateurs actifs' : (user.is_active ? 'Désactiver' : 'Activer') }}">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
-                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user)" (click)="!isCurrentUser(user) && openDeleteModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous supprimer' : 'Supprimer' }}">
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user)" [disabled]="isCurrentUser(user) || isCriticalSuperAdmin(user)" (click)="!isCurrentUser(user) && !isCriticalSuperAdmin(user) && openDeleteModal(user)" title="{{ isCurrentUser(user) ? 'Vous ne pouvez pas vous supprimer' : isCriticalSuperAdmin(user) ? 'Impossible : cela laisserait moins de deux super administrateurs actifs' : 'Supprimer' }}">
                   <i class="fas fa-trash"></i>
                 </button>
               </td>
@@ -941,6 +941,11 @@
           <p class="warning-text">
             Cette action est <strong>réversible</strong> (soft-delete). L'utilisateur pourra être restauré.
           </p>
+          <p class="super-admin-critical-warning" *ngIf="deleteUser && isCriticalSuperAdmin(deleteUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
+            La suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - 1 }}.
+          </p>
         </div>
       </div>
       <div class="delete-warning" *ngIf="isBulkDelete">
@@ -965,6 +970,12 @@
               </li>
             </ul>
           </div>
+          <p class="super-admin-critical-warning" *ngIf="criticalSuperAdminSelectedCount > 0">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> {{ criticalSuperAdminSelectedCount }} super administrateur(s) actif(s) sélectionné(s).
+            La suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - criticalSuperAdminSelectedCount }}.
+            Les super admins ne peuvent pas être supprimés s'il en reste moins de deux actifs.
+          </p>
         </div>
       </div>
     </div>
@@ -1012,6 +1023,11 @@
           </p>
           <p class="warning-text" *ngIf="toggleAction === 'activer'">
             L'utilisateur <strong>pourra à nouveau se connecter</strong> au système.
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="toggleTargetUser && isCriticalSuperAdmin(toggleTargetUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
+            {{ toggleAction === 'désactiver' ? 'La désactivation réduirait le nombre de super admins actifs à ' + (activeSuperAdminCount - 1) + '.' : '' }}
           </p>
         </div>
       </div>

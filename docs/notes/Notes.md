@@ -66,6 +66,14 @@
 
 
 
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -105,7 +113,7 @@
         - [Controle toutes les fonctionnalite de la page](#controle-toutes-les-fonctionnalite-de-la-page)
         - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
         - [Protection des superadmins](#protection-des-superadmins)
-        - [Protection des admins systeme](#protection-des-admins-systeme)
+        - [Protection des admins systeme (Role : ROLE_APP_ADMIN)](#protection-des-admins-systeme-role-roleappadmin)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
 # Taches a faire
@@ -453,7 +461,7 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
 
 ##### Protection des superadmins
 
-Quelles sont les protectioms implementees actuellement dans l'app pour les deux roles : ROLE_SUPER_ADMIN.
+Quelles sont les protectioms implementees actuellement dans l'app pour le role : ROLE_SUPER_ADMIN.
 
 Protection contre : 
 - auto-desactivation / auto-suppresion / 
@@ -484,16 +492,12 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
     - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
     
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
-- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif). la protection doit etre effectuee au niveau du backend et frontend.
+- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
 
 
+##### Protection des admins systeme (Role : ROLE_APP_ADMIN)
 
-
-
-
-
-
-##### Protection des admins systeme
+Quelles sont les protections implementees actuellement dans l'app pour le role : ROLE_APP_ADMIN.
 
 
   - Implemente les protection suivantes sur les comptes utilisateurs des superadmins : 
