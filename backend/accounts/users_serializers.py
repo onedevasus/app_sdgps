@@ -207,12 +207,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'role': 'Impossible de modifier le rôle d\'un super administrateur.'}
                 )
-            if 'is_active' in validated_data:
-                request = self.context.get('request')
-                if request and request.user.pk != instance.pk:
-                    raise serializers.ValidationError(
-                        {'is_active': 'Utilisez l\'action Désactiver/Activer pour modifier le statut d\'un super administrateur.'}
-                    )
             organization_id = None  # Les super admins n'ont pas d'organisation
 
         if instance.is_platform_admin():

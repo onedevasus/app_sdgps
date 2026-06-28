@@ -773,8 +773,8 @@
           <div class="form-row">
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
-                <input type="checkbox" formControlName="is_active" [disabled]="!!(editUser && (isCurrentUser(editUser) || isCriticalAppAdmin(editUser)))" title="{{ editUser && isCurrentUser(editUser) ? 'Vous ne pouvez pas désactiver votre propre compte' : (editUser && isCriticalAppAdmin(editUser) ? 'Impossible : cela laisserait moins de deux administrateurs système actifs' : '') }}">
-                <span class="checkmark" [class.checkmark-disabled]="editUser && (isCurrentUser(editUser) || isCriticalAppAdmin(editUser))"></span>
+                <input type="checkbox" formControlName="is_active" [disabled]="!!(editUser && isCurrentUser(editUser))" title="{{ editUser && isCurrentUser(editUser) ? 'Vous ne pouvez pas désactiver votre propre compte' : '' }}">
+                <span class="checkmark" [class.checkmark-disabled]="editUser && isCurrentUser(editUser)"></span>
                 <span class="checkbox-text">
                   <i class="fas fa-check-circle"></i>
                   Compte actif
@@ -784,6 +784,14 @@
               <p class="disabled-note" *ngIf="editUser && isCurrentUser(editUser)">
                 <i class="fas fa-info-circle"></i>
                 Vous ne pouvez pas désactiver votre propre compte.
+              </p>
+              <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalSuperAdmin(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
+              </p>
+              <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalAppAdmin(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
               </p>
             </div>
           </div>

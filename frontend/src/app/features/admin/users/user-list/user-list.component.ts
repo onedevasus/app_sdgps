@@ -1058,6 +1058,19 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (!this.editUser.is_superuser && !this.isCurrentUser(this.editUser) && formVal.role !== this.editUser.role) payload.role = formVal.role;
     if (formVal.organization_id !== (this.editUser.organization_id || '')) payload.organization_id = formVal.organization_id;
 
+    if ('is_active' in payload && this.editUser) {
+      if (this.editUser.is_superuser && this.isCriticalSuperAdmin(this.editUser)) {
+        this.submitting = false;
+        this.toastService.error('Action bloquée', 'Impossible : cela laisserait moins de deux super administrateurs actifs.');
+        return;
+      }
+      if (this.isAppAdmin(this.editUser) && this.isCriticalAppAdmin(this.editUser)) {
+        this.submitting = false;
+        this.toastService.error('Action bloquée', 'Impossible : cela laisserait moins de deux administrateurs système actifs.');
+        return;
+      }
+    }
+
     this.userService.updateUser(this.editUser.id, payload).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.submitting = false;
