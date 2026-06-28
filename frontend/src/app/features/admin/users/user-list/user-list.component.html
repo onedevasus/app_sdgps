@@ -777,11 +777,11 @@
                 <span class="checkmark" [class.checkmark-disabled]="editUser && isCurrentUser(editUser)"></span>
                 <span class="checkbox-text">
                   <i class="fas" [class.fa-check-circle]="isActiveChecked" [class.fa-ban]="!isActiveChecked" [style.color]="isActiveChecked ? '#2ecc71' : '#e74c3c'"></i>
-                  {{ isActiveChecked ? 'Compte actif' : 'Désactiver ce compte' }}
+                  {{ isActiveChecked ? 'Compte actif' : 'Compte inactif' }}
                 </span>
               </label>
               <p class="help-text">
-                {{ isActiveChecked ? 'L\'utilisateur peut se connecter au système' : 'L\'utilisateur ne pourra plus se connecter' }}
+                {{ isActiveChecked ? 'L\'utilisateur peut se connecter au système' : 'L\'utilisateur ne pourra plus se connecter au système' }}
               </p>
               <p class="disabled-note" *ngIf="editUser && isCurrentUser(editUser)">
                 <i class="fas fa-info-circle"></i>
