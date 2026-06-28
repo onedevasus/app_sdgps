@@ -231,7 +231,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         if is_app_admin:
             instance.platform_role = 'ROLE_ADMIN_SYSTEME'
             organization_id = None  # Les admins système n'ont pas d'organisation
-        elif role and instance.platform_role and role != 'ROLE_ADMIN_SYSTEME':
+        elif role and instance.is_platform_admin() and role != 'ROLE_ADMIN_SYSTEME':
+            if instance.is_active and not instance.is_deleted:
+                active_count = User.objects.filter(
+                    platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False
+                ).count()
+                if active_count <= 1:
+                    raise serializers.ValidationError(
+                        {'role': 'Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs.'}
+                    )
             instance.platform_role = None
 
         if organization_id:

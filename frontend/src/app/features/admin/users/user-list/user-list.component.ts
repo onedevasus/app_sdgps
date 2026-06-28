@@ -1045,9 +1045,22 @@ export class UserListComponent implements OnInit, OnDestroy {
       });
       return;
     }
-    this.submitting = true;
     const payload: UpdateUserPayload = {};
     const formVal = this.editForm.value;
+
+    // Vérifier la protection "dernier admin système actif" lors du changement de rôle
+    if (this.isAppAdmin(this.editUser) && formVal.role !== 'ROLE_ADMIN_SYSTEME' && formVal.role !== this.editUser.role) {
+      if (this.activeAppAdminCount <= 2) {
+        this.toastService.warning(
+          'Rôle bloqué',
+          'Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs.'
+        );
+        this.submitting = false;
+        return;
+      }
+    }
+
+    this.submitting = true;
     if (formVal.first_name !== this.editUser.first_name) payload.first_name = formVal.first_name;
     if (formVal.last_name !== this.editUser.last_name) payload.last_name = formVal.last_name;
     if (formVal.is_active !== this.editUser.is_active) payload.is_active = formVal.is_active;

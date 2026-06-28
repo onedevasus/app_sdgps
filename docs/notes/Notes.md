@@ -74,6 +74,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -539,7 +543,7 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
     - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
   - Protege les dits utilisateurs de l'auto-edition (possibilite  que a un utilisateur avec role ROLE_ADMIN_SYSTEME d'edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend.
-    
+
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
   - Protege les dits utilisateurs contre ce risque "deux derniers admin systeme actifs" (que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
 
