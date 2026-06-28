@@ -1018,6 +1018,10 @@ export class UserListComponent implements OnInit, OnDestroy {
     return !!(this.editUser?.is_superuser || (this.editUser && this.currentUserRole !== 'ROLE_SUPER_ADMIN' && this.isAppAdmin(this.editUser)) || this.isRoleChangeBlocked);
   }
 
+  get isActiveChecked(): boolean {
+    return this.editForm?.get('is_active')?.value ?? false;
+  }
+
   openEditModal(user: User): void {
     this.editUser = user;
     this.isRoleChangeBlocked = user.role === 'ROLE_ADMIN_SYSTEME' && this.activeAppAdminCount <= 2;
