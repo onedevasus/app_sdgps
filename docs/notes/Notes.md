@@ -68,6 +68,12 @@
 
 
 
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -525,26 +531,17 @@ Protection contre :
 
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
   - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un utilisateur avec role ROLE_ADMIN_SYSTEME de desactiver lui meme) via backend et frontend.
-
-
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
   - Protege les dits utilisateurs de l'auto-suppresion (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprime lui meme) . la protection doit etre effectuee au niveau du backend et frontend. le frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
-
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
   - Protege les dits utilisateurs de l'auto-changement de rôle (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de change son role lui meme). la protection doit etre effectuee au niveau du backend et frontend.
-
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
     - Protege les dits utilisateurs de l'auto-reset du MDP (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de resetter son MDP lui meme). la protection doit etre effectuee au niveau du backend et frontend.
-
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
-  - Protege les dits utilisateurs de l'auto-edition (possibilite  que a un utilisateur avec role ROLE_ADMIN_SYSTEME d'edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend. ===> ce n'est pas une bonne maniere de faire. voici pourquoi : 
-      - Aucun risque de sécurité : changer son prénom/nom n'est pas une escalade de privilèges
-    - Expérience utilisateur dégradée : un App admin ne pourrait pas corriger une faute dans son propre nom sans appeler quelqu'un d'autre
-    - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
+  - Protege les dits utilisateurs de l'auto-edition (possibilite  que a un utilisateur avec role ROLE_ADMIN_SYSTEME d'edite ces infos lui meme). la protection doit etre effectuee au niveau du backend et frontend.
     
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
-  - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (  que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
-  - 
+  - Protege les dits utilisateurs contre ce risque "deux derniers admin systeme actifs" (que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
 
 
 

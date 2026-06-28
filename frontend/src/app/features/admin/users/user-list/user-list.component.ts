@@ -1227,7 +1227,7 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   get criticalSuperAdminSelectedIds(): string[] {
     return this.users
-      .filter(u => this.selectedIds.has(String(u.id)) && u.is_superuser && u.is_active && !u.is_deleted)
+      .filter(u => this.selectedIds.has(String(u.id)) && this.isCriticalSuperAdmin(u))
       .map(u => String(u.id));
   }
 
@@ -1241,7 +1241,7 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   get criticalAppAdminSelectedIds(): string[] {
     return this.users
-      .filter(u => this.selectedIds.has(String(u.id)) && u.role === 'ROLE_ADMIN_SYSTEME' && u.is_active && !u.is_deleted)
+      .filter(u => this.selectedIds.has(String(u.id)) && this.isCriticalAppAdmin(u))
       .map(u => String(u.id));
   }
 
