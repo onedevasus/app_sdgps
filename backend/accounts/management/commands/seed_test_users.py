@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Crée des utilisateurs de test pour le développement : super admin, app admins, org admins et agents'
+    help = 'Crée des utilisateurs de test pour le développement : super admins, app admins, org admins et agents'
 
     def handle(self, *args, **options):
         created_users = []
@@ -22,9 +22,13 @@ class Command(BaseCommand):
         ]
 
         users_data = [
-            # 1 super admin supplémentaire
+            # 3 super admins
             {'email': 'boulmanejamila@gmail.com', 'password': 'SuperAdmin@2026', 'first_name': 'Jamila',
              'last_name': 'Boulmane', 'is_superuser': True},
+            {'email': 'testsuperadmin1@gmail.com', 'password': 'SuperAdmin@2026', 'first_name': 'PtestSA1',
+             'last_name': 'NtestSA1', 'is_superuser': True},
+            {'email': 'testsuperadmin2@gmail.com', 'password': 'SuperAdmin@2026', 'first_name': 'PtestSA2',
+             'last_name': 'NtestSA2', 'is_superuser': True},
             # 2 app admins
             {'email': 'appadmin1@sdgps.ma', 'password': 'AppAdmin@2026', 'first_name': 'Amine',
              'last_name': 'Benali', 'platform_role': 'ROLE_ADMIN_SYSTEME'},
@@ -97,8 +101,8 @@ class Command(BaseCommand):
         ))
         self.stdout.write(self.style.NOTICE(
             '\nComptes créés :\n'
-            '  Super Admin : boulmanejamila@gmail.com / SuperAdmin@2026\n'
-            '  App Admins  : appadmin1@sdgps.ma, appadmin2@sdgps.ma / AppAdmin@2026\n'
-            '  Org Admins  : orgadmin1@sdgps.ma, orgadmin2@sdgps.ma, orgadmin3@sdgps.ma / OrgAdmin@2026\n'
-            '  Agents      : agent1@sdgps.ma, agent2@sdgps.ma, agent3@sdgps.ma / Agent@2026'
+            '  Super Admins : boulmanejamila@gmail.com, testsuperadmin1@gmail.com, testsuperadmin2@gmail.com / SuperAdmin@2026\n'
+            '  App Admins   : appadmin1@sdgps.ma, appadmin2@sdgps.ma / AppAdmin@2026\n'
+            '  Org Admins   : orgadmin1@sdgps.ma, orgadmin2@sdgps.ma, orgadmin3@sdgps.ma / OrgAdmin@2026\n'
+            '  Agents       : agent1@sdgps.ma, agent2@sdgps.ma, agent3@sdgps.ma / Agent@2026'
         ))

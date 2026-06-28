@@ -208,18 +208,18 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied('Vous ne pouvez pas supprimer votre propre compte super administrateur.')
             active_super_count = User.objects.filter(is_superuser=True, is_active=True, is_deleted=False).count()
-            if active_super_count <= 1:
+            if active_super_count <= 2:
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied('Impossible de supprimer le dernier super administrateur actif.')
+                raise PermissionDenied('Impossible de supprimer : cela laisserait moins de deux super administrateurs actifs.')
 
         if instance.is_platform_admin():
             if instance.pk == self.request.user.pk:
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied('Vous ne pouvez pas supprimer votre propre compte administrateur système.')
             active_app_admin_count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False).count()
-            if active_app_admin_count <= 1:
+            if active_app_admin_count <= 2:
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied('Impossible de supprimer le dernier administrateur système actif.')
+                raise PermissionDenied('Impossible de supprimer : cela laisserait moins de deux administrateurs système actifs.')
 
         instance.is_deleted = True
         instance.deleted_at = timezone.now()
@@ -242,9 +242,9 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         raise PermissionDenied('Vous ne pouvez pas désactiver votre propre compte super administrateur.')
                     if instance.is_active:
                         active_super_count = User.objects.filter(is_superuser=True, is_active=True, is_deleted=False).count()
-                        if active_super_count <= 1:
+                        if active_super_count <= 2:
                             from rest_framework.exceptions import PermissionDenied
-                            raise PermissionDenied('Impossible de désactiver le dernier super administrateur actif.')
+                            raise PermissionDenied('Impossible de désactiver : cela laisserait moins de deux super administrateurs actifs.')
                     logger.warning(
                         f"Super admin {'désactivé' if not validated_data['is_active'] else 'activé'} "
                         f"via PATCH: {instance.email} par {self.request.user.email}"
@@ -258,9 +258,9 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         raise PermissionDenied('Vous ne pouvez pas désactiver votre propre compte administrateur système.')
                     if instance.is_active:
                         active_app_admin_count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False).count()
-                        if active_app_admin_count <= 1:
+                        if active_app_admin_count <= 2:
                             from rest_framework.exceptions import PermissionDenied
-                            raise PermissionDenied('Impossible de désactiver le dernier administrateur système actif.')
+                            raise PermissionDenied('Impossible de désactiver : cela laisserait moins de deux administrateurs système actifs.')
                     logger.warning(
                         f"Admin système {'désactivé' if not validated_data['is_active'] else 'activé'} "
                         f"via PATCH: {instance.email} par {self.request.user.email}"
@@ -340,10 +340,10 @@ class UserToggleActiveView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             if user.is_active:
-                active_super_count = User.objects.filter(is_superuser=True, is_active=True).count()
-                if active_super_count <= 1:
+                active_super_count = User.objects.filter(is_superuser=True, is_active=True, is_deleted=False).count()
+                if active_super_count <= 2:
                     return Response(
-                        {'detail': 'Impossible de désactiver le dernier super administrateur actif.'},
+                        {'detail': 'Impossible de désactiver : cela laisserait moins de deux super administrateurs actifs.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
 
@@ -355,9 +355,9 @@ class UserToggleActiveView(APIView):
                 )
             if user.is_active:
                 active_app_admin_count = User.objects.filter(platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False).count()
-                if active_app_admin_count <= 1:
+                if active_app_admin_count <= 2:
                     return Response(
-                        {'detail': 'Impossible de désactiver le dernier administrateur système actif.'},
+                        {'detail': 'Impossible de désactiver : cela laisserait moins de deux administrateurs système actifs.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
 

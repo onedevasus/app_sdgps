@@ -4,96 +4,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -193,6 +103,8 @@ Super Admin > Admin Système > Admin Organisation > Agent Organisation
 |------------|-------|-------------|------|-------------|
 | Abderrazzak Boulmane | boulmaneabderrazzak@gmail.com | Abderrazzak@1234 | Super Admin | — |
 | Jamila Boulmane | boulmanejamila@gmail.com | SuperAdmin@2026 | Super Admin | — |
+| PtestSA1 NtestSA1 | testsuperadmin1@gmail.com | SuperAdmin@2026 | Super Admin | — |
+| PtestSA2 NtestSA2 | testsuperadmin2@gmail.com | SuperAdmin@2026 | Super Admin | — |
 | Amine Benali | appadmin1@sdgps.ma | AppAdmin@2026 | App Admin | — |
 | Sara El Amrani | appadmin2@sdgps.ma | AppAdmin@2026 | App Admin | — |
 | Karim Tazi | orgadmin1@sdgps.ma | OrgAdmin@2026 | Admin Org | Cabinet Tech & Innovation |
@@ -211,7 +123,7 @@ Si la base de données est réinitialisée (suppression du volume Docker ou `mig
 # 1. Créer les organisations de démonstration (20 orgs PRIVATE + PUBLIC)
 docker exec sdgps-backend python manage.py seed_demo_orgs
 
-# 2. Créer les organisations de test (3 orgs) + les utilisateurs de test (9 comptes)
+# 2. Créer les organisations de test (3 orgs) + les utilisateurs de test (11 comptes)
 docker exec sdgps-backend python manage.py seed_test_users
 
 # 3. Vérifier la création
@@ -403,9 +315,9 @@ corrige les points suivants :
 
   - Affiner les controles pour les comptes superadmin
     - controle de securite du minimum de 2 admin system.
-      - bloquer changement de role pour admin systeme si nbr admin system <= 2.
-      - boutton desactiver/supprimer inactive pour admin systeme si nbr admin system <= 2.
-
+      - bloquer changement de role pour admin systeme si nbr admin system <= 2. (fait)
+      - inactiver les bouttons activer/desactiver et supprimer pour admin systeme si nbr admin system <= 2. (fait)
+  - Implementer la suppression definitive des comptes.
 
 
 

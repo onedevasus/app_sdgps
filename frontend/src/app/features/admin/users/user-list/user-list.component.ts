@@ -1350,8 +1350,8 @@ export class UserListComponent implements OnInit, OnDestroy {
       };
       return msgs[action];
     }
-    if (action === 'toggle' && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
-    if (action === 'toggle' && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
+    if ((action === 'toggle' || action === 'delete') && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
+    if ((action === 'toggle' || action === 'delete') && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
     const labels: Record<string, string> = { edit: 'Modifier', reset: 'Réinitialiser le mot de passe', toggle: user.is_active ? 'Désactiver' : 'Activer', delete: 'Supprimer' };
     return labels[action];
   }

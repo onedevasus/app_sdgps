@@ -190,7 +190,7 @@
                 <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openToggleModal(user)" [title]="actionTitle(user, 'toggle')">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
-                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openDeleteModal(user)" [title]="actionTitle(user, 'delete')">
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openDeleteModal(user)" [title]="actionTitle(user, 'delete')">
                   <i class="fas fa-trash"></i>
                 </button>
                 <button class="btn-icon btn-icon-restore" *ngIf="user.is_deleted" (click)="openRestoreModal(user)" title="Restaurer">
@@ -469,7 +469,7 @@
     <span>{{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}</span>
   </div>
   <div class="context-menu-divider" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)"></div>
-  <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && isActionDisabled(contextMenuUser)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)" (click)="contextMenuUser && !isActionDisabled(contextMenuUser) && openDeleteFromContext()">
+  <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && isToggleDeleteDisabled(contextMenuUser)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)" (click)="contextMenuUser && !isToggleDeleteDisabled(contextMenuUser) && openDeleteFromContext()">
     <i class="fas fa-trash"></i>
     <span>Supprimer</span>
   </div>
