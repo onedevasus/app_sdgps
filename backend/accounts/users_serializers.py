@@ -236,7 +236,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                 active_count = User.objects.filter(
                     platform_role='ROLE_ADMIN_SYSTEME', is_active=True, is_deleted=False
                 ).count()
-                if active_count <= 1:
+                if active_count <= 2:
                     raise serializers.ValidationError(
                         {'role': 'Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs.'}
                     )
