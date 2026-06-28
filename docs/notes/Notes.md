@@ -58,6 +58,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -494,7 +504,11 @@ Quelles protections propose tu a jouter pour le rôle ROLE_ADMIN_SYSTEME, en sui
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
   - Corrige le champs Organisation dans les modals lecture/modification des utilisateurs dont role est ROLE_ADMIN_SYSTEME de la meme facon que pour les utilisateurs dont role est ROLE_SUPER_ADMIN.
   - restyler/redesigner l'icon + texte "Non applicable (rôle plateforme)" en la mettant dans un style élégant, pro et conforme au design System de l'app.
-  - Est ce une bonne chose que les utilisateurs admin systeme peuvent creer d'autres utilisateurs de meme role (role ROLE_ADMIN_SYSTEME)
+  - Est ce une bonne chose que les utilisateurs admin systeme peuvent creer d'autres utilisateurs de meme role (role ROLE_ADMIN_SYSTEME).
+  - Est ce une bonne chose que les utilisateurs admin systeme peuvent supprimer d'autres utilisateurs de meme role (role ROLE_ADMIN_SYSTEME).
+  - Dans le modal de confirmation de la suppression d'un admin Systeme affiche un message pour protection du deux dernier comptes admin systeme actifs et non pas pour la protection pair pair. a votre avis quelle est la meilleur manière de faire désactiver définitivement le boutton supprimer ou bien l'activer et afficher le modale avec un message claire puis desactiver le boutton "Confirmer" du modale.
+  - le bouton supprimer dans la barre des outils du tableau est actif quand la sélection comprend un autre admin systeme. comment faire a votre avis pour ajoute ce controle d'auto suppression / de suppression pair via le boutton de la barre des outils du tableau. tout en affichant des messages claires explicatif a l'utilisateur.
+  - A votre avis est ce que ce n'est pas une bonne manière que tous les messages des avertissement et d'information relatives a la suppression d'un ou des utilisateurs "Admin Systeme" par un autre utilisateur  "Admin Systeme" soient regroupees dans le modal de suppression (boutton confirmer du modale desactive pour bloquer la suppression), mais en gardant seulement les avertissement relatif au conntrole suivant : "les Admin System ne peuvent etre supprimee que par des superadmin", les autres controles sont a mon avis inclus dans ce controle precedant. quelle est votre avis et quelle est la bonne maniere de faire.
 
 
 
@@ -513,11 +527,6 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
   - Protege les dits utilisateurs de l'auto-desactivation (possibilite qu'un utilisateur avec role ROLE_ADMIN_SYSTEME de desactiver lui meme) via backend et frontend.
 
 
-
-
-
-
-
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
   - Protege les dits utilisateurs de l'auto-suppresion (possibilite que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprime lui meme) . la protection doit etre effectuee au niveau du backend et frontend. le frontend via boutton supprimer, option supprimer du menu contextuel et suppression individuel ou groupee via boutton supprimer de la barre des outils du tableau de la liste des utilisateurs.
 
@@ -534,7 +543,8 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
     - Incohérent avec la réalité : GitHub, GitLab, tous les dashboards pros permettent l'édition de son propre profil
     
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_ADMIN_SYSTEME :
-- Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (  que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
+  - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (  que a un utilisateur avec role ROLE_ADMIN_SYSTEME de supprimer/desactiver/changer les infos d'un autre "App admin" qui implique que l'app sera en situation d'un seul et dernier "App admin" actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
+  - 
 
 
 

@@ -2477,6 +2477,12 @@
         i { color: #2ecc71; }
       }
 
+      .warning-icon-danger {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.2) 0%, rgba(192, 57, 43, 0.2) 100%);
+
+        i { color: #e74c3c; }
+      }
+
       .warning-content {
         flex: 1;
 
@@ -2528,6 +2534,38 @@
           }
 
           strong { color: #e74c3c; }
+        }
+
+        .blocked-reasons-list {
+          list-style: none;
+          margin: 16px 0 0;
+          padding: 0;
+
+          li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.06) 0%, rgba(192, 57, 43, 0.06) 100%);
+            border: 1px solid rgba(231, 76, 60, 0.15);
+            border-left: 3px solid #e74c3c;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-color);
+            line-height: 1.5;
+
+            i {
+              font-size: 16px;
+              color: #e74c3c;
+              flex-shrink: 0;
+              margin-top: 2px;
+            }
+
+            strong { color: #e74c3c; font-weight: 600; }
+
+            &:last-child { margin-bottom: 0; }
+          }
         }
 
         .user-list-preview {

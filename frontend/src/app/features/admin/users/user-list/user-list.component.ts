@@ -1092,6 +1092,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   openBulkDeleteModal(): void {
+    this.deleteUser = null;
     this.isBulkDelete = true;
     this.showDeleteModal = true;
     document.body.style.overflow = 'hidden';
@@ -1108,15 +1109,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   confirmDelete(): void {
     if (this.isBulkDelete) {
       if (this.bulkDeleting || this.selectedIds.size === 0) return;
-      if (this.isCurrentUserSelected()) {
-        this.selectedIds.delete(String(this.currentUserId!));
-        if (this.selectedIds.size === 0) {
-          this.toastService.warning('Opération annulée', 'Vous ne pouvez pas supprimer votre propre compte.');
-          this.closeDeleteModal();
-          return;
-        }
-        this.toastService.warning('Attention', 'Votre propre compte a été exclu de la suppression.');
-      }
+      if (this.isCurrentUserSelected() || this.criticalSuperAdminSelectedCount > 0 || this.criticalAppAdminSelectedCount > 0 || this.bulkBlockedPairSelectedCount > 0) return;
       this.bulkDeleting = true;
       const ids = Array.from(this.selectedIds);
       let completed = 0;
@@ -1149,6 +1142,7 @@ export class UserListComponent implements OnInit, OnDestroy {
       });
     } else if (this.deleteUser) {
       if (this.deleting) return;
+      if (this.isDeleteBlockedByCritical(this.deleteUser)) return;
       this.deleting = true;
       this.userService.deleteUser(this.deleteUser.id).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
@@ -1255,6 +1249,22 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.criticalAppAdminSelectedIds.length;
   }
 
+  get bulkBlockedPairSelectedIds(): string[] {
+    if (this.currentUserRole !== 'ROLE_ADMIN_SYSTEME') return [];
+    return this.getSelectedUsersList()
+      .filter(u => this.isAppAdmin(u))
+      .map(u => String(u.id));
+  }
+
+  get bulkBlockedPairSelectedCount(): number {
+    return this.bulkBlockedPairSelectedIds.length;
+  }
+
+  get hasBulkBlockingIssues(): boolean {
+    return this.isCurrentUserSelected() || this.bulkBlockedPairSelectedCount > 0
+      || this.criticalSuperAdminSelectedCount > 0 || this.criticalAppAdminSelectedCount > 0;
+  }
+
   get currentUserRole(): string {
     try {
       const token = localStorage.getItem('authToken');
@@ -1280,7 +1290,11 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   isToggleDeleteDisabled(user: User): boolean {
-    return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user) || user.is_deleted;
+    return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user);
+  }
+
+  isDeleteBlockedByCritical(user: User): boolean {
+    return this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user);
   }
 
   actionTitle(user: User, action: 'edit' | 'reset' | 'toggle' | 'delete'): string {
@@ -1307,9 +1321,7 @@ export class UserListComponent implements OnInit, OnDestroy {
       return msgs[action];
     }
     if (action === 'toggle' && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
-    if (action === 'delete' && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
     if (action === 'toggle' && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
-    if (action === 'delete' && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
     const labels: Record<string, string> = { edit: 'Modifier', reset: 'Réinitialiser le mot de passe', toggle: user.is_active ? 'Désactiver' : 'Activer', delete: 'Supprimer' };
     return labels[action];
   }

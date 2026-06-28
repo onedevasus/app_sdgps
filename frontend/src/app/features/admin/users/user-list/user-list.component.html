@@ -42,7 +42,7 @@
           <i class="fas fa-columns"></i>
         </button>
 
-        <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0 || isCurrentUserSelected()" title="{{ isCurrentUserSelected() ? 'Décochez votre compte pour supprimer' : 'Supprimer la sélection' }}">
+        <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0" title="Supprimer la sélection">
           <i class="fas fa-trash"></i>
         </button>
         <button class="btn btn-success" (click)="openBulkRestoreModal()" [disabled]="!allSelectedAreDeleted" title="{{ allSelectedAreDeleted ? 'Restaurer la sélection' : 'La sélection contient des comptes non supprimés' }}">
@@ -190,7 +190,7 @@
                 <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openToggleModal(user)" [title]="actionTitle(user, 'toggle')">
                   <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
                 </button>
-                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openDeleteModal(user)" [title]="actionTitle(user, 'delete')">
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openDeleteModal(user)" [title]="actionTitle(user, 'delete')">
                   <i class="fas fa-trash"></i>
                 </button>
                 <button class="btn-icon btn-icon-restore" *ngIf="user.is_deleted" (click)="openRestoreModal(user)" title="Restaurer">
@@ -464,7 +464,7 @@
     <i class="fas fa-key"></i>
     <span>Réinitialiser MDP</span>
   </div>
-  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isActionDisabled(contextMenuUser)" (click)="contextMenuUser && !isActionDisabled(contextMenuUser) && openToggleFromContext()">
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isToggleDeleteDisabled(contextMenuUser)" (click)="contextMenuUser && !isToggleDeleteDisabled(contextMenuUser) && openToggleFromContext()">
     <i class="fas" [class.fa-toggle-off]="contextMenuUser?.is_active" [class.fa-toggle-on]="!contextMenuUser?.is_active"></i>
     <span>{{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}</span>
   </div>
@@ -978,39 +978,58 @@
         </div>
       </div>
       <div class="delete-warning" *ngIf="isBulkDelete">
-        <div class="warning-icon">
-          <i class="fas fa-trash-alt"></i>
+        <div class="warning-icon" [class.warning-icon-danger]="hasBulkBlockingIssues">
+          <i class="fas" [class.fa-exclamation-triangle]="hasBulkBlockingIssues" [class.fa-trash-alt]="!hasBulkBlockingIssues"></i>
         </div>
         <div class="warning-content">
-          <h4>Êtes-vous sûr de vouloir supprimer {{ selectedIds.size }} utilisateur(s) ?</h4>
-          <p class="warning-text">
-            Cette action est <strong>réversible</strong> (soft-delete). Les utilisateurs pourront être restaurés.
-          </p>
-          <div class="user-list-preview" *ngIf="getSelectedUsersList().length > 0">
-            <p class="user-list-title">Utilisateurs sélectionnés :</p>
-            <ul class="user-list">
-              <li *ngFor="let u of getSelectedUsersList() | slice:0:5">
-                <i class="fas fa-user"></i>
-                {{ u.first_name }} {{ u.last_name }} ({{ u.email }})
+
+          <!-- Vue blocages : liste tous les problèmes -->
+          <ng-container *ngIf="hasBulkBlockingIssues; else normalBulkContent">
+            <h4><i class="fas fa-ban"></i> Suppression bloquée</h4>
+            <p class="warning-text">
+              Des problèmes ont été détectés dans votre sélection. Veuillez les corriger avant de procéder :
+            </p>
+            <ul class="blocked-reasons-list">
+              <li *ngIf="isCurrentUserSelected()">
+                <i class="fas fa-user-slash"></i>
+                <span><strong>Votre propre compte</strong> est sélectionné — veuillez le décocher.</span>
               </li>
-              <li *ngIf="getSelectedUsersList().length > 5" class="more-items">
-                <i class="fas fa-ellipsis-h"></i>
-                et {{ getSelectedUsersList().length - 5 }} autre(s)
+              <li *ngIf="bulkBlockedPairSelectedCount > 0">
+                <i class="fas fa-lock"></i>
+                <span><strong>{{ bulkBlockedPairSelectedCount }} administrateur(s) système</strong> — seuls les Super Admins peuvent gérer ces comptes.</span>
+              </li>
+              <li *ngIf="criticalSuperAdminSelectedCount > 0">
+                <i class="fas fa-shield-halved"></i>
+                <span><strong>{{ criticalSuperAdminSelectedCount }} super administrateur(s) critique(s)</strong> — la suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - criticalSuperAdminSelectedCount }} (minimum 2 requis).</span>
+              </li>
+              <li *ngIf="criticalAppAdminSelectedCount > 0">
+                <i class="fas fa-shield-halved"></i>
+                <span><strong>{{ criticalAppAdminSelectedCount }} administrateur(s) système critique(s)</strong> — la suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - criticalAppAdminSelectedCount }} (minimum 2 requis).</span>
               </li>
             </ul>
-          </div>
-          <p class="super-admin-critical-warning" *ngIf="criticalSuperAdminSelectedCount > 0">
-            <i class="fas fa-shield-halved"></i>
-            <strong>Attention :</strong> {{ criticalSuperAdminSelectedCount }} super administrateur(s) actif(s) sélectionné(s).
-            La suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - criticalSuperAdminSelectedCount }}.
-            Les super admins ne peuvent pas être supprimés s'il en reste moins de deux actifs.
-          </p>
-          <p class="super-admin-critical-warning" *ngIf="criticalAppAdminSelectedCount > 0">
-            <i class="fas fa-shield-halved"></i>
-            <strong>Attention :</strong> {{ criticalAppAdminSelectedCount }} administrateur(s) système actif(s) sélectionné(s).
-            La suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - criticalAppAdminSelectedCount }}.
-            Les admins système ne peuvent pas être supprimés s'il en reste moins de deux actifs.
-          </p>
+          </ng-container>
+
+          <!-- Vue normale : pas de blocage, message de confirmation -->
+          <ng-template #normalBulkContent>
+            <h4>Êtes-vous sûr de vouloir supprimer {{ selectedIds.size }} utilisateur(s) ?</h4>
+            <p class="warning-text">
+              Cette action est <strong>réversible</strong> (soft-delete). Les utilisateurs pourront être restaurés.
+            </p>
+            <div class="user-list-preview" *ngIf="getSelectedUsersList().length > 0">
+              <p class="user-list-title">Utilisateurs sélectionnés :</p>
+              <ul class="user-list">
+                <li *ngFor="let u of getSelectedUsersList() | slice:0:5">
+                  <i class="fas fa-user"></i>
+                  {{ u.first_name }} {{ u.last_name }} ({{ u.email }})
+                </li>
+                <li *ngIf="getSelectedUsersList().length > 5" class="more-items">
+                  <i class="fas fa-ellipsis-h"></i>
+                  et {{ getSelectedUsersList().length - 5 }} autre(s)
+                </li>
+              </ul>
+            </div>
+          </ng-template>
+
         </div>
       </div>
     </div>
@@ -1020,7 +1039,7 @@
         <i class="fas fa-times"></i>
         Annuler
       </button>
-      <button type="button" class="btn btn-danger btn-delete-confirm" (click)="confirmDelete()" [disabled]="deleting || bulkDeleting">
+      <button type="button" class="btn btn-danger btn-delete-confirm" (click)="confirmDelete()" [disabled]="deleting || bulkDeleting || (deleteUser && isDeleteBlockedByCritical(deleteUser)) || (isBulkDelete && hasBulkBlockingIssues)">
         <i class="fas" [class.fa-spinner]="deleting || bulkDeleting" [class.fa-spin]="deleting || bulkDeleting" [class.fa-trash]="!(deleting || bulkDeleting)"></i>
         {{ (deleting || bulkDeleting) ? 'Suppression...' : 'Oui, Supprimer' }}
       </button>
