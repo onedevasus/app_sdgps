@@ -97,6 +97,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   submitting = false;
   deleting = false;
   bulkDeleting = false;
+  isRoleChangeBlocked = false;
 
   // Restore Modal
   showRestoreModal = false;
@@ -1014,6 +1015,7 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   openEditModal(user: User): void {
     this.editUser = user;
+    this.isRoleChangeBlocked = user.role === 'ROLE_ADMIN_SYSTEME' && !user.is_deleted && this.activeAppAdminCount <= 2;
     this.editForm.patchValue({
       first_name: user.first_name,
       last_name: user.last_name,
@@ -1021,7 +1023,7 @@ export class UserListComponent implements OnInit, OnDestroy {
       role: user.role,
       organization_id: user.organization_id || '',
     });
-    if (user.is_superuser) {
+    if (user.is_superuser || this.isRoleChangeBlocked) {
       this.editForm.get('role')?.disable();
     } else {
       this.editForm.get('role')?.enable();
@@ -1034,6 +1036,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (this.submitting) return;
     this.showEditModal = false;
     this.editUser = null;
+    this.isRoleChangeBlocked = false;
     this.editForm.get('role')?.enable();
     document.body.style.overflow = '';
   }
@@ -1047,19 +1050,6 @@ export class UserListComponent implements OnInit, OnDestroy {
     }
     const payload: UpdateUserPayload = {};
     const formVal = this.editForm.value;
-
-    // Vérifier la protection "dernier admin système actif" lors du changement de rôle
-    if (this.isAppAdmin(this.editUser) && formVal.role !== 'ROLE_ADMIN_SYSTEME' && formVal.role !== this.editUser.role) {
-      if (this.activeAppAdminCount <= 2) {
-        this.toastService.warning(
-          'Rôle bloqué',
-          'Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs.'
-        );
-        this.submitting = false;
-        return;
-      }
-    }
-
     this.submitting = true;
     if (formVal.first_name !== this.editUser.first_name) payload.first_name = formVal.first_name;
     if (formVal.last_name !== this.editUser.last_name) payload.last_name = formVal.last_name;

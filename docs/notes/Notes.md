@@ -78,6 +78,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -498,6 +502,13 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
     
 Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
 - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
+
+
+
+
+Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
+  - Maintenant je veux que tu me propose une meilleur manière plus intuitive pour bloquer le changement de rôle  des admins systemes que la methode du message "Rôle bloqué. Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs." afficher dans le toast.
+
 
 
 ##### Protection des admins systeme (Role : ROLE_ADMIN_SYSTEME)
