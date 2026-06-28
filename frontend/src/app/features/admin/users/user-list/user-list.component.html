@@ -181,7 +181,7 @@
                 <button class="btn-icon" (click)="openDetailModal(user)" title="Voir les détails">
                   <i class="fas fa-eye"></i>
                 </button>
-                <button class="btn-icon" [class.btn-icon-disabled]="isBlockedForAppAdmin(user)" [disabled]="isBlockedForAppAdmin(user)" (click)="!isBlockedForAppAdmin(user) && openEditModal(user)" [title]="actionTitle(user, 'edit')">
+                <button class="btn-icon" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openEditModal(user)" [title]="actionTitle(user, 'edit')">
                   <i class="fas fa-edit"></i>
                 </button>
                 <button class="btn-icon" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openResetPasswordModal(user)" [title]="actionTitle(user, 'reset')">
@@ -713,7 +713,9 @@
               </label>
               <select id="edit-role" formControlName="role"
                       [class.error]="editForm.get('role')?.invalid && editForm.get('role')?.touched"
-                      [disabled]="!!editUser?.is_superuser || (!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) || isRoleChangeBlocked"
+                      [class.role-select-disabled]="isRoleDisabled"
+                      [attr.tabindex]="isRoleDisabled ? -1 : 0"
+                      [attr.aria-disabled]="isRoleDisabled"
                       [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : (isRoleChangeBlocked ? roleChangeBlockedMessage : ''))">
                 <option value="ROLE_SUPER_ADMIN" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Super Admin</option>
                 <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>

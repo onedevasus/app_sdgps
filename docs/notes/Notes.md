@@ -88,6 +88,12 @@
 
 
 
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -121,6 +127,7 @@
       - [Prompte n2](#prompte-n2)
       - [Prompte n3](#prompte-n3)
     - [Fonctionnalites Espace Admin : Gestion des utilisateurs](#fonctionnalites-espace-admin-gestion-des-utilisateurs)
+      - [Plan des taches a faire](#plan-des-taches-a-faire)
       - [Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs](#prompte-n1-redaction-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [Prompte n2 : implementation plan de dev de la phase : Gestion des utilisateurs](#prompte-n2-implementation-plan-de-dev-de-la-phase-gestion-des-utilisateurs)
       - [correction + refonte frontend tableau de la liste des utilisateurs.](#correction-refonte-frontend-tableau-de-la-liste-des-utilisateurs)
@@ -391,6 +398,16 @@ corrige les points suivants :
     - toujours lorsque le scroll vertical est active et que je scroll verticalement puis apres survole du nom d'une colonne la ligne en dessous s'affiche car le fond de cette colonne est transparent. corrige ce probleme.
 
 ### Fonctionnalites Espace Admin : Gestion des utilisateurs
+
+#### Plan des taches a faire
+
+  - Affiner les controles pour les comptes superadmin
+    - controle de securite du minimum de 2 admin system.
+      - bloquer changement de role pour admin systeme si nbr admin system <= 2.
+      - boutton desactiver/supprimer inactive pour admin systeme si nbr admin system <= 2.
+
+
+
 
 #### Prompte n1 : redaction plan de dev de la phase : Gestion des utilisateurs
 

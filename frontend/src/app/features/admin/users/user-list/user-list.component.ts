@@ -206,10 +206,9 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   loadUsers(): void {
     this.loading = true;
-    const params: any = {};
-    if (this.selectedStatus === 'deleted') {
-      params.show_deleted = true;
-    }
+    const params: any = {
+      show_deleted: true,
+    };
     this.userService.getUsers(params).pipe(takeUntil(this.destroy$)).subscribe({
       next: (users) => {
         this.users = users;
@@ -312,11 +311,13 @@ export class UserListComponent implements OnInit, OnDestroy {
       result = result.filter(u => u.role === this.selectedRole);
     }
     if (this.selectedStatus === 'active') {
-      result = result.filter(u => u.is_active);
+      result = result.filter(u => u.is_active && !u.is_deleted);
     } else if (this.selectedStatus === 'inactive') {
       result = result.filter(u => !u.is_active && !u.is_deleted);
     } else if (this.selectedStatus === 'deleted') {
       result = result.filter(u => u.is_deleted);
+    } else {
+      result = result.filter(u => !u.is_deleted);
     }
     if (this.selectedOrganization) {
       result = result.filter(u => u.organization_id === this.selectedOrganization);
@@ -1013,24 +1014,24 @@ export class UserListComponent implements OnInit, OnDestroy {
     });
   }
 
+  get isRoleDisabled(): boolean {
+    return !!(this.editUser?.is_superuser || (this.editUser && this.currentUserRole !== 'ROLE_SUPER_ADMIN' && this.isAppAdmin(this.editUser)) || this.isRoleChangeBlocked);
+  }
+
   openEditModal(user: User): void {
     this.editUser = user;
-    this.isRoleChangeBlocked = user.is_active && !user.is_deleted && user.role === 'ROLE_ADMIN_SYSTEME' && this.activeAppAdminCount <= 2;
-    this.editForm.get('role')?.enable();
-    this.editForm.patchValue({
-      first_name: user.first_name,
-      last_name: user.last_name,
-      is_active: user.is_active,
-      role: user.role,
-      organization_id: user.organization_id || '',
-    });
-    if (user.is_superuser || this.isRoleChangeBlocked) {
-      this.editForm.get('role')?.disable();
-    } else {
-      this.editForm.get('role')?.enable();
-    }
+    this.isRoleChangeBlocked = user.role === 'ROLE_ADMIN_SYSTEME' && this.activeAppAdminCount <= 2;
     this.showEditModal = true;
     document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      this.editForm.patchValue({
+        first_name: user.first_name,
+        last_name: user.last_name,
+        is_active: user.is_active,
+        role: user.role,
+        organization_id: user.organization_id || '',
+      });
+    });
   }
 
   closeEditModal(): void {
@@ -1038,7 +1039,6 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.showEditModal = false;
     this.editUser = null;
     this.isRoleChangeBlocked = false;
-    this.editForm.get('role')?.enable();
     document.body.style.overflow = '';
   }
 
@@ -1249,11 +1249,17 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   get roleChangeBlockedMessage(): string {
     const options: string[] = [];
-    if (this.inactiveAppAdminCount > 0) {
-      options.push(`réactivez un compte désactivé (${this.inactiveAppAdminCount})`);
+    const inactive = this.inactiveAppAdminCount;
+    const deleted = this.deletedAppAdminCount;
+    if (inactive > 0) {
+      options.push(`réactivez un compte désactivé (${inactive})`);
+    } else {
+      options.push('réactivez un compte désactivé');
     }
-    if (this.deletedAppAdminCount > 0) {
-      options.push(`restaurez un compte supprimé (${this.deletedAppAdminCount})`);
+    if (deleted > 0) {
+      options.push(`restaurez un compte supprimé (${deleted})`);
+    } else {
+      options.push('restaurez un compte supprimé');
     }
     options.push('créez-en un nouveau');
     return `Besoin de 2 Admin Système actifs. Options : ${options.join(', ')}.`;

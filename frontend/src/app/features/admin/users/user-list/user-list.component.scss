@@ -1793,6 +1793,12 @@
         font-style: italic;
       }
 
+      .role-select-disabled {
+        opacity: 0.6;
+        pointer-events: none;
+        cursor: not-allowed;
+      }
+
       .disabled-note {
         font-size: 12px;
         color: #e74c3c;
