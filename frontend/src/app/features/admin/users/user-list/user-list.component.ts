@@ -1239,6 +1239,26 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.users.filter(u => u.role === 'ROLE_ADMIN_SYSTEME' && u.is_active && !u.is_deleted).length;
   }
 
+  get inactiveAppAdminCount(): number {
+    return this.users.filter(u => u.role === 'ROLE_ADMIN_SYSTEME' && !u.is_active && !u.is_deleted).length;
+  }
+
+  get deletedAppAdminCount(): number {
+    return this.users.filter(u => u.role === 'ROLE_ADMIN_SYSTEME' && u.is_deleted).length;
+  }
+
+  get roleChangeBlockedMessage(): string {
+    const options: string[] = [];
+    if (this.inactiveAppAdminCount > 0) {
+      options.push(`réactivez un compte désactivé (${this.inactiveAppAdminCount})`);
+    }
+    if (this.deletedAppAdminCount > 0) {
+      options.push(`restaurez un compte supprimé (${this.deletedAppAdminCount})`);
+    }
+    options.push('créez-en un nouveau');
+    return `Besoin de 2 Admin Système actifs. Options : ${options.join(', ')}.`;
+  }
+
   isCriticalAppAdmin(user: User): boolean {
     return user.role === 'ROLE_ADMIN_SYSTEME' && user.is_active && !user.is_deleted && this.activeAppAdminCount <= 2;
   }

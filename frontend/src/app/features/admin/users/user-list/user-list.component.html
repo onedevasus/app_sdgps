@@ -708,13 +708,13 @@
                 Rôle <span class="required">*</span>
                 <i class="fas fa-info-circle field-info-icon"
                    [title]="isRoleChangeBlocked
-                     ? 'Protégé : au moins 2 Admin Système actifs requis. Créez un nouvel Admin Système ou promouvez un utilisateur existant pour modifier ce rôle.'
+                     ? '🔒 ' + roleChangeBlockedMessage
                      : 'Niveau de privilèges de l\'utilisateur'"></i>
               </label>
               <select id="edit-role" formControlName="role"
                       [class.error]="editForm.get('role')?.invalid && editForm.get('role')?.touched"
                       [disabled]="!!editUser?.is_superuser || (!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) || isRoleChangeBlocked"
-                      [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : (isRoleChangeBlocked ? 'Protégé : créez un Admin Système pour modifier ce rôle' : ''))">
+                      [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : (isRoleChangeBlocked ? roleChangeBlockedMessage : ''))">
                 <option value="ROLE_SUPER_ADMIN" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Super Admin</option>
                 <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
                 <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
@@ -733,7 +733,7 @@
               </p>
               <p class="disabled-note" *ngIf="isRoleChangeBlocked">
                 <i class="fas fa-lock"></i>
-                Protégé : créez un Admin Système pour modifier ce rôle
+                {{ roleChangeBlockedMessage }}
               </p>
             </div>
             <div class="form-group" *ngIf="editUser && !editUser.is_superuser && editUser.role !== 'ROLE_ADMIN_SYSTEME'">
