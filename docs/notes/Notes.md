@@ -82,6 +82,12 @@
 
 
 
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -454,6 +460,8 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - Corrige l'action d'activation/desactivation d'un compte utilisateur dans l'app. l'app affiche un message d'erreur toast "Erreur lors du changement de statut" lors de la desactivation de tout compte.
   - restyler/redesigner le modale "Réinitialiser le Mot de Passe" en la mettant dans un style élégant, pro et conforme au design System de l'app. ajouter dans le modale la section pour generer/regenerer le mdp. 
 
+  - Maintenant je veux que tu me propose une meilleur manière plus intuitive pour bloquer le changement de rôle  des admins systemes que la methode du message "Rôle bloqué. Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs." afficher dans le toast.
+  - 
 
 
 ##### Gestion affichage des roles des utilisateurs dans le tableau
@@ -467,6 +475,9 @@ Maintenant je veux corriger les points suivantes dans le tableau de la liste des
   - A ton avis est ce une bonne chose de changer les noms frontend de ces roles pour des noms plus explicites ou bien garder ces memes noms en frontend.
 
   - Ajoute une section dans docs/notes/Notes.md apres section "Taches a faire" qui va contenir tous les roles definies dans l'app avec leurs noms backend et frontend et une explication de chaque role.
+
+
+
 
 ##### Protection des superadmins (role : ROLE_SUPER_ADMIN)
 
@@ -504,10 +515,6 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 - Protege les dits utilisateurs contre ce risque "Dernier super admin actif" (possibilite qu'un superadmin supprime/desactive/change les infos d'un autre superadmin qui implique que l'app sera en situation d'un seul et dernier superadmin actif non supprime). la protection doit etre effectuee au niveau du backend et frontend.
 
 
-
-
-Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_SUPER_ADMIN :
-  - Maintenant je veux que tu me propose une meilleur manière plus intuitive pour bloquer le changement de rôle  des admins systemes que la methode du message "Rôle bloqué. Impossible de changer le rôle : cela laisserait moins de deux administrateurs système actifs." afficher dans le toast.
 
 
 

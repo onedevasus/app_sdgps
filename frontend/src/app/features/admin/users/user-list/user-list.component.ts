@@ -1015,7 +1015,8 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   openEditModal(user: User): void {
     this.editUser = user;
-    this.isRoleChangeBlocked = user.role === 'ROLE_ADMIN_SYSTEME' && !user.is_deleted && this.activeAppAdminCount <= 2;
+    this.isRoleChangeBlocked = user.is_active && !user.is_deleted && user.role === 'ROLE_ADMIN_SYSTEME' && this.activeAppAdminCount <= 2;
+    this.editForm.get('role')?.enable();
     this.editForm.patchValue({
       first_name: user.first_name,
       last_name: user.last_name,
