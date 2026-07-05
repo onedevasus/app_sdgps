@@ -773,7 +773,7 @@
           <div class="form-row">
             <div class="form-group mat-toggle-group">
               <mat-slide-toggle formControlName="is_active"
-                [disabled]="!!(editUser && isCurrentUser(editUser))"
+                [disabled]="isEditToggleDisabled()"
                 color="primary">
                 {{ isActiveChecked ? 'Compte actif' : 'Compte inactif' }}
               </mat-slide-toggle>
@@ -783,6 +783,10 @@
               <p class="disabled-note" *ngIf="editUser && isCurrentUser(editUser)">
                 <i class="fas fa-info-circle"></i>
                 Vous ne pouvez pas désactiver votre propre compte.
+              </p>
+              <p class="disabled-note" *ngIf="editUser && isBlockedForAppAdmin(editUser) && !isCurrentUser(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                Vous ne pouvez pas modifier le statut d'un autre administrateur système.
               </p>
               <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalSuperAdmin(editUser)">
                 <i class="fas fa-shield-halved"></i>

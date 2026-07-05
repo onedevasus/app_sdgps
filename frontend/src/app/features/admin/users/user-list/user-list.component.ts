@@ -1340,6 +1340,11 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user);
   }
 
+  isEditToggleDisabled(): boolean {
+    if (!this.editUser) return true;
+    return this.isCurrentUser(this.editUser) || this.isBlockedForAppAdmin(this.editUser) || this.editUser.is_deleted || this.isCriticalSuperAdmin(this.editUser) || this.isCriticalAppAdmin(this.editUser);
+  }
+
   isDeleteBlockedByCritical(user: User): boolean {
     return this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user);
   }
