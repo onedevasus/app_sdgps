@@ -1737,6 +1737,13 @@
           margin-bottom: 4px;
         }
 
+        ::ng-deep .mat-slide-toggle.mat-checked .mat-slide-toggle-thumb {
+          background-color: #f39c12;
+        }
+        ::ng-deep .mat-slide-toggle.mat-checked .mat-slide-toggle-bar {
+          background-color: rgba(243, 156, 18, 0.54);
+        }
+
         .help-text {
           margin: 4px 0 8px 0;
           font-size: 12px;
