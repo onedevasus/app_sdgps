@@ -1035,6 +1035,12 @@ export class UserListComponent implements OnInit, OnDestroy {
         role: user.role,
         organization_id: user.organization_id || '',
       });
+      const isActiveCtrl = this.editForm.get('is_active');
+      if (this.isCurrentUser(user) || this.isBlockedForAppAdmin(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user)) {
+        isActiveCtrl?.disable({ onlySelf: true, emitEvent: false });
+      } else {
+        isActiveCtrl?.enable({ onlySelf: true, emitEvent: false });
+      }
     });
   }
 
@@ -1043,6 +1049,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.showEditModal = false;
     this.editUser = null;
     this.isRoleChangeBlocked = false;
+    this.editForm.get('is_active')?.enable({ onlySelf: true, emitEvent: false });
     document.body.style.overflow = '';
   }
 

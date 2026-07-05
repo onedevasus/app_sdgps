@@ -5,13 +5,23 @@
   min-height: 0;
 }
 
-:host ::ng-deep .modal-edit-user mat-slide-toggle.mat-mdc-slide-toggle-checked {
+:host ::ng-deep .modal-edit-user mat-slide-toggle {
   --mdc-switch-selected-handle-color: #f39c12;
   --mdc-switch-selected-track-color: rgba(243, 156, 18, 0.54);
-}
-:host ::ng-deep .modal-edit-user mat-slide-toggle:not(.mat-mdc-slide-toggle-checked) {
   --mdc-switch-unselected-handle-color: #f39c12;
   --mdc-switch-unselected-track-color: rgba(243, 156, 18, 0.3);
+}
+
+:host ::ng-deep .modal-edit-user mat-slide-toggle.mat-mdc-slide-toggle-checked:focus {
+  --mdc-switch-selected-focus-state-layer-color: rgba(243, 156, 18, 0.12);
+}
+
+:host ::ng-deep .modal-edit-user mat-slide-toggle.mat-mdc-slide-toggle-checked:hover {
+  --mdc-switch-selected-hover-state-layer-color: rgba(243, 156, 18, 0.12);
+}
+
+:host ::ng-deep .modal-edit-user mat-slide-toggle .mdc-switch__thumb::after {
+  background-color: white;
 }
 
 .user-list-container {
