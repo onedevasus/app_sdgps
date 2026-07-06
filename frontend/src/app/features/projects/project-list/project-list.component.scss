@@ -1,0 +1,47 @@
+.projects-page { padding: 1.5rem; }
+
+.page-header {
+  display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;
+  h2 { margin: 0; display: flex; align-items: center; gap: .5rem; }
+  .subtitle { margin: .25rem 0 0; color: #888; font-size: .85rem; }
+}
+
+.toolbar {
+  display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap;
+  .search { flex: 1; min-width: 220px; }
+  input, select { padding: .5rem .75rem; border: 1px solid #ccc; border-radius: 6px; }
+}
+
+.loading { padding: 2rem; text-align: center; color: #888; }
+
+.data-table {
+  width: 100%; border-collapse: collapse; background: var(--card-bg, #fff);
+  th, td { padding: .65rem .75rem; text-align: left; border-bottom: 1px solid rgba(128,128,128,.2); }
+  th { font-size: .8rem; text-transform: uppercase; color: #999; }
+  .row { cursor: pointer; }
+  .row:hover { background: rgba(128,128,128,.08); }
+  .empty { text-align: center; color: #999; padding: 2rem; }
+  .actions { white-space: nowrap; text-align: right; }
+  .badge { padding: .15rem .5rem; border-radius: 10px; background: rgba(52,152,219,.15); font-size: .8rem; }
+}
+
+.icon-btn {
+  background: none; border: none; cursor: pointer; padding: .35rem .5rem; color: inherit; opacity: .75;
+  &:hover { opacity: 1; }
+  &.danger:hover { color: #e74c3c; }
+}
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center;
+  justify-content: center; z-index: 1000;
+}
+.modal {
+  background: var(--card-bg, #fff); color: inherit; border-radius: 10px; padding: 1.5rem;
+  width: 460px; max-width: 92vw; max-height: 90vh; overflow: auto;
+  h3 { margin-top: 0; }
+  label { display: block; margin: .75rem 0 .25rem; font-weight: 600; font-size: .85rem; }
+  input, select, textarea { width: 100%; padding: .5rem .65rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+  .locked-org { padding: .5rem .65rem; background: rgba(128,128,128,.12); border-radius: 6px; }
+  .hint { color: #999; font-size: .8rem; }
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.25rem; }

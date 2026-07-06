@@ -1,0 +1,125 @@
+<div class="explorer" *ngIf="projet">
+  <!-- Fil d'Ariane -->
+  <nav class="breadcrumb">
+    <a (click)="backToList()"><i class="fas fa-arrow-left"></i> Projets</a>
+    <span class="sep">/</span>
+    <a (click)="goToLevel('propriete')" [class.active]="level==='propriete'">
+      <i class="fas fa-folder"></i> {{ projet.code_projet }}
+    </a>
+    <ng-container *ngIf="chain.propriete">
+      <span class="sep">/</span>
+      <a (click)="goToLevel('affaire')" [class.active]="level==='affaire'">{{ itemLabel(chain.propriete, 'propriete') }}</a>
+    </ng-container>
+    <ng-container *ngIf="chain.affaire">
+      <span class="sep">/</span>
+      <a (click)="goToLevel('ssdgps')" [class.active]="level==='ssdgps'">{{ itemLabel(chain.affaire, 'affaire') }}</a>
+    </ng-container>
+    <ng-container *ngIf="chain.ssdgps">
+      <span class="sep">/</span>
+      <a [class.active]="level==='session'">{{ itemLabel(chain.ssdgps, 'ssdgps') }}</a>
+    </ng-container>
+  </nav>
+
+  <div class="level-header">
+    <h2>{{ levelTitle }}</h2>
+    <button class="btn btn-success" (click)="openCreate()"><i class="fas fa-plus-circle"></i> Ajouter</button>
+  </div>
+
+  <div class="loading" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+
+  <ul class="item-list" *ngIf="!loading">
+    <li *ngFor="let it of items" class="item" [class.leaf]="isLeaf()" (click)="descend(it)">
+      <span class="label">
+        <i class="fas" [class.fa-map-marker-alt]="level==='propriete'" [class.fa-file-signature]="level==='affaire'"
+           [class.fa-satellite-dish]="level==='ssdgps'" [class.fa-clock]="level==='session'"></i>
+        {{ itemLabel(it) }}
+        <small class="meta" *ngIf="level==='affaire'">
+          {{ it.nature_procedure_affaire }} · {{ natureLabel(it.nature_affaire) }}
+          <ng-container *ngIf="it.date_bornage"> · bornage {{ it.date_bornage }}</ng-container>
+        </small>
+        <small class="meta" *ngIf="level==='ssdgps'">{{ it.type_ssdgps }} · {{ it.sessions_count ?? 0 }} session(s)</small>
+        <small class="meta" *ngIf="level==='session' && it.date_session"> {{ it.date_session }}</small>
+      </span>
+      <span class="row-actions">
+        <button class="icon-btn" title="Modifier" (click)="openEdit(it, $event)"><i class="fas fa-pen"></i></button>
+        <button class="icon-btn danger" title="Supprimer" (click)="remove(it, $event)"><i class="fas fa-trash"></i></button>
+        <i class="fas fa-chevron-right chev" *ngIf="!isLeaf()"></i>
+      </span>
+    </li>
+    <li *ngIf="items.length === 0" class="empty">Aucun élément à ce niveau.</li>
+  </ul>
+</div>
+
+<!-- Modale de saisie -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h3>{{ editing ? 'Modifier' : 'Ajouter' }} — {{ levelTitle }}</h3>
+    <form [formGroup]="form" (ngSubmit)="submit()" [ngSwitch]="level">
+
+      <!-- Propriété -->
+      <ng-container *ngSwitchCase="'propriete'">
+        <label>Propriété-dite *</label>
+        <input type="text" formControlName="nom_propriete">
+        <label>Réquisition</label>
+        <input type="text" formControlName="id_requisition" placeholder="R19000/55">
+        <label>Titre foncier</label>
+        <input type="text" formControlName="id_titre" placeholder="T12345/A">
+        <p class="hint">Renseignez au moins la réquisition ou le titre.</p>
+      </ng-container>
+
+      <!-- Affaire (formulaire dynamique) -->
+      <ng-container *ngSwitchCase="'affaire'">
+        <label>Numéro du SD *</label>
+        <input type="number" formControlName="numero_sd_affaire">
+        <label>Nature de procédure *</label>
+        <select formControlName="nature_procedure_affaire">
+          <option value="">Sélectionner…</option>
+          <option *ngFor="let o of procedureOptions" [value]="o.value">{{ o.label }}</option>
+        </select>
+        <label>Nature d'affaire *</label>
+        <select formControlName="nature_affaire">
+          <option value="">{{ availableNatures.length ? 'Sélectionner…' : 'Choisissez d\'abord la procédure' }}</option>
+          <option *ngFor="let n of availableNatures" [value]="n.value">{{ n.label }}</option>
+        </select>
+        <ng-container *ngIf="dateBornageRequired">
+          <label>Date de bornage / recollement *</label>
+          <input type="date" formControlName="date_bornage">
+        </ng-container>
+        <p class="hint" *ngIf="!dateBornageRequired && form.value.nature_procedure_affaire">
+          Date de bornage non applicable pour cette procédure (IFE/IFR).
+        </p>
+      </ng-container>
+
+      <!-- SSDGPS -->
+      <ng-container *ngSwitchCase="'ssdgps'">
+        <label>Nature du SSDGPS *</label>
+        <select formControlName="nature_ssdgps">
+          <option value="">Sélectionner…</option>
+          <option *ngFor="let o of natureSsdgpsOptions" [value]="o.value">{{ o.label }}</option>
+        </select>
+        <label>Numéro du SSDGPS *</label>
+        <input type="number" formControlName="numero_ssdgps">
+        <label>Type *</label>
+        <select formControlName="type_ssdgps">
+          <option *ngFor="let o of typeSsdgpsOptions" [value]="o.value">{{ o.label }}</option>
+        </select>
+        <p class="hint">Un SSDGPS mono-session reçoit automatiquement une session n°1.</p>
+      </ng-container>
+
+      <!-- Session -->
+      <ng-container *ngSwitchCase="'session'">
+        <label>Numéro de session *</label>
+        <input type="number" formControlName="numero_session">
+        <label>Date de la session</label>
+        <input type="date" formControlName="date_session">
+      </ng-container>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid || submitting">
+          {{ submitting ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -155,6 +155,11 @@ const routes: Routes = [
         data: { title: 'Mode Maintenance' }
       },
       {
+        path: 'projets',
+        loadChildren: () => import('./features/projects/projects.module').then(m => m.ProjectsModule),
+        data: { title: 'Projets' }
+      },
+      {
         path: 'profile',
         loadChildren: () => import('./features/profile/profile.module').then(m => m.ProfileModule),
         data: { title: 'Mon Profil' }

@@ -1,0 +1,52 @@
+.explorer { padding: 1.5rem; }
+
+.breadcrumb {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; margin-bottom: 1rem; font-size: .9rem;
+  a { cursor: pointer; color: var(--primary, #3498db); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a.active { color: inherit; font-weight: 700; cursor: default; }
+  .sep { color: #999; }
+}
+
+.level-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;
+  h2 { margin: 0; }
+}
+
+.loading { padding: 2rem; text-align: center; color: #888; }
+
+.item-list {
+  list-style: none; margin: 0; padding: 0;
+  .item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .75rem 1rem; border: 1px solid rgba(128,128,128,.2); border-radius: 8px;
+    margin-bottom: .5rem; cursor: pointer; background: var(--card-bg, #fff);
+    &:hover { background: rgba(128,128,128,.08); }
+    &.leaf { cursor: default; }
+    .label { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .meta { color: #999; font-size: .8rem; margin-left: .25rem; }
+    .row-actions { display: flex; align-items: center; gap: .25rem; }
+    .chev { color: #bbb; margin-left: .5rem; }
+  }
+  .empty { color: #999; text-align: center; padding: 2rem; }
+}
+
+.icon-btn {
+  background: none; border: none; cursor: pointer; padding: .35rem .5rem; color: inherit; opacity: .7;
+  &:hover { opacity: 1; }
+  &.danger:hover { color: #e74c3c; }
+}
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center;
+  justify-content: center; z-index: 1000;
+}
+.modal {
+  background: var(--card-bg, #fff); color: inherit; border-radius: 10px; padding: 1.5rem;
+  width: 480px; max-width: 92vw; max-height: 90vh; overflow: auto;
+  h3 { margin-top: 0; }
+  label { display: block; margin: .75rem 0 .25rem; font-weight: 600; font-size: .85rem; }
+  input, select, textarea { width: 100%; padding: .5rem .65rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+  .hint { color: #999; font-size: .8rem; margin: .5rem 0 0; }
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.25rem; }

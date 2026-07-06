@@ -68,6 +68,15 @@ export const ADMIN_MENU: MenuItem[] = [
     ]
   },
   {
+    id: 'projets',
+    title: 'Projets',
+    icon: 'fas fa-project-diagram',
+    route: '/admin/projets',
+    type: 'link',
+    description: 'Projets, propriétés, affaires, SSDGPS & sessions',
+    roles: ALL_ADMIN_ROLES,
+  },
+  {
     id: 'utilisateurs',
     title: 'Utilisateurs & Rôles',
     icon: 'fas fa-users-cog',

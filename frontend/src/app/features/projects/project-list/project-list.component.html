@@ -1,0 +1,85 @@
+<div class="projects-page">
+  <div class="page-header">
+    <div>
+      <h2><i class="fas fa-project-diagram"></i> Projets</h2>
+      <p class="subtitle">Projet → Propriété → Affaire → SSDGPS → Session</p>
+    </div>
+    <button class="btn btn-success" (click)="openCreate()">
+      <i class="fas fa-plus-circle"></i> Nouveau projet
+    </button>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="search" placeholder="Rechercher (nom, code)…"
+           [(ngModel)]="searchText" (ngModelChange)="applyFilter()">
+    <select class="filter" [(ngModel)]="statutFilter" (ngModelChange)="applyFilter()">
+      <option value="">Tous les statuts</option>
+      <option *ngFor="let o of statutOptions" [value]="o.value">{{ o.label }}</option>
+    </select>
+  </div>
+
+  <div class="loading" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+
+  <table class="data-table" *ngIf="!loading">
+    <thead>
+      <tr>
+        <th>Code</th><th>Nom</th><th>Statut</th><th>Organisation</th><th>Propriétés</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let p of filtered" class="row" (click)="open(p)">
+        <td><strong>{{ p.code_projet }}</strong></td>
+        <td>{{ p.nom_projet }}</td>
+        <td><span class="badge">{{ p.statut_display || statutLabel(p.statut) }}</span></td>
+        <td>{{ p.organization_name }}</td>
+        <td>{{ p.proprietes_count ?? 0 }}</td>
+        <td class="actions">
+          <button class="icon-btn" title="Ouvrir" (click)="open(p)"><i class="fas fa-folder-open"></i></button>
+          <button class="icon-btn" title="Modifier" (click)="openEdit(p, $event)"><i class="fas fa-pen"></i></button>
+          <button class="icon-btn danger" title="Supprimer" (click)="remove(p, $event)"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+      <tr *ngIf="filtered.length === 0">
+        <td colspan="6" class="empty">Aucun projet. Créez-en un pour commencer.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Modale créer/modifier -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h3>{{ editing ? 'Modifier le projet' : 'Nouveau projet' }}</h3>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label>Nom du projet *</label>
+      <input type="text" formControlName="nom_projet">
+
+      <label>Code projet *</label>
+      <input type="text" formControlName="code_projet" placeholder="Ex. PRJ-2026-001">
+
+      <label>Description</label>
+      <textarea formControlName="description_projet" rows="2"></textarea>
+
+      <label>Statut *</label>
+      <select formControlName="statut">
+        <option *ngFor="let o of statutOptions" [value]="o.value">{{ o.label }}</option>
+      </select>
+
+      <label>Organisation *</label>
+      <div class="locked-org" *ngIf="isOrgLocked">
+        <i class="fas fa-building"></i> {{ currentOrgName }} <span class="hint">(votre organisation)</span>
+      </div>
+      <select *ngIf="!isOrgLocked" formControlName="organization">
+        <option value="">Sélectionner…</option>
+        <option *ngFor="let o of organizations" [value]="o.id">{{ o.name }}</option>
+      </select>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid || submitting">
+          {{ submitting ? 'Enregistrement…' : (editing ? 'Enregistrer' : 'Créer') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
