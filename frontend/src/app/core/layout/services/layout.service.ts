@@ -34,11 +34,25 @@ export class LayoutService {
   }
 
   /**
+   * Filtrer les items de menu selon le rôle de l'utilisateur
+   */
+  private filterMenuByRole(items: MenuItem[], role: string): MenuItem[] {
+    return items
+      .filter(item => !item.roles || item.roles.includes(role))
+      .map(item => {
+        if (item.children) {
+          return { ...item, children: this.filterMenuByRole(item.children, role) };
+        }
+        return item;
+      });
+  }
+
+  /**
    * Définir le menu selon le rôle de l'utilisateur
    */
   setMenuByRole(role: string): void {
     const isAdmin = role === 'ROLE_SUPER_ADMIN' || role === 'ROLE_ADMIN_SYSTEME' || role === 'ROLE_ORGANISATION_ADMIN';
-    const menu = isAdmin ? ADMIN_MENU : USER_MENU;
+    const menu = isAdmin ? this.filterMenuByRole(ADMIN_MENU, role) : USER_MENU;
     this.menuItemsSubject.next(menu);
     
     console.log(`📋 Menu chargé pour rôle: ${role} (${menu.length} éléments)`);

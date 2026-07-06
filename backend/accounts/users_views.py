@@ -10,6 +10,7 @@ from .users_serializers import (
     UserCreateSerializer, UserUpdateSerializer,
     RoleSerializer, ResetPasswordSerializer,
 )
+from .rbac import check_org_admin_not_last
 import logging
 
 logger = logging.getLogger(__name__)
@@ -221,6 +222,11 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied('Impossible de supprimer : cela laisserait moins de deux administrateurs système actifs.')
 
+        allowed, msg = check_org_admin_not_last(instance)
+        if not allowed:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(msg)
+
         instance.is_deleted = True
         instance.deleted_at = timezone.now()
         instance.is_active = False
@@ -265,6 +271,12 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         f"Admin système {'désactivé' if not validated_data['is_active'] else 'activé'} "
                         f"via PATCH: {instance.email} par {self.request.user.email}"
                     )
+
+        if validated_data.get('is_active') is False and instance.is_active:
+            allowed, msg = check_org_admin_not_last(instance)
+            if not allowed:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied(msg)
 
         serializer.save()
 
@@ -360,6 +372,12 @@ class UserToggleActiveView(APIView):
                         {'detail': 'Impossible de désactiver : cela laisserait moins de deux administrateurs système actifs.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
+
+        # Désactivation d'un admin d'organisation : ne pas orpheliner l'org.
+        if user.is_active:
+            allowed, msg = check_org_admin_not_last(user)
+            if not allowed:
+                return Response({'detail': msg}, status=status.HTTP_403_FORBIDDEN)
 
         user.is_active = not user.is_active
         user.save(update_fields=['is_active'])

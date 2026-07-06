@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Membership, Organization
+from .rbac import count_other_active_org_admins, MIN_ACTIVE_ORG_ADMINS
 import secrets
 import string
 
@@ -127,6 +128,10 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Seul un Super Admin peut créer un compte Admin Système."
                 )
+            if value == 'ROLE_ORGANISATION_ADMIN':
+                raise serializers.ValidationError(
+                    "Seuls les Super Admins et Admins Système peuvent créer un compte Admin Organisation."
+                )
         return value
 
     def validate_organization_id(self, value):
@@ -137,6 +142,21 @@ class UserCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ce champ est obligatoire.")
         if not Organization.objects.filter(id=value, is_active=True, is_deleted=False).exists():
             raise serializers.ValidationError("L'organisation spécifiée n'existe pas.")
+
+        # Un Admin Organisation ne peut créer un utilisateur que dans SA propre organisation.
+        request = self.context.get('request')
+        author = getattr(request, 'user', None)
+        if author and not author.is_superuser and not author.is_platform_admin():
+            admin_org_ids = {
+                str(oid) for oid in author.memberships.filter(
+                    is_active=True,
+                    role='ROLE_ORGANISATION_ADMIN',
+                ).values_list('organization_id', flat=True)
+            }
+            if str(value) not in admin_org_ids:
+                raise serializers.ValidationError(
+                    "Vous ne pouvez créer un utilisateur que dans votre organisation."
+                )
         return value
 
     def create(self, validated_data):
@@ -186,17 +206,43 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
-            if value == 'ROLE_ADMIN_SYSTEME' and not request.user.is_superuser:
+            is_superuser = request.user.is_superuser
+            is_admin_systeme = request.user.is_platform_admin()
+            if value == 'ROLE_ADMIN_SYSTEME' and not is_superuser:
                 raise serializers.ValidationError(
                     "Seul un Super Admin peut attribuer le rôle Admin Système."
                 )
+            if value == 'ROLE_ORGANISATION_ADMIN' and not is_superuser and not is_admin_systeme:
+                raise serializers.ValidationError(
+                    "Seuls les Super Admins et Admins Système peuvent attribuer le rôle Admin Organisation."
+                )
             if self.instance and self.instance.pk == request.user.pk:
-                if request.user.is_superuser or request.user.is_platform_admin():
+                if is_superuser or is_admin_systeme:
                     if value != self.instance.get_primary_role():
                         raise serializers.ValidationError(
                             "Vous ne pouvez pas modifier votre propre rôle."
                         )
         return value
+
+    @staticmethod
+    def _guard_org_admin_demotion(instance, membership, new_role):
+        """
+        Empêche de rétrograder le dernier administrateur actif d'une organisation.
+
+        Lève une ValidationError si `membership` est actuellement un admin d'org, que
+        `new_role` n'est plus admin, et qu'aucun autre admin actif ne resterait.
+        """
+        if (membership.role == 'ROLE_ORGANISATION_ADMIN'
+                and new_role != 'ROLE_ORGANISATION_ADMIN'
+                and count_other_active_org_admins(membership.organization, instance)
+                < MIN_ACTIVE_ORG_ADMINS):
+            raise serializers.ValidationError({
+                'role': (
+                    f"Impossible de rétrograder : {instance.email} est le dernier "
+                    f"administrateur actif de {membership.organization.name}. "
+                    f"Nommez un autre administrateur avant."
+                )
+            })
 
     def update(self, instance, validated_data):
         role = validated_data.pop('role', None)
@@ -244,12 +290,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             )
             if not created:
                 if role and not is_app_admin:
+                    self._guard_org_admin_demotion(instance, membership, role)
                     membership.role = role
                 membership.is_active = True
                 membership.save()
         elif role and not is_app_admin:
             membership = instance.memberships.filter(is_active=True).first()
             if membership:
+                self._guard_org_admin_demotion(instance, membership, role)
                 membership.role = role
                 membership.save()
 

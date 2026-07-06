@@ -4,6 +4,14 @@
 
 
 
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -45,16 +53,17 @@
         - [Gestion affichage des roles des utilisateurs dans le tableau](#gestion-affichage-des-roles-des-utilisateurs-dans-le-tableau)
         - [Protection des superadmins (role : ROLE_SUPER_ADMIN)](#protection-des-superadmins-role-rolesuperadmin)
         - [Protection des admins systeme (Role : ROLE_ADMIN_SYSTEME)](#protection-des-admins-systeme-role-roleadminsysteme)
+        - [Protection des admins systeme (Role : ROLE_ADMIN_ORGANISATION)](#protection-des-admins-systeme-role-roleadminorganisation)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
 
 # Taches a faire
   - Divers
     - Personnaliser les messages des commites du watcher en passant par opencode.
-    - Configurer le compte git Blmerio2022 pour qu'il soit utilise toujours et par defaut dans ce projet.
+    - Configurer le compte git Blmerio2022 pour qu'il soit utilise toujours et par defaut dans ce projet. (fait)
   - gestion des utilisateurs
     - correction + refonte frontend tableau de la liste des utilisateurs. (fait)
-    - Protection des roles des utilisateurs.  (en cours)
-    - tester toutes les fonctionnalites du tableau
+    - Protection des roles des utilisateurs.  (fait)
+    - tester toutes les fonctionnalites du tableau (fait)
     - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs
 
     - implementer les tests backend + frontend de la gestion des utilisateurs
@@ -317,7 +326,8 @@ corrige les points suivants :
     - controle de securite du minimum de 2 admin system.
       - bloquer changement de role pour admin systeme si nbr admin system <= 2. (fait)
       - inactiver les bouttons activer/desactiver et supprimer pour admin systeme si nbr admin system <= 2. (fait)
-  - Implementer la suppression definitive des comptes.
+      - synchroniser toggle activer/desactiver dans colonne action et celui du modal edit (fait)
+  - Implementer la suppression definitive des comptes. 
 
 
 
@@ -496,6 +506,7 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 
 
 
+##### Protection des admins systeme (Role : ROLE_ADMIN_ORGANISATION)
 
 
 

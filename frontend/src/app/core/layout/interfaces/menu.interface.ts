@@ -9,6 +9,7 @@ export interface MenuItem {
   type: 'link' | 'submenu';
   description?: string;
   children?: MenuItem[];
+  roles?: string[];
   badge?: {
     text: string;
     color: string;

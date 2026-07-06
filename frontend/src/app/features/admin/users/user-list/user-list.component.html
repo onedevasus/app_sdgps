@@ -69,7 +69,7 @@
     </div>
 
     <div class="filters-line">
-      <select class="filter-select" [value]="selectedRole" (change)="onRoleFilterChange($event)">
+      <select class="filter-select" *ngIf="!isOrgAdmin" [value]="selectedRole" (change)="onRoleFilterChange($event)">
         <option value="">Tous les rôles</option>
         <option value="ROLE_SUPER_ADMIN">Super Admin</option>
                 <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
@@ -82,7 +82,7 @@
         <option value="inactive">Inactif</option>
         <option value="deleted">Supprimé</option>
       </select>
-      <select class="filter-select" [value]="selectedOrganization" (change)="onOrganizationFilterChange($event)">
+      <select class="filter-select" *ngIf="!isOrgAdmin" [value]="selectedOrganization" (change)="onOrganizationFilterChange($event)">
         <option value="">Toutes les organisations</option>
         <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
       </select>
@@ -564,12 +564,19 @@
                 Rôle <span class="required">*</span>
                 <i class="fas fa-info-circle field-info-icon" title="Niveau de privilèges de l'utilisateur"></i>
               </label>
-              <select id="add-role" formControlName="role" [class.error]="addForm.get('role')?.invalid && addForm.get('role')?.touched">
+              <select id="add-role" *ngIf="!isOrgAdmin" formControlName="role" [class.error]="addForm.get('role')?.invalid && addForm.get('role')?.touched">
                 <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
                 <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
                 <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>
-              <div class="error-message" *ngIf="addForm.get('role')?.invalid && addForm.get('role')?.touched">
+              <div class="platform-field" *ngIf="isOrgAdmin">
+                <span class="platform-badge">
+                  <i class="fas fa-user"></i>
+                  <span>Agent Organisation</span>
+                </span>
+                <span class="platform-hint">seul rôle que vous pouvez créer</span>
+              </div>
+              <div class="error-message" *ngIf="!isOrgAdmin && addForm.get('role')?.invalid && addForm.get('role')?.touched">
                 Le rôle est requis.
               </div>
             </div>
@@ -579,11 +586,18 @@
                 Organisation <span class="required">*</span>
                 <i class="fas fa-info-circle field-info-icon" title="Organisation à laquelle l'utilisateur sera rattaché"></i>
               </label>
-              <select id="add-org" formControlName="organization_id" [class.error]="addForm.get('organization_id')?.invalid && addForm.get('organization_id')?.touched">
+              <select id="add-org" *ngIf="!isOrgAdmin" formControlName="organization_id" [class.error]="addForm.get('organization_id')?.invalid && addForm.get('organization_id')?.touched">
                 <option value="">Sélectionner...</option>
                 <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
               </select>
-              <div class="error-message" *ngIf="addForm.get('organization_id')?.invalid && addForm.get('organization_id')?.touched">
+              <div class="platform-field" *ngIf="isOrgAdmin">
+                <span class="platform-badge">
+                  <i class="fas fa-building"></i>
+                  <span>{{ currentUserOrgName || 'Votre organisation' }}</span>
+                </span>
+                <span class="platform-hint">votre organisation</span>
+              </div>
+              <div class="error-message" *ngIf="!isOrgAdmin && addForm.get('organization_id')?.invalid && addForm.get('organization_id')?.touched">
                 L'organisation est requise.
               </div>
             </div>
@@ -719,7 +733,7 @@
                       [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : (isRoleChangeBlocked ? roleChangeBlockedMessage : ''))">
                 <option value="ROLE_SUPER_ADMIN" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Super Admin</option>
                 <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
-                <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+                <option value="ROLE_ORGANISATION_ADMIN" *ngIf="!isOrgAdmin">Admin Organisation</option>
                 <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
               </select>
               <div class="error-message" *ngIf="editForm.get('role')?.invalid && editForm.get('role')?.touched">
@@ -794,6 +808,10 @@
               <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalAppAdmin(editUser)">
                 <i class="fas fa-shield-halved"></i>
                 <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
+              </p>
+              <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalOrgAdmin(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                <strong>Attention :</strong> Ce compte est le dernier administrateur actif de son organisation.
               </p>
             </div>
           </div>
@@ -994,6 +1012,11 @@
             <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
             La suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - 1 }}.
           </p>
+          <p class="super-admin-critical-warning" *ngIf="deleteUser && isCriticalOrgAdmin(deleteUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est le dernier administrateur actif de son organisation.
+            La suppression laisserait cette organisation sans aucun administrateur.
+          </p>
         </div>
       </div>
       <div class="delete-warning" *ngIf="isBulkDelete">
@@ -1024,6 +1047,14 @@
               <li *ngIf="criticalAppAdminSelectedCount > 0">
                 <i class="fas fa-shield-halved"></i>
                 <span><strong>{{ criticalAppAdminSelectedCount }} administrateur(s) système critique(s)</strong> — la suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - criticalAppAdminSelectedCount }} (minimum 2 requis).</span>
+              </li>
+              <li *ngIf="bulkBlockedOrgAdminSelectedCount > 0">
+                <i class="fas fa-lock"></i>
+                <span><strong>{{ bulkBlockedOrgAdminSelectedCount }} utilisateur(s)</strong> — les Admins Organisation ne peuvent gérer que les Agents Organisation.</span>
+              </li>
+              <li *ngIf="criticalOrgAdminSelectedCount > 0">
+                <i class="fas fa-shield-halved"></i>
+                <span><strong>{{ criticalOrgAdminSelectedCount }} administrateur(s) d'organisation critique(s)</strong> — la suppression laisserait leur organisation sans aucun administrateur actif.</span>
               </li>
             </ul>
           </ng-container>
@@ -1106,6 +1137,11 @@
             <i class="fas fa-shield-halved"></i>
             <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
             {{ toggleAction === 'désactiver' ? 'La désactivation réduirait le nombre d\'admins système actifs à ' + (activeAppAdminCount - 1) + '.' : '' }}
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="toggleTargetUser && isCriticalOrgAdmin(toggleTargetUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est le dernier administrateur actif de son organisation.
+            {{ toggleAction === 'désactiver' ? 'La désactivation laisserait cette organisation sans aucun administrateur.' : '' }}
           </p>
         </div>
       </div>

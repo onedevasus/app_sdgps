@@ -32,46 +32,33 @@ export class DashboardLayoutComponent implements OnInit {
     const token = localStorage.getItem('authToken');
     
     if (token) {
-      // Appeler l'API pour récupérer le vrai profil utilisateur
-      this.profileService.getProfile().subscribe({
+      // Récupérer le profil de l'utilisateur RÉELLEMENT connecté (tous rôles).
+      // /auth/me/ renvoie request.user ; l'ancien endpoint /platform-admin/me/profile/
+      // renvoyait 403 pour un ROLE_ORGANISATION_ADMIN, ce qui déclenchait le fallback
+      // mock affichant un mauvais utilisateur dans le topbar.
+      this.profileService.getCurrentUser().subscribe({
         next: (profile: ProfileUserProfile) => {
           console.log('✅ Profil utilisateur chargé depuis API:', profile);
-          
+
           // Mettre à jour LayoutService avec le vrai profil
           this.layoutService.setUserProfile({
             id: profile.id,
             email: profile.email,
             first_name: profile.first_name,
             last_name: profile.last_name,
-            role: profile.role,  // 'superadmin', 'admin', etc.
+            role: profile.role,
             avatar: profile.profile_picture_url || undefined // Photo si disponible
           });
         },
         error: (error: any) => {
-          console.error('❌ Erreur chargement profil:', error);
-          // Fallback: utiliser mock en cas d'erreur
-          this.loadMockProfile();
+          // Ne JAMAIS fabriquer une fausse identité ici : cela masquerait l'utilisateur
+          // réel. En cas d'échec (401 → l'intercepteur redirige, ou réseau), on n'affiche
+          // simplement pas de profil.
+          console.error('❌ Erreur chargement profil utilisateur:', error);
         }
       });
     } else {
       console.warn('⚠️ Aucun token trouvé - Utilisateur non authentifié');
     }
-  }
-  
-  /**
-   * Fallback: charger un profil mock en cas d'erreur API
-   */
-  private loadMockProfile(): void {
-    const mockProfile = {
-      id: 1,
-      email: 'boulmaneabderrazzak@gmail.com',
-      first_name: 'Abderrazzak',
-      last_name: 'Boulmane',
-      role: 'ROLE_ADMIN_SYSTEME',
-      avatar: undefined
-    };
-    
-    this.layoutService.setUserProfile(mockProfile);
-    console.log('⚠️ Profil mock chargé:', mockProfile);
   }
 }

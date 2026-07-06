@@ -7,6 +7,7 @@ import { OrganizationService } from '../../../../core/services/organization.serv
 import { UserPreferencesService } from '../../../../core/services/user-preferences.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { ProfileService } from '../../../profile/services/profile.service';
 import { User, CreateUserPayload, UpdateUserPayload, UserRole } from '../../../../core/models/user.model';
 import { Organization } from '../../../../core/models/organization.model';
 
@@ -145,12 +146,17 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   currentUserId: number | null = null;
 
+  // Organisation de l'utilisateur connecté (renseignée via /auth/me/ pour l'Admin Organisation)
+  currentUserOrgId: string | null = null;
+  currentUserOrgName: string | null = null;
+
   constructor(
     private userService: UserService,
     private organizationService: OrganizationService,
     private preferencesService: UserPreferencesService,
     private toastService: ToastService,
     private authService: AuthService,
+    private profileService: ProfileService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
   ) {
@@ -177,6 +183,10 @@ export class UserListComponent implements OnInit, OnDestroy {
     this.loadUsers();
     this.loadOrganizations();
     this.loadPreferences();
+    this.applyOrgAdminDefaults();
+    if (this.isOrgAdmin) {
+      this.loadCurrentUserOrg();
+    }
     this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
     document.addEventListener('click', this.boundHandleClickOutside);
 
@@ -945,6 +955,13 @@ export class UserListComponent implements OnInit, OnDestroy {
       role: 'ROLE_ORGANISATION_AGENT',
       must_change_password: true,
     });
+    // Un Admin Organisation ne crée que des agents, et uniquement dans sa propre organisation.
+    if (this.isOrgAdmin && this.currentUserOrgId) {
+      this.addForm.patchValue({
+        role: 'ROLE_ORGANISATION_AGENT',
+        organization_id: this.currentUserOrgId,
+      });
+    }
     this.showAddPassword = true;
     this.generatedPassword = this.generatePassword();
     this.addForm.patchValue({ password: this.generatedPassword });
@@ -1036,7 +1053,7 @@ export class UserListComponent implements OnInit, OnDestroy {
         organization_id: user.organization_id || '',
       });
       const isActiveCtrl = this.editForm.get('is_active');
-      if (this.isCurrentUser(user) || this.isBlockedForAppAdmin(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user)) {
+      if (this.isCurrentUser(user) || this.isBlockedForAppAdmin(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user) || this.isCriticalOrgAdmin(user)) {
         isActiveCtrl?.disable({ onlySelf: true, emitEvent: false });
       } else {
         isActiveCtrl?.enable({ onlySelf: true, emitEvent: false });
@@ -1080,6 +1097,19 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.toastService.error('Action bloquée', 'Impossible : cela laisserait moins de deux administrateurs système actifs.');
         return;
       }
+      if (this.isCriticalOrgAdmin(this.editUser)) {
+        this.submitting = false;
+        this.toastService.error('Action bloquée', 'Impossible : cette organisation n\'aurait plus aucun administrateur actif.');
+        return;
+      }
+    }
+
+    if ('role' in payload && this.editUser
+        && this.editUser.role === 'ROLE_ORGANISATION_ADMIN' && payload.role !== 'ROLE_ORGANISATION_ADMIN'
+        && this.isCriticalOrgAdmin(this.editUser)) {
+      this.submitting = false;
+      this.toastService.error('Action bloquée', 'Impossible de rétrograder : cette organisation n\'aurait plus aucun administrateur actif.');
+      return;
     }
 
     this.userService.updateUser(this.editUser.id, payload).pipe(takeUntil(this.destroy$)).subscribe({
@@ -1303,6 +1333,33 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.criticalAppAdminSelectedIds.length;
   }
 
+  /**
+   * Nombre d'admins d'organisation actifs pour une organisation donnée (org principale).
+   * Aide visuelle : le backend fait foi (vérif sur toutes les adhésions).
+   */
+  activeOrgAdminCount(orgId: string | null | undefined): number {
+    if (!orgId) return 0;
+    return this.users.filter(u =>
+      u.role === 'ROLE_ORGANISATION_ADMIN' && u.organization_id === orgId
+      && u.is_active && !u.is_deleted).length;
+  }
+
+  /** Dernier admin actif de son organisation : le supprimer/désactiver orphelinerait l'org. */
+  isCriticalOrgAdmin(user: User): boolean {
+    return user.role === 'ROLE_ORGANISATION_ADMIN' && user.is_active && !user.is_deleted
+      && this.activeOrgAdminCount(user.organization_id) <= 1;
+  }
+
+  get criticalOrgAdminSelectedIds(): string[] {
+    return this.users
+      .filter(u => this.selectedIds.has(String(u.id)) && this.isCriticalOrgAdmin(u))
+      .map(u => String(u.id));
+  }
+
+  get criticalOrgAdminSelectedCount(): number {
+    return this.criticalOrgAdminSelectedIds.length;
+  }
+
   get bulkBlockedPairSelectedIds(): string[] {
     if (this.currentUserRole !== 'ROLE_ADMIN_SYSTEME') return [];
     return this.getSelectedUsersList()
@@ -1314,9 +1371,21 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.bulkBlockedPairSelectedIds.length;
   }
 
+  get bulkBlockedOrgAdminSelectedIds(): string[] {
+    if (this.currentUserRole !== 'ROLE_ORGANISATION_ADMIN') return [];
+    return this.getSelectedUsersList()
+      .filter(u => this.isBlockedForOrgAdmin(u))
+      .map(u => String(u.id));
+  }
+
+  get bulkBlockedOrgAdminSelectedCount(): number {
+    return this.bulkBlockedOrgAdminSelectedIds.length;
+  }
+
   get hasBulkBlockingIssues(): boolean {
     return this.isCurrentUserSelected() || this.bulkBlockedPairSelectedCount > 0
-      || this.criticalSuperAdminSelectedCount > 0 || this.criticalAppAdminSelectedCount > 0;
+      || this.criticalSuperAdminSelectedCount > 0 || this.criticalAppAdminSelectedCount > 0
+      || this.bulkBlockedOrgAdminSelectedCount > 0 || this.criticalOrgAdminSelectedCount > 0;
   }
 
   get currentUserRole(): string {
@@ -1330,6 +1399,49 @@ export class UserListComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** L'utilisateur connecté est un Admin Organisation (ne gère que les agents de son org). */
+  get isOrgAdmin(): boolean {
+    return this.currentUserRole === 'ROLE_ORGANISATION_ADMIN';
+  }
+
+  /** Récupère l'organisation de l'org admin connecté (via /auth/me/) pour verrouiller le formulaire d'ajout. */
+  private loadCurrentUserOrg(): void {
+    this.profileService.getCurrentUser().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (me) => {
+        this.currentUserOrgId = me.organization_id ?? null;
+        this.currentUserOrgName = me.organization_name ?? null;
+      },
+      error: () => { /* silencieux : l'ajout restera possible sans pré-remplissage */ },
+    });
+  }
+
+  /**
+   * Défauts spécifiques à l'Admin Organisation :
+   * - masque par défaut les colonnes Rôle et Organisation (constantes pour ce rôle),
+   *   sauf si l'utilisateur a déjà personnalisé ses colonnes ;
+   * - neutralise les filtres rôle/organisation (leurs selects sont masqués dans le template).
+   */
+  private applyOrgAdminDefaults(): void {
+    if (!this.isOrgAdmin) return;
+
+    let hasColumnPrefs = false;
+    try {
+      const saved = localStorage.getItem('sdgps_user_table_prefs');
+      hasColumnPrefs = !!(saved && JSON.parse(saved).columns);
+    } catch {
+      hasColumnPrefs = false;
+    }
+    if (!hasColumnPrefs) {
+      ['role', 'organization_name'].forEach(field => {
+        const col = this.columns.find(c => c.field === field);
+        if (col) col.visible = false;
+      });
+    }
+
+    this.selectedRole = '';
+    this.selectedOrganization = '';
+  }
+
   isAppAdmin(user: User): boolean {
     return user.role === 'ROLE_ADMIN_SYSTEME';
   }
@@ -1339,21 +1451,27 @@ export class UserListComponent implements OnInit, OnDestroy {
     return this.currentUserRole === 'ROLE_ADMIN_SYSTEME' && this.isAppAdmin(user);
   }
 
+  /** Empêcher un Admin Org de gérer des utilisateurs qui ne sont pas des agents de son org */
+  isBlockedForOrgAdmin(user: User): boolean {
+    if (this.currentUserRole !== 'ROLE_ORGANISATION_ADMIN') return false;
+    return user.role !== 'ROLE_ORGANISATION_AGENT';
+  }
+
   isActionDisabled(user: User): boolean {
-    return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || user.is_deleted;
+    return this.isBlockedForAppAdmin(user) || this.isBlockedForOrgAdmin(user) || this.isCurrentUser(user) || user.is_deleted;
   }
 
   isToggleDeleteDisabled(user: User): boolean {
-    return this.isBlockedForAppAdmin(user) || this.isCurrentUser(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user);
+    return this.isBlockedForAppAdmin(user) || this.isBlockedForOrgAdmin(user) || this.isCurrentUser(user) || user.is_deleted || this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user) || this.isCriticalOrgAdmin(user);
   }
 
   isEditToggleDisabled(): boolean {
     if (!this.editUser) return true;
-    return this.isCurrentUser(this.editUser) || this.isBlockedForAppAdmin(this.editUser) || this.editUser.is_deleted || this.isCriticalSuperAdmin(this.editUser) || this.isCriticalAppAdmin(this.editUser);
+    return this.isCurrentUser(this.editUser) || this.isBlockedForAppAdmin(this.editUser) || this.isBlockedForOrgAdmin(this.editUser) || this.editUser.is_deleted || this.isCriticalSuperAdmin(this.editUser) || this.isCriticalAppAdmin(this.editUser) || this.isCriticalOrgAdmin(this.editUser);
   }
 
   isDeleteBlockedByCritical(user: User): boolean {
-    return this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user);
+    return this.isCriticalSuperAdmin(user) || this.isCriticalAppAdmin(user) || this.isCriticalOrgAdmin(user);
   }
 
   actionTitle(user: User, action: 'edit' | 'reset' | 'toggle' | 'delete'): string {
@@ -1370,6 +1488,9 @@ export class UserListComponent implements OnInit, OnDestroy {
       }
       return 'Seul un Super Admin peut gérer un Admin Système';
     }
+    if (this.isBlockedForOrgAdmin(user)) {
+      return 'Vous ne pouvez gérer que les agents de votre organisation';
+    }
     if (this.isCurrentUser(user)) {
       const msgs: Record<string, string> = {
         edit: 'Vous ne pouvez pas modifier votre propre compte',
@@ -1381,6 +1502,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     }
     if ((action === 'toggle' || action === 'delete') && this.isCriticalSuperAdmin(user)) return 'Impossible : cela laisserait moins de deux super administrateurs actifs';
     if ((action === 'toggle' || action === 'delete') && this.isCriticalAppAdmin(user)) return 'Impossible : cela laisserait moins de deux administrateurs système actifs';
+    if ((action === 'toggle' || action === 'delete') && this.isCriticalOrgAdmin(user)) return 'Impossible : cette organisation n\'aurait plus aucun administrateur actif';
     const labels: Record<string, string> = { edit: 'Modifier', reset: 'Réinitialiser le mot de passe', toggle: user.is_active ? 'Désactiver' : 'Activer', delete: 'Supprimer' };
     return labels[action];
   }
