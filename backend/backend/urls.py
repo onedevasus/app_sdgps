@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/v1/platform-admin/', include('platform_admin.urls')),
     path('api/v1/organizations/', include('organizations.urls')),  # ← AJOUT: Gestion organisations
     path('api/v1/users/', include('accounts.users_urls')),  # ← AJOUT: Gestion utilisateurs
+    path('api/v1/', include('projects.urls')),  # ← AJOUT: Domaine métier (projets, propriétés, affaires, ssdgps, sessions)
 ]
 
 # Servir les fichiers médias en développement
