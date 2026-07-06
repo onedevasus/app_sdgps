@@ -30,6 +30,46 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Plan de Développement — Application SDGPS](#plan-de-développement-application-sdgps)
@@ -77,12 +117,33 @@
       - [Phase 3.6 — Frontend : RolesPermissionsComponent](#phase-36-frontend-rolespermissionscomponent)
       - [Phase 3.7 — Configuration des routes](#phase-37-configuration-des-routes)
     - [5.8 Tests](#58-tests)
-  - [6. Phases ultérieures (aperçu)](#6-phases-ultérieures-aperçu)
-    - [Phase 4 — Invitations des agents (F13)](#phase-4-invitations-des-agents-f13)
-    - [Phase 5 — Gestion des projets (F19-F26)](#phase-5-gestion-des-projets-f19-f26)
-    - [Phase 6 — Supervision et rapports (F01, F07, F09, F16, F17)](#phase-6-supervision-et-rapports-f01-f07-f09-f16-f17)
-    - [Phase 7 — Fonctionnalités innovantes (F28-F30)](#phase-7-fonctionnalités-innovantes-f28-f30)
-  - [7. Glossaire](#7-glossaire)
+  - [6. Phase 5 — Domaine métier & saisie des données](#6-phase-5-domaine-métier-saisie-des-données)
+    - [6.1 Définition](#61-définition)
+    - [6.2 Modèle de données (nouvelle app Django `projects/`)](#62-modèle-de-données-nouvelle-app-django-projects)
+      - [6.2.1 `Projet`](#621-projet)
+      - [6.2.2 `Propriete`](#622-propriete)
+      - [6.2.3 `Affaire` (sous-dossier d'affaire, « SD »)](#623-affaire-sous-dossier-daffaire-sd-)
+      - [6.2.4 `Ssdgps` (sous-sous-dossier GPS)](#624-ssdgps-sous-sous-dossier-gps)
+      - [6.2.5 `Session` (session d'observations GPS)](#625-session-session-dobservations-gps)
+    - [6.3 API REST hiérarchique](#63-api-rest-hiérarchique)
+    - [6.4 Frontend — navigation & formulaires dynamiques](#64-frontend-navigation-formulaires-dynamiques)
+    - [6.5 Saisie & import des données des pièces](#65-saisie-import-des-données-des-pièces)
+    - [6.6 Tests (Phase 5)](#66-tests-phase-5)
+    - [6.7 État d'implémentation](#67-état-dimplémentation)
+  - [7. Phase 6 — Pièces & génération de rapports PDF SSDGPS](#7-phase-6-pièces-génération-de-rapports-pdf-ssdgps)
+    - [7.1 Définition](#71-définition)
+    - [7.2 Catalogue des pièces](#72-catalogue-des-pièces)
+    - [7.2.1 Structure réelle observée (exemples PDC/DDC/DLC)](#721-structure-réelle-observée-exemples-pdcddcdlc)
+    - [7.3 Modèle de données (pièces & rapport)](#73-modèle-de-données-pièces-rapport)
+    - [7.4 Cadre générique de pièces (« piece framework »)](#74-cadre-générique-de-pièces-piece-framework-)
+    - [7.5 Report builder (UI)](#75-report-builder-ui)
+    - [7.6 Génération PDF (WeasyPrint)](#76-génération-pdf-weasyprint)
+    - [7.7 Livrables, historique & audit (F25/F26)](#77-livrables-historique-audit-f25f26)
+    - [7.8 Tests (Phase 6)](#78-tests-phase-6)
+  - [8. Phases ultérieures (aperçu)](#8-phases-ultérieures-aperçu)
+    - [Phase 7 — Supervision & rapports consolidés (F01, F07, F09, F11, F16–F18)](#phase-7-supervision-rapports-consolidés-f01-f07-f09-f11-f16f18)
+    - [Phase 8 — Invitations & fonctionnalités innovantes (F13, F28–F30)](#phase-8-invitations-fonctionnalités-innovantes-f13-f28f30)
+  - [9. Glossaire](#9-glossaire)
 
 ## 1. Introduction
 
@@ -250,12 +311,15 @@ Pour le rendre permanent, ajouter cette commande au démarrage de Windows (via l
 |-------|---------------|--------|
 | 1 | Fondations (git, CPS, Docker, scripts) | ✅ Terminé |
 | 2 | Gestion des organisations (CRUD, tableau, filtres) | ✅ Terminé |
-| **3** | **Gestion des utilisateurs** | **⬅️ En cours** |
-| 4 | Invitations des agents (F13) | 📅 Reportée |
-| 5 | Gestion des projets | 📅 À venir |
-| 6 | Gestion des pièces et documents | 📅 À venir |
-| 7 | Supervision et rapports | 📅 À venir |
-| 8 | Fonctionnalités innovantes (signature, workflows, prédictif) | 📅 À venir |
+| 3 | Gestion des utilisateurs (RBAC, tableau, protections) | ✅ Terminé |
+| **5** | **Domaine métier : hiérarchie Projet→Propriété→Affaire→SSDGPS→Session + saisie/import (F19–F21)** | **🚧 Backend + Frontend faits · Import (6.5) à venir** |
+| 6 | Pièces & génération de rapports PDF SSDGPS via WeasyPrint (F22–F26) | 📅 À venir |
+| 7 | Supervision & rapports consolidés (F01, F07, F09, F11, F16–F18) | 📅 Aperçu |
+| 8 | Invitations des agents (F13) + fonctionnalités innovantes (F28–F30) | 📅 Aperçu |
+
+> **Note de renumérotation** : l'ancienne « Phase 4 — Invitations des agents (F13) » est
+> déplacée en Phase 8 (regroupée avec les fonctionnalités innovantes). Les Phases 5 et 6
+> ci-dessous constituent le cœur métier de l'application (génération des rapports SSDGPS).
 
 ---
 
@@ -471,33 +535,303 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 
 ---
 
-## 6. Phases ultérieures (aperçu)
+## 6. Phase 5 — Domaine métier & saisie des données
 
-### Phase 4 — Invitations des agents (F13)
+### 6.1 Définition
 
-- Reportée. Nécessitera un modèle `Invitation`, un service d'envoi d'email, une page frontend de gestion des invitations.
+Implémenter le cœur métier de l'application : la hiérarchie
+**Projet → Propriété → Affaire (SD) → SSDGPS → Session**, ainsi que la saisie et l'import des
+données techniques qui alimenteront les pièces des rapports (F19, F20, F21 du CPS). Un
+**SSDGPS** (sous-sous-dossier GPS) est l'unité pour laquelle un rapport de post-traitement
+bureau des observations GPS est produit.
 
-### Phase 5 — Gestion des projets (F19-F26)
+> **✅ Backend implémenté** (app `backend/projects/`) : 5 modèles + validations + API REST
+> RBAC + tests (`projects/tests_domain.py`, 13 tests). **Frontend (6.4) à venir.**
 
-- Création, modification, suivi de statut des projets
-- Import de fichiers (HTML, Excel, TXT)
-- Génération de rapports PDF et documents administratifs
+**Décisions validées (clarifications) :**
+- **Champs de `Projet`** : uniquement `code_projet` + `statut` (les champs région/commune,
+  référence client, échéance ne sont **pas** retenus pour l'instant).
+- **Visibilité agent** : un Agent voit **tous les projets de son organisation** (travail
+  collaboratif), pas seulement les siens.
+- **Numéros d'ordre** (`numero_sd_affaire`, `numero_ssdgps`, `numero_session`) : **saisie
+  manuelle** avec **unicité au sein du parent** (contrainte d'unicité en base).
+- **Sessions** : un SSDGPS `mono-session` reçoit **automatiquement** une session n°1 à la
+  création (signal `post_save`) ; les `multi-session` gèrent leurs sessions manuellement.
 
-### Phase 6 — Supervision et rapports (F01, F07, F09, F16, F17)
+### 6.2 Modèle de données (nouvelle app Django `projects/`)
 
-- Tableaux de bord globaux et par organisation
-- Journal d'audit avec filtres
-- Rapports consolidés et statistiques
+Six entités, toutes avec suppression logique (`is_deleted`/`deleted_at`), horodatage
+(`created_at`/`updated_at`), `created_by`, et clé primaire UUID — en réutilisant le patron de
+`accounts/models.py` (managers, index). Le rattachement à l'organisation assure le scoping RBAC.
 
-### Phase 7 — Fonctionnalités innovantes (F28-F30)
+#### 6.2.1 `Projet`
 
-- Signature électronique
-- Automatisation des workflows
-- Tableau de bord prédictif
+| Champ | Type | Notes |
+|-------|------|-------|
+| `nom_projet` | CharField | Obligatoire |
+| `description_projet` | TextField | Optionnel |
+| `code_projet` | CharField unique, indexé | Identifiant court (obligatoire) |
+| `organization` | FK → `Organization` (PROTECT) | **Scoping RBAC** (cabinet propriétaire) |
+| `statut` | choices | `brouillon` (défaut), `en_cours`, `cloture`, `archive` |
+| `created_by`, `created_at`, `updated_at`, `is_deleted`, `deleted_at` | — | Patron commun |
+
+> Champs région/commune, référence client et échéance **écartés** pour l'instant (décision 6.1) ;
+> réintroductibles ultérieurement si besoin.
+
+#### 6.2.2 `Propriete`
+
+- `nom_propriete` (propriété-dite) — obligatoire
+- `id_requisition` — format `R<numéro>/<indice>` (indice : nombre 1–1000 **ou** 1–2 lettres majuscules), validé par regex
+- `id_titre` — format `T<numéro>/<indice>` (même règle d'indice), validé par regex
+- `projet` — FK → `Projet`
+- **Règle** : au moins l'un de `id_requisition` / `id_titre` doit être renseigné
+
+#### 6.2.3 `Affaire` (sous-dossier d'affaire, « SD »)
+
+- `numero_sd_affaire` — numéro d'ordre dans la propriété mère
+- `nature_procedure_affaire` — enum : `IFF`, `IFE`, `IFR`, `PS_FORET`, `PS_COLLECTIF`, `PS_EXPROPRIATION`, `AS`
+- `nature_affaire` — enum **dépendant** de la procédure :
+
+  | Procédure | Natures d'affaire autorisées |
+  |-----------|------------------------------|
+  | `IFF` | `BI` (bornage d'immatriculation), `BC` (bornage complémentaire) |
+  | `IFE` | `IFE` |
+  | `IFR` | `IFR` |
+  | `PS_FORET` / `PS_COLLECTIF` / `PS_EXPROPRIATION` | `RB` (recollement de bornage) |
+  | `AS` | `MEC`, `MT`, `FS`, `MT-FS`, `LOT`, `COP` |
+
+- `date_bornage` — **conditionnel** : date de bornage pour `IFF`/`AS`, date de recollement pour `PS_*`, **non définie** (null) pour `IFE`/`IFR`
+- `propriete` — FK → `Propriete`
+- **Validation croisée** procédure ↔ nature ↔ date_bornage dans `Model.clean()` **et** dans le sérialiseur DRF
+
+#### 6.2.4 `Ssdgps` (sous-sous-dossier GPS)
+
+- `nature_ssdgps` — enum : `PDC/GPS` (projet de densification cadastrale), `DDC/GPS` (dossier de densification cadastrale), `PLC/GPS` (projet de levé cadastral), `DLC/GPS` (dossier de levé cadastral)
+- `numero_ssdgps` — numéro d'ordre dans le SD d'affaire mère
+- `type_ssdgps` — enum : `mono-session`, `multi-session`
+- `affaire` — FK → `Affaire`
+
+#### 6.2.5 `Session` (session d'observations GPS)
+
+- `ssdgps` — FK → `Ssdgps`
+- `numero_session`, `date_session`, métadonnées
+- Un SSDGPS `multi-session` porte N sessions ; un SSDGPS `mono-session` porte une session
+  (unique). Les pièces d'observations/déterminations sont rattachées à la **session** (voir Phase 6).
+
+### 6.3 API REST hiérarchique
+
+Endpoints sous `/api/v1/` : `projets/`, `proprietes/`, `affaires/`, `ssdgps/`, `sessions/`
+(CRUD + endpoints imbriqués). **Filtrage RBAC** :
+
+| Rôle | Portée |
+|------|--------|
+| `ROLE_ADMIN_SYSTEME` | Tous les projets |
+| `ROLE_ORGANISATION_ADMIN` / `ROLE_ORGANISATION_AGENT` | Projets de leur organisation |
+
+Chaque vue pose explicitement `IsAuthenticated` (rappel : le défaut DRF est `AllowAny`).
+Sérialiseurs avec validations conditionnelles (natures, `date_bornage`, formats d'id).
+
+### 6.4 Frontend — navigation & formulaires dynamiques
+
+- Arbre de navigation Projet → Propriété → Affaire → SSDGPS → Session (composant arborescent +
+  fil d'Ariane).
+- Formulaires dynamiques : `nature_affaire` filtrée selon `nature_procedure_affaire` ;
+  `date_bornage` affichée/masquée selon la procédure ; masques et validation des
+  `id_requisition` / `id_titre`.
+- Services Angular calqués sur `OrganizationService` / `UserService`.
+
+### 6.5 Saisie & import des données des pièces
+
+- Upload d'images (canevas, photos, rapports de consultation).
+- Import CSV/Excel côté backend (`openpyxl` / `pandas`), mapping colonnes → champs.
+- Saisie directe via formulaires structurés.
+- Validation des fichiers importés (type, taille, contenu) — consigne de sécurité du CPS.
+- Stockage : payload JSON structuré + fichiers (médias).
+
+### 6.6 Tests (Phase 5)
+
+- Modèles : validations conditionnelles (procédure↔nature↔date_bornage), regex des id.
+- API : permissions RBAC par rôle, scoping par organisation.
+- Import : parsing CSV/Excel, rejets de fichiers invalides.
+
+### 6.7 État d'implémentation
+
+- ✅ **Backend livré** : app `backend/projects/` (modèles `Projet`, `Propriete`, `Affaire`,
+  `Ssdgps`, `Session` ; validateurs partagés `validators.py` ; signal auto-session ;
+  sérialiseurs ; ViewSets RBAC ; routes `/api/v1/{projets,proprietes,affaires,ssdgps,sessions}/`).
+  Migration `projects/0001_initial`. Tests `projects/tests_domain.py` (13 tests ✅).
+- ✅ **Frontend livré (6.4)** : module `features/projects/` — `ProjectListComponent` (table CRUD
+  + filtres + scoping org via `/auth/me/`) et `ProjectExplorerComponent` (drill-down
+  Propriété→Affaire→SSDGPS→Session avec fil d'Ariane et **formulaire Affaire dynamique** :
+  `nature_affaire` filtrée par procédure, `date_bornage` conditionnelle). Modèle
+  `core/models/project.model.ts`, service `core/services/projects.service.ts`, route lazy
+  `/admin/projets`, entrée de menu. Build AOT ✅.
+- ⏳ **Reste à faire (6.5)** : import CSV/Excel + upload d'images (formats des pièces), à traiter
+  dans un incrément suivant.
 
 ---
 
-## 7. Glossaire
+## 7. Phase 6 — Pièces & génération de rapports PDF SSDGPS
+
+### 7.1 Définition
+
+Produire des **rapports PDF de SSDGPS** composés de **pièces ordonnées** (F22–F26). Chaque
+pièce a une source de données (UI, images uploadées, CSV/Excel, saisie directe) et une
+applicabilité selon la nature du SSDGPS. Moteur retenu : **WeasyPrint** (HTML/CSS → PDF).
+
+### 7.2 Catalogue des pièces
+
+19 types de pièces (source : tableau de `docs/notes/Notes.md` et classeur
+`docs/notes/RAPPORTS.xlsm`). Applicabilité et source résumées :
+
+| Pièce | Natures SSDGPS | Source | Niveau |
+|-------|----------------|--------|--------|
+| Page de Garde SDGPS | toutes | UI (choix + ordre des pièces) | SSDGPS |
+| Rapport de Consultation | toutes | Images | SSDGPS |
+| Liste des Points Anciens | toutes | CSV/Excel/saisie | SSDGPS |
+| Canevas de Contrôle de Stabilité des Points Anciens | toutes | Images | SSDGPS |
+| Canevas de Densification Cadastrale | PDC/GPS, DDC/GPS | Images | SSDGPS |
+| Canevas de Levé Cadastral | PLC/GPS, DLC/GPS | Images | SSDGPS |
+| Photos des points anciens | toutes | Images + CSV/Excel/saisie | SSDGPS |
+| Photos des points nouveaux | toutes | Images + CSV/Excel/saisie | SSDGPS |
+| Fiche Technique des Récepteurs | toutes | CSV/Excel/saisie | SSDGPS |
+| Rapport des Observations Brutes | toutes | CSV/Excel/saisie | **Session** |
+| Rapport du traitement des lignes de base | toutes | CSV/Excel/saisie | **Session** |
+| Rapport des fermetures des Boucles | toutes | CSV/Excel/saisie | **Session** |
+| Rapport de la détermination libre | toutes | CSV/Excel/saisie | **Session** |
+| Rapport de détermination N°i (**pièce répétée** : N°1..N°k, k variable) | PDC/GPS, DDC/GPS, PLC/GPS | CSV/Excel/saisie | **Session** |
+| Rapport des déterminations (variante **agrégée** multi-pages, ex. DLC/GPS) | DLC/GPS (constaté) | CSV/Excel/saisie | **Session** |
+| Rapport de la détermination définitive | DDC/GPS, DLC/GPS | CSV/Excel/saisie | **Session** |
+| Rapport de contrôle | toutes | CSV/Excel/saisie | SSDGPS |
+
+> Le niveau « Session » vs « SSDGPS » et la composition exacte par nature sont **précisés en
+> 7.2.1** à partir des rapports exemples fournis (`docs/exemples-ssdgps/`).
+
+### 7.2.1 Structure réelle observée (exemples PDC/DDC/DLC)
+
+Analyse des rapports `docs/exemples-ssdgps/RAPPORTS_SDGPS_{PDC,DDC,DLC}.pdf` (⚠️ **PLC non
+fourni** — à obtenir pour compléter).
+
+**Anatomie d'un rapport :**
+- Page 1 = **page de garde** (Propriété Dite, Réquisition, Titre, N° SDGPS, en-tête ANCFCC /
+  Service du Cadastre).
+- Puis, pour chaque pièce dans l'ordre : une **page de séparation** « PIÈCE N°X : TITRE » suivie
+  des pages de contenu.
+- **En-tête** de chaque page de contenu : Propriété Dite / Réquisition / Titre / **Nature Affaire**
+  (ex. « BI du 09/04/2023 » = nature d'affaire + `date_bornage`) / **Nature SDGPS** (« PDC/GPS »).
+- **Pied de page** : « SDGPS N°.. PIÈCE N°.. PAGE N°.. ».
+- La **numérotation des pièces (N°1, N°2, …) est séquentielle selon l'ordre choisi** dans le
+  report builder — ce n'est pas un identifiant fixe de la pièce.
+
+**Jeux de pièces par nature (ordre réel constaté) :**
+
+| Pièce (dans l'ordre) | PDC/GPS | DDC/GPS | DLC/GPS |
+|----------------------|:------:|:------:|:------:|
+| Page de garde | ✅ | ✅ | ✅ |
+| Rapport de consultation | ✅ | ✅ | ✅ |
+| Liste des points anciens | ✅ | — | ✅ |
+| Canevas contrôle stabilité points anciens | ✅ | — | — |
+| Canevas de densification cadastrale | — | ✅ | — |
+| Canevas de levé cadastral | — | — | ✅ |
+| Photos des points anciens | ✅ | — | ✅ |
+| Photos des points nouveaux | — | ✅ | ✅ |
+| Observations brutes | ✅ | ✅ | ✅ |
+| Traitement des lignes de base | ✅ | ✅ | ✅ |
+| Fermetures de boucles | ✅ | ✅ | ✅ |
+| Détermination libre | ✅ | ✅ | ✅ |
+| Déterminations N°1..N°k (répétées) | ✅ (k=10) | ✅ (k=15) | — |
+| Rapport des déterminations (agrégé) | — | — | ✅ |
+| Détermination définitive | — | ✅ | ✅ |
+| Rapport de contrôle | ✅ | ✅ | ✅ |
+
+> **Écart à lever** : le tableau de `Notes.md` attribuait « Canevas de densification » à PDC **et**
+> DDC ; or l'exemple **PDC ne le contient pas** (il apparaît au **dossier** DDC). À confirmer.
+
+**Schémas de données constatés (pièces tabulaires CSV/Excel) :**
+- *Liste des points anciens* : `ID, Nom Point, X(m), Y(m), Référence, Nature, Matérialisation, Nature Signalisation`.
+- *Observations brutes* : `ID, Point, Heure Début, Heure Fin, Durée, Type, …`.
+- *Détermination N°i* : `ID, Nom Point, X(m), Y(m), …` (+ écarts).
+- *Photos (anciens/nouveaux)* : une page par point — `Nom, Date de visite, Projection, Système, X(m)/Y(m) approx.` + photo.
+
+Colonnes exactes de chaque pièce : `docs/notes/RAPPORTS.xlsm` (feuilles homonymes).
+
+### 7.3 Modèle de données (pièces & rapport)
+
+- **`Piece`** : `type_piece` (enum des types), rattachement `ssdgps` **ou** `session` selon
+  le type, `source_type` (`ui` / `image` / `csv` / `manual`), `payload` (JSON structuré),
+  fichiers/images associés, `statut`.
+- **Cardinalité des pièces** : distinguer les pièces **singleton** (une occurrence : liste des
+  points anciens, contrôle, canevas…) des pièces **à collection** (répétées : une page par point
+  pour les photos ; **une pièce par détermination** pour « Détermination N°i »). Le modèle prévoit
+  donc, pour les déterminations, une entité `Determination` (numéro/ordre + données) dont chaque
+  instance génère une pièce, ainsi qu'une variante **agrégée** (DLC).
+- **Mapping** `type_piece → {natures applicables, niveau (ssdgps/session), source, cardinalité,
+  schéma de données}` (dérivé des tableaux 7.2 et 7.2.1).
+- **`RapportSsdgps`** + table de liaison **`RapportPiece`** (`ordre`, `inclus`) : un rapport =
+  sélection **ordonnée** de pièces d'un SSDGPS ; paramètres de page de garde ; `fichier_pdf`
+  généré, `genere_par`, `date_generation`, `statut`.
+
+### 7.4 Cadre générique de pièces (« piece framework »)
+
+Registry central `type_piece → { schéma de données, source, applicabilité par nature, niveau
+session/ssdgps, template de rendu HTML }`. Objectif : ajouter/itérer les pièces sans logique
+ad hoc dispersée, et filtrer dynamiquement les pièces disponibles selon `nature_ssdgps`.
+
+### 7.5 Report builder (UI)
+
+Page de composition du rapport : sélection des pièces disponibles (filtrées par nature),
+**réordonnancement par glisser-déposer**, configuration de la **Page de Garde SDGPS**, aperçu,
+paramètres. Correspond à la source « UI dans l'app pour choisir et définir l'ordre des pièces ».
+
+### 7.6 Génération PDF (WeasyPrint)
+
+- Templates HTML/CSS Django, un par type de pièce ; en-têtes/pieds de page, pagination, page de
+  garde.
+- **Convention de rendu constatée** (cf. 7.2.1) : page de garde en tête ; **une page de
+  séparation par pièce** (« PIÈCE N°X : TITRE ») ; en-tête répété (Propriété / Réquisition /
+  Titre / Nature Affaire+date_bornage / Nature SDGPS) et pied de page
+  (« SDGPS N°.. PIÈCE N°.. PAGE N°.. ») ; **numérotation des pièces séquentielle** selon l'ordre
+  du report builder.
+- Assemblage **ordonné** des pièces sélectionnées → **PDF unique** (les pièces « à collection »
+  comme les déterminations et les photos produisent une occurrence par élément).
+- Ajouter les dépendances système WeasyPrint au `backend/Dockerfile` (pango/cairo/gdk-pixbuf).
+- Contrainte CPS : génération d'un document standard **< 30 s**.
+- **Étape « gabarits exacts » (itérative)** : décliner les pièces par nature à partir des exemples
+  `docs/exemples-ssdgps/` (**PDC/DDC/DLC fournis** ✅, **PLC à fournir** ⚠️) et de `RAPPORTS.xlsm`.
+  Spécificités confirmées : *détermination définitive* pour DDC/DLC ; *canevas de densification*
+  (DDC) vs *canevas de levé* (DLC/PLC) ; **nombre de déterminations variable** (N°1..N°k).
+
+### 7.7 Livrables, historique & audit (F25/F26)
+
+- Téléchargement du PDF généré ; historique et statut des générations ; journalisation des
+  actions critiques (audit).
+
+### 7.8 Tests (Phase 6)
+
+- Applicabilité pièce↔nature, niveau session/ssdgps.
+- Import de données de pièces (parsing, validation).
+- Génération PDF : présence des pièces dans le bon ordre, non-régression des gabarits (comparaison structurelle).
+
+---
+
+## 8. Phases ultérieures (aperçu)
+
+### Phase 7 — Supervision & rapports consolidés (F01, F07, F09, F11, F16–F18)
+
+- Tableaux de bord global (admin système) et par organisation (admin org).
+- Journal d'audit avec filtres (utilisateur, action, date).
+- Rapports consolidés / statistiques ; gestion des quotas et alertes.
+
+### Phase 8 — Invitations & fonctionnalités innovantes (F13, F28–F30)
+
+- Invitations des agents (F13) : modèle `Invitation`, service d'email, page de gestion.
+- Signature électronique des documents produits (F28).
+- Automatisation des workflows de validation (F29).
+- Tableau de bord prédictif (F30).
+
+---
+
+## 9. Glossaire
 
 | Terme | Définition |
 |-------|-----------|
@@ -507,3 +841,14 @@ Dans `app-routing.module.ts`, sous le path `admin` :
 | **RBAC** | Role-Based Access Control — contrôle d'accès basé sur les rôles |
 | **Soft-delete** | Suppression logique : données masquées mais conservées en base |
 | **JWT** | JSON Web Token — jeton d'authentification sécurisé |
+| **SSDGPS** | Sous-sous-dossier GPS — unité de production d'un rapport de post-traitement bureau des observations GPS. Quatre natures : PDC/GPS, DDC/GPS, PLC/GPS, DLC/GPS |
+| **SD d'affaire** | Sous-dossier d'affaire — regroupe des SSDGPS ; caractérisé par une procédure et une nature d'affaire |
+| **Propriété** | Bien foncier (propriété-dite) identifié par une réquisition et/ou un titre foncier ; rattachée à un projet |
+| **Réquisition** | Identifiant d'une propriété en phase d'immatriculation (`R<numéro>/<indice>`) |
+| **Titre foncier** | Identifiant d'une propriété après immatriculation (`T<numéro>/<indice>`) |
+| **Session** | Session d'observations GPS d'un SSDGPS ; un SSDGPS multi-session en compte plusieurs |
+| **Pièce** | Composant d'un rapport SSDGPS (page de garde, canevas, rapports de détermination, etc.), issu d'une source de données (UI, image, CSV/Excel, saisie) |
+| **PDC/GPS · DDC/GPS** | Projet / Dossier de densification cadastrale par GPS |
+| **PLC/GPS · DLC/GPS** | Projet / Dossier de levé cadastral par GPS |
+| **Bornage / Recollement** | Opération de terrain dont la date (`date_bornage`) caractérise l'affaire selon sa procédure |
+| **WeasyPrint** | Moteur de rendu HTML/CSS → PDF utilisé pour la génération des rapports |

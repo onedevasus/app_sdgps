@@ -12,6 +12,58 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -55,6 +107,9 @@
         - [Protection des admins systeme (Role : ROLE_ADMIN_SYSTEME)](#protection-des-admins-systeme-role-roleadminsysteme)
         - [Protection des admins systeme (Role : ROLE_ADMIN_ORGANISATION)](#protection-des-admins-systeme-role-roleadminorganisation)
         - [Recuperation des comptes supprimees](#recuperation-des-comptes-supprimees)
+  - [Phase Developpement de l'app dans Claude Code.](#phase-developpement-de-lapp-dans-claude-code)
+    - [Plan des taches a faire](#plan-des-taches-a-faire)
+    - [maj du plan de developpement de l'app](#maj-du-plan-de-developpement-de-lapp)
 
 # Taches a faire
   - Divers
@@ -64,7 +119,7 @@
     - correction + refonte frontend tableau de la liste des utilisateurs. (fait)
     - Protection des roles des utilisateurs.  (fait)
     - tester toutes les fonctionnalites du tableau (fait)
-    - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs
+    - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs  (fait)
 
     - implementer les tests backend + frontend de la gestion des utilisateurs
   - gestion des projets/proprietes/affaires/ssd-gps
@@ -508,7 +563,10 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 
 ##### Protection des admins systeme (Role : ROLE_ADMIN_ORGANISATION)
 
-
+   corrige : 
+    - seulement Super Admin / Admin Système peut créer une org. 
+    - seulement Super Admin / Admin Système peut créer des admins des orgs.
+    - seulement Super Admin / Admin Système peuvent lire les membres de TOUTES les orgs
 
 
 
@@ -516,3 +574,100 @@ Maintenant corrige les points suivants pour les utilisateurs dont role est ROLE_
 ##### Recuperation des comptes supprimees
 
 Quelle solution propose tu pour ajouter la possibiliter de recuperer les comptes utilisateurs supprimes.
+
+
+
+## Phase Developpement de l'app dans Claude Code.
+
+### Plan des taches a faire
+  - maj du plan de developpement de l'app
+    - validation choix du moteur de rendu 
+
+
+### maj du plan de developpement de l'app
+
+
+mon app est destinee a generer des rapports pdf contenant plusieurs pieces. un rapport de sous dossier GPS est un rapport contenant plusiuers pieces relatives au post-traitement bureau des observations GPS relatif au dit sd gps. 
+Un ssd gps est toujours un sous sous dossier d'un sous dossier d'affaire. qui lui meme sous dossier d'une propriete.
+chaque ssdgps est caracterise par les champs suivants : 
+- nature_ssdgps : une valeur parmi les suivants
+  - PDC/GPS : Projet de densification cadastrale par GPS
+  - DDC/GPS : Dossier de densification cadastrale par GPS
+  - PLC/GPS : Projet de leve cadastral par GPS
+  - DLC/GPS : Dossier de leve cadastral par GPS
+- numero_ssdgps : indique le numero d'ordre du sous sous dossier gps dans son sd mere (sous dossier d'affaire)
+- type_ssdgps : une valeur parmi les suivants
+  - mono-session : indique que le ssd gps contient une seule session des observations gps
+  - multi-session : indique que le ssd gps contient plusieurs sessions des observations gps
+- id_affaire : id de l'affaire a laquelle le ssd gps appartient.
+
+chaque sd d'affaire est caracterise par les champs suivants : 
+  - numero sd affaire : numero d'ordre du sd d'affaire dans le dossier mere (dossier de la propriete)
+  - nature_procedure_affaire : une valeure parmi les suivantes :
+    - IFF: Immatriculation Fonciere Faculatative
+    - IFE : Immatriculation Fonciere d'Ensemble
+    - IFR : Immatriculation Fonciere de Remembrement
+    - PS_FORET : Procedure speciale Foret
+    - PS_COLLECTIF : Procedure speciale Collectif
+    - PS_EXPROPRIATION : Procedure expropriation
+    - AS : Affaires subsequentes
+  - nature_affaire : une valeure parmi les suivantes qui depend de la nature_procedure_affaire :
+      - Pour IFF :
+        - BI : bornage d'immatriculation
+        - BC : bornage complementaire
+      - Pour IFE :
+        - IFE : Immatriculation Fonciere d'Ensemble
+      - Pour IFR :
+        - IFR : Immatriculation Fonciere de Remembrement
+      - Pour PS_FORET/PS_COLLECTIF/PS_EXPROPRIATION :
+        - RB : Recollement de bornage.
+      - Pour AS:
+        - MEC : Mise en Concordance
+        - MT : Morcellement
+        - FS : Fusion
+        - MT-FS : Morcellement-Fusion
+        - LOT : Lotissement
+        - COP : Copropriete
+    - date_bornage : en generale c'est la date de l'operation bornage ou de recollement de bornage de l'affaire en question. cette date est definie comme suit :
+      - Pour IFF/AS : C'est la date de l'operation de bornage.
+      - Pour IFE/IFR : non definie pour ces deux procedures.
+      - Pour PS_FORET/PS_COLLECTIF/PS_EXPROPRIATION : c'est la date de l'operation de recollement de bornage.
+    - id_propriete : id de la propriete a laquelle cette affaire appartient.
+
+chaque propriete est caracterisee par les champs suivants : 
+  - nom_propriete/propriete_dite : nom de la propriete
+  - id_requisition : id de la requisition d'immatriculation (id pour la propriete pendant la phase de preparation pour l'immatriculation) sous cette forme : R + numero_d'ordre de la requisition + "/" + indice_requisition (soit un numero d'ordre entre 1 et 1000. soit une ou deux lettres en majuscules).
+  - id_titre : id du titre foncier de la propriete apres immatriculation sous cette forme : T + numero_d'ordre du titre + "/" + indice_titre (soit un numero d'ordre entre 1 et 1000. soit une ou deux lettres en majuscules).
+  - id_projet: id du projet a lequel appartient cette propriete
+
+chaque projet dans l'app est caracterisee par les champs suivants : 
+  - nom_projet : nom du projet
+  - description_projet : description du projet 
+  - autres champs utiles et interessants que vous me proposez. 
+
+La liste des pieces qui peuvent etre incluses dans un rapport du ssdgps sont les suivantes, ainsi que la source possible des donnees de cette piece sont donnees dans le tableau suivant : 
+| Noms des Pièces | Natures SDGPS | Sources des données |
+|---|---|---|
+| Page de Garde SDGPS | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | UI dans l'app pour choisir et définir l'ordre des pièces du rapport |
+| Rapport de Consultation | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | Images uploadées dans l'app |
+| Liste des Points Anciens | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | Fichier CSV/Excel ou saisie directe dans l'app |
+| Canevas de Contrôle de Stabilité des Points Anciens | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | Images uploadées dans l'app |
+| Canevas de Densification Cadastrale | PDC/GPS; DDC/GPS | Images uploadées dans l'app |
+| Canevas de Levé Cadastral | PLC/GPS; DLC/GPS | Images uploadées dans l'app |
+| Photos des points anciens | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | Images uploadées dans l'app + CSV/Excel/saisie directe |
+| Photos des points nouveaux | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | Images uploadées dans l'app + CSV/Excel/saisie directe |
+| Fiche Technique des Récepteurs | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport des Observations Brutes | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport du traitement des lignes de base | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport des fermetures des Boucles | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport de la détermination libre | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport de la détermination N°1 | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport de la détermination N°2 | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport de la détermination N°3 | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport des déterminations Intermédiaires | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport de la détermination définitive | DDC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+| Rapport de contrôle | PDC/GPS; DDC/GPS; PLC/GPS; DLC/GPS | CSV/Excel/saisie directe dans l'app |
+
+Des exemples de rapports PDF des quatres natures des SSDGPS sont fournies en pieces jointes.
+
+D'apres cette description de l'app. adapte le plan de developpement de l'app dans docs/plans/PLAN_DEV.md en y ajoutant les phases et etapes necessaires pour implementer les fonctionnalites manquantes dans l'app. n'hesiter pas a me poser les questions necessaires pour clarifier les points ambigues ou manquants.
