@@ -248,6 +248,21 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         role = validated_data.pop('role', None)
         organization_id = validated_data.pop('organization_id', None)
 
+        # Un Admin Organisation ne peut JAMAIS changer l'organisation d'un utilisateur
+        # (ni la sienne, ni celle d'un agent de son organisation).
+        request = self.context.get('request')
+        author = getattr(request, 'user', None)
+        author_is_org_admin = bool(
+            author and not author.is_superuser and not author.is_platform_admin()
+        )
+        if author_is_org_admin and organization_id:
+            current_org = instance.get_primary_organization()
+            current_org_id = str(current_org.id) if current_org else None
+            if str(organization_id) != current_org_id:
+                raise serializers.ValidationError({
+                    'organization_id': "Vous ne pouvez pas changer l'organisation d'un utilisateur."
+                })
+
         if instance.is_superuser:
             if role is not None:
                 raise serializers.ValidationError(

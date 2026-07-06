@@ -1084,7 +1084,8 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (formVal.last_name !== this.editUser.last_name) payload.last_name = formVal.last_name;
     if (formVal.is_active !== this.editUser.is_active) payload.is_active = formVal.is_active;
     if (!this.editUser.is_superuser && !this.isCurrentUser(this.editUser) && formVal.role !== this.editUser.role) payload.role = formVal.role;
-    if (formVal.organization_id !== (this.editUser.organization_id || '')) payload.organization_id = formVal.organization_id;
+    // Un Admin Organisation ne peut jamais changer l'organisation d'un utilisateur.
+    if (!this.isOrgAdmin && formVal.organization_id !== (this.editUser.organization_id || '')) payload.organization_id = formVal.organization_id;
 
     if ('is_active' in payload && this.editUser) {
       if (this.editUser.is_superuser && this.isCriticalSuperAdmin(this.editUser)) {

@@ -202,3 +202,33 @@ class OrgAdminScopingTests(TestCase):
 
         self.assertEqual(resp.status_code, 400)
         self.assertFalse(User.objects.filter(email='agent-b@example.com').exists())
+
+    def test_cannot_move_agent_to_another_org(self):
+        agent = make_user('agent@example.com')
+        Membership.objects.create(
+            user=agent, organization=self.org, role='ROLE_ORGANISATION_AGENT'
+        )
+
+        resp = self.client.patch(f'/api/v1/users/{agent.pk}/', {
+            'organization_id': str(self.other_org.id),
+        }, format='json')
+
+        self.assertEqual(resp.status_code, 400)
+        # L'agent reste dans son organisation d'origine, sans nouvelle adhésion.
+        orgs = set(agent.memberships.values_list('organization_id', flat=True))
+        self.assertEqual(orgs, {self.org.id})
+
+    def test_can_edit_agent_name_without_changing_org(self):
+        agent = make_user('agent@example.com')
+        Membership.objects.create(
+            user=agent, organization=self.org, role='ROLE_ORGANISATION_AGENT'
+        )
+
+        resp = self.client.patch(f'/api/v1/users/{agent.pk}/', {
+            'first_name': 'Nouveau',
+            'organization_id': str(self.org.id),  # même org → autorisé
+        }, format='json')
+
+        self.assertEqual(resp.status_code, 200, resp.content)
+        agent.refresh_from_db()
+        self.assertEqual(agent.first_name, 'Nouveau')
