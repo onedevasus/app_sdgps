@@ -13,6 +13,8 @@ export interface UserProfile {
   nom_societe?: string;  // Nom de société (remplace phone)
   role: string;
   role_display: string;
+  organization_id?: string | null;   // ← Org principale (renvoyée par /auth/me/)
+  organization_name?: string | null;
   date_joined: string;
   last_login?: string;
   last_connection_at?: string;  // ← AJOUT: Dernière connexion personnalisée
@@ -44,7 +46,18 @@ export class ProfileService {
   private profileUpdated$ = new BehaviorSubject<UserProfile | null>(null);
   
   constructor(private http: HttpClient) { }
-  
+
+  /**
+   * Récupère le profil de l'utilisateur RÉELLEMENT connecté, quel que soit son rôle.
+   *
+   * Contrairement à getProfile() (réservé aux Super Admins / Admins Système via
+   * /platform-admin/me/profile/), cet endpoint /auth/me/ renvoie toujours request.user
+   * et fonctionne pour tous les rôles, y compris ROLE_ORGANISATION_ADMIN.
+   */
+  getCurrentUser(): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${environment.apiUrl}/auth/me/`);
+  }
+
   /**
    * Récupère le profil de l'utilisateur connecté
    */

@@ -22,10 +22,8 @@ class Organization(models.Model):
     
     # Rôles disponibles dans l'organisation (hiérarchie)
     ROLE_CHOICES = [
-        ('OWNER', 'Propriétaire / Chef de service'),
-        ('ADMIN', 'Administrateur'),
-        ('MANAGER', 'Gestionnaire'),
-        ('USER', 'Utilisateur'),
+        ('ROLE_ORGANISATION_ADMIN', 'Admin Organisation'),
+        ('ROLE_ORGANISATION_AGENT', 'Agent Organisation'),
     ]
 
     # Identifiants
@@ -208,9 +206,9 @@ class Membership(models.Model):
         verbose_name="Organisation"
     )
     role = models.CharField(
-        max_length=10,
+        max_length=30,
         choices=Organization.ROLE_CHOICES,
-        default='USER',
+        default='ROLE_ORGANISATION_AGENT',
         verbose_name="Rôle"
     )
     joined_at = models.DateTimeField(auto_now_add=True, verbose_name="Date d'adhésion")
@@ -227,7 +225,7 @@ class Membership(models.Model):
 
     def is_admin_or_higher(self):
         """Vérifie si l'utilisateur a un rôle admin ou supérieur"""
-        return self.role in ['OWNER', 'ADMIN']
+        return self.role == 'ROLE_ORGANISATION_ADMIN'
 
 
 class CustomUser(AbstractUser):
@@ -243,7 +241,20 @@ class CustomUser(AbstractUser):
     
     # Champ personnalisé : Nom de société
     nom_societe = models.CharField(max_length=200, blank=True)
-    
+
+    # Champ pour rôle plateforme (Admin App)
+    PLATFORM_ROLE_CHOICES = [
+        ('ROLE_ADMIN_SYSTEME', 'Admin Système'),
+    ]
+    platform_role = models.CharField(
+        max_length=30,
+        choices=PLATFORM_ROLE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Rôle plateforme",
+        help_text="Rôle global sur la plateforme (hors organisations). ROLE_ADMIN_PLATEFORME pour les admins d'application."
+    )
+
     # Email comme identifiant principal (au lieu de username)
     email = models.EmailField(unique=True, verbose_name="Adresse email")
     USERNAME_FIELD = 'email'
@@ -269,6 +280,18 @@ class CustomUser(AbstractUser):
         help_text="Date et heure de la dernière connexion réussie"
     )
     
+    # Soft-delete
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name="Supprimé (logique)",
+        help_text="Indique si l'utilisateur a été supprimé logiquement"
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de suppression"
+    )
+
     # Photo de profil
     profile_picture = models.ImageField(
         upload_to='profile_pictures/%Y/%m/',
@@ -278,6 +301,14 @@ class CustomUser(AbstractUser):
         help_text="Image de profil de l'utilisateur"
     )
     
+    class Meta:
+        verbose_name = "Utilisateur"
+        verbose_name_plural = "Utilisateurs"
+        indexes = [
+            models.Index(fields=['email']),
+            models.Index(fields=['is_deleted']),
+        ]
+
     def __str__(self):
         return self.email
     
@@ -300,7 +331,7 @@ class CustomUser(AbstractUser):
     
     def is_admin_in_any_org(self):
         """Vérifie si l'utilisateur est administrateur dans au moins une organisation."""
-        return self.has_role_in_any_org('ADMIN')
+        return self.has_role_in_any_org('ROLE_ORGANISATION_ADMIN')
     
     def requires_password_change(self):
         """
@@ -342,34 +373,40 @@ class CustomUser(AbstractUser):
         self.last_connection_at = timezone.now()
         self.save(update_fields=['last_connection_at'])
     
+    def is_platform_admin(self):
+        return bool(self.platform_role == 'ROLE_ADMIN_SYSTEME')
+
+    def is_super_admin(self):
+        return self.is_superuser
+
     def get_primary_role(self):
         """
-        Retourne le rôle principal de l'utilisateur (rôle dans la première organisation active).
-        Pour le Super Admin, retourne 'superadmin'.
+        Retourne le rôle principal de l'utilisateur.
+        Hiérarchie : Super Admin > Admin App > Admin Org > Agent.
         """
-        # Vérifier si c'est un superuser Django
         if self.is_superuser:
-            return 'superadmin'
-        
-        # Sinon, récupérer le rôle de la première organisation
+            return 'ROLE_SUPER_ADMIN'
+        if self.is_platform_admin():
+            return 'ROLE_ADMIN_SYSTEME'
+
         membership = self.memberships.filter(is_active=True).order_by('joined_at').first()
         if membership:
-            return membership.role.lower()  # 'ADMIN' → 'admin', etc.
-        
-        return 'user'  # Rôle par défaut
-    
+            return membership.role
+
+        return 'ROLE_ORGANISATION_AGENT'
+
     def get_primary_role_display(self):
         """
         Retourne l'affichage du rôle principal.
         """
         role = self.get_primary_role()
         role_map = {
-            'superadmin': 'Super Administrateur',
-            'admin': 'Administrateur',
-            'manager': 'Gestionnaire',
-            'user': 'Utilisateur',
+            'ROLE_SUPER_ADMIN': 'Super Admin',
+            'ROLE_ADMIN_SYSTEME': 'Admin Système',
+            'ROLE_ORGANISATION_ADMIN': 'Admin Org',
+            'ROLE_ORGANISATION_AGENT': 'Agent Org',
         }
-        return role_map.get(role, role.title())
+        return role_map.get(role, role.replace('_', ' ').title())
 
 
 class PasswordResetToken(models.Model):

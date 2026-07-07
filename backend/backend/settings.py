@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'organizations',  # ← AJOUT: Gestion des organisations
+    'projects',  # ← AJOUT: Domaine métier (Projet→Propriété→Affaire→SSDGPS→Session)
 ]
 
 MIDDLEWARE = [

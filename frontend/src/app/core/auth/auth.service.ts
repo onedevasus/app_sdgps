@@ -30,6 +30,7 @@ export class AuthService {
     // Informations d'organisation et rôle extraits du token
     private organizationId: string | null = null;
     private userRole: UserRole | null = null;
+    private userId: number | null = null;
 
     constructor(private http: HttpClient) {
         // Pourquoi: Vérifier l'état de connexion au démarrage du service
@@ -185,6 +186,7 @@ export class AuthService {
         // Réinitialiser les informations d'organisation
         this.organizationId = null;
         this.userRole = null;
+        this.userId = null;
         
         console.log('✅ AuthService: Tokens supprimés, état réinitialisé');
     }
@@ -224,6 +226,14 @@ export class AuthService {
     private storeAuthToken(token: string): void {
         // Pourquoi: Le localStorage est un moyen simple de persister le token entre les sessions.
         localStorage.setItem('authToken', token);
+    }
+
+    /**
+     * @method getUserId
+     * @returns number | null L'ID de l'utilisateur connecté ou null.
+     */
+    getUserId(): number | null {
+        return this.userId;
     }
 
     /**
@@ -316,10 +326,12 @@ export class AuthService {
             // Extraire les informations RBAC
             this.organizationId = payload.org_id || payload.organizationId || null;
             this.userRole = payload.role || payload.userRole || null;
+            this.userId = payload.user_id || null;
 
             console.log('RBAC Info extracted:', {
                 organizationId: this.organizationId,
-                userRole: this.userRole
+                userRole: this.userRole,
+                userId: this.userId
             });
         } catch (error) {
             console.error('Erreur lors de l\'extraction des infos RBAC:', error);
@@ -360,9 +372,10 @@ export class AuthService {
                         window.location.href = '/auth/change-password?reason=first_login';
                     }, 100);
                 } else {
-                    // Si déjà sur le dashboard, ne pas rediriger
-                    if (currentPath.includes('/dashboard')) {
-                        console.log('✅ Déjà sur dashboard - Pas de redirection');
+                    // Redirection uniquement depuis les pages d'auth (post-login)
+                    // Ne pas rediriger si déjà sur une page de l'application (dashboard, admin, etc.)
+                    if (currentPath.includes('/dashboard') || currentPath.includes('/admin')) {
+                        console.log('✅ Déjà sur une page de l\'application - Pas de redirection');
                         return;
                     }
 
@@ -376,8 +389,8 @@ export class AuthService {
             error: (err) => {
                 console.error('Erreur vérification statut MDP:', err);
 
-                // En cas d'erreur, ne rediriger que si pas déjà sur dashboard
-                if (!currentPath.includes('/dashboard')) {
+                // En cas d'erreur, ne rediriger que si pas déjà sur dashboard ou admin
+                if (!currentPath.includes('/dashboard') && !currentPath.includes('/admin')) {
                     setTimeout(() => {
                         window.location.href = '/dashboard';
                     }, 100);

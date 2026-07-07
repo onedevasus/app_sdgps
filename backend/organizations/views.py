@@ -22,9 +22,9 @@ class OrganizationBulkDeleteView(APIView):
     
     def post(self, request):
         # Vérifier que l'utilisateur est Super Admin
-        if not request.user.is_superuser and request.user.get_primary_role() != 'superadmin':
+        if not request.user.is_superuser and request.user.get_primary_role() != 'ROLE_ADMIN_SYSTEME':
             return Response(
-                {'detail': 'Seul le Super Admin peut supprimer des organisations.'},
+                {'detail': 'Seul l\'administrateur de l\'application peut supprimer des organisations.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -137,7 +137,13 @@ class OrganizationListView(generics.ListCreateAPIView):
         return queryset.order_by('name')
     
     def perform_create(self, serializer):
-        """Ajoute l'utilisateur courant comme créateur"""
+        """Ajoute l'utilisateur courant comme créateur.
+        Seuls les Super Admins et Admins Système peuvent créer des organisations.
+        """
+        user = self.request.user
+        if not user.is_superuser and user.get_primary_role() != 'ROLE_ADMIN_SYSTEME':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les Super Admins et Admins Système peuvent créer des organisations.")
         serializer.save(created_by=self.request.user)
         logger.info(f"Organisation créée par: {self.request.user.email}")
 
@@ -158,14 +164,14 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         """Vérifie les permissions spécifiques à l'objet"""
         if request.method in ['PUT', 'PATCH', 'DELETE']:
             # Super Admin peut tout faire
-            if request.user.is_superuser or request.user.get_primary_role() == 'superadmin':
+            if request.user.is_superuser or request.user.get_primary_role() == 'ROLE_ADMIN_SYSTEME':
                 return
             
             # Admin de l'organisation peut modifier
             membership = Membership.objects.filter(
                 user=request.user,
                 organization=obj,
-                role__in=['ADMIN', 'OWNER'],
+                role='ROLE_ORGANISATION_ADMIN',
                 is_active=True
             ).first()
             
@@ -241,16 +247,23 @@ class OrganizationMembersView(generics.ListAPIView):
     
     def get_queryset(self):
         org_id = self.kwargs['pk']
+        user = self.request.user
+        # Super Admin et Admin Système voient les membres de toutes les orgs
+        if user.is_superuser or user.get_primary_role() == 'ROLE_ADMIN_SYSTEME':
+            return Membership.objects.filter(
+                organization_id=org_id,
+                is_active=True
+            ).select_related('user', 'organization')
+        # Admin Organisation et Agent Organisation ne voient que les membres de leurs propres orgs
+        user_org_ids = user.memberships.filter(
+            is_active=True
+        ).values_list('organization_id', flat=True)
+        if org_id not in user_org_ids:
+            return Membership.objects.none()
         return Membership.objects.filter(
             organization_id=org_id,
             is_active=True
         ).select_related('user', 'organization')
-    
-    def get_permissions(self):
-        """Seuls les admins peuvent voir la liste des membres"""
-        if self.request.method == 'GET':
-            return [permissions.IsAuthenticated()]
-        return super().get_permissions()
 
 
 class AddMemberView(APIView):
@@ -274,7 +287,7 @@ class AddMemberView(APIView):
         membership = Membership.objects.filter(
             user=request.user,
             organization=organization,
-            role__in=['ADMIN', 'OWNER'],
+            role='ROLE_ORGANISATION_ADMIN',
             is_active=True
         ).first()
         

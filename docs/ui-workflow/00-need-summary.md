@@ -1,0 +1,23 @@
+# UI 需求摘要 — User List Page Redesign
+- **执行模式**：深度模式
+- **产品定位**：SDGPS 后台管理系统 — 用户管理页面重建
+- **目标用户**：管理员（ROLE_ADMIN_SYSTEME, ROLE_ORGANISATION_ADMIN）
+- **核心功能（P0/P1/P2）**：
+  - P0: 显示用户列表（表格），支持搜索、筛选、排序、分页
+  - P0: 添加/编辑/删除用户（模态框 CRUD）
+  - P0: 角色管理（ROLE_ADMIN_SYSTEME / ROLE_ORGANISATION_ADMIN / ROLE_ORGANISATION_AGENT）
+  - P0: 用户状态管理（激活/停用/软删除）
+  - P1: 可配置列（显示/隐藏/拖拽排序）
+  - P1: 导出 Excel（全部/已选）
+  - P1: 列上下文菜单（按列筛选、排序）
+  - P1: 行上下文菜单（增强版）
+  - P2: 列配置模态框（显示/隐藏/排序）
+  - P2: 批量操作（选择/取消/删除）
+- **关键页面**：/admin/utilisateurs（改造），参考 /admin/organisations/liste
+- **约束与偏好**：
+  - 技术栈：Angular 16 + TypeScript + SCSS
+  - 主题：深色主题（`--accent-color: #cc5858` 红色强调）
+  - 设计风格：专业、优雅、现代
+  - 必须保持一致的设计系统（CSS variables）
+  - 响应式表格设计
+- **参考源**：OrganizationListComponent（1668 行完整实现）—— 复制其列配置、导出、筛选、拖拽、菜单等模式

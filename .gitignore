@@ -46,3 +46,19 @@ frontend/node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Windows reserved names (nul is a device, not a file)
+nul
+backend/nul
+
+# OpenCode workflow runs
+.pi/
+
+# Données de référence / travail (hors code source) — trop volumineuses pour le dépôt
+docs/exemples-ssdgps/04-EXEMPLES-SDGPS/
+docs/notes/*.xlsm
+docs/notes/test.md
+tableau.md
+
+# Agent/IDE config directories
+.claude/

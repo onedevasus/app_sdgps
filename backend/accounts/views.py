@@ -28,8 +28,12 @@ class RegisterView(APIView):
                 
                 # Générer un token JWT
                 refresh = RefreshToken.for_user(user)
+                # Ajouter les claims personnalisés au token
+                refresh['platform_role'] = user.platform_role or ''
+                refresh['role'] = user.get_primary_role()
+                refresh['is_superuser'] = user.is_superuser
                 access_token = str(refresh.access_token)
-                
+
                 return Response({
                     'token': access_token,
                     'user': {
@@ -108,6 +112,10 @@ class LoginView(APIView):
                 if authenticated_user is not None:
                     # Mot de passe correct - Générer un token JWT
                     refresh = RefreshToken.for_user(authenticated_user)
+                    # Ajouter les claims personnalisés au token
+                    refresh['platform_role'] = authenticated_user.platform_role or ''
+                    refresh['role'] = authenticated_user.get_primary_role()
+                    refresh['is_superuser'] = authenticated_user.is_superuser
                     access_token = str(refresh.access_token)
                     
                     # Mettre à jour la date de dernière connexion
@@ -349,12 +357,23 @@ class UserProfileView(APIView):
     
     def get(self, request):
         user = request.user
-        
+
+        profile_picture_url = None
+        if getattr(user, 'profile_picture', None):
+            profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
+
+        organization = user.get_primary_organization()
+
         return Response({
             'id': user.id,
             'email': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
+            'role': user.get_primary_role(),
+            'role_display': user.get_primary_role_display(),
+            'organization_id': str(organization.id) if organization else None,
+            'organization_name': organization.name if organization else None,
+            'profile_picture_url': profile_picture_url,
             'must_change_password': getattr(user, 'must_change_password', False),
             'password_changed_at': getattr(user, 'password_changed_at', None)
         }, status=status.HTTP_200_OK)

@@ -13,18 +13,21 @@ export const USER_MENU: MenuItem[] = [
     description: 'Vue d\'ensemble de vos projets et activités'
   },
   {
-    id: 'mes-projets',
-    title: 'Mes Projets',
+    id: 'projets',
+    title: 'Projets',
     icon: 'fas fa-project-diagram',
-    route: '/dashboard/mes-projets',
+    route: '/dashboard/projets',
     type: 'link',
-    description: 'Gestion de vos projets personnels'
+    description: 'Projets, propriétés, affaires, SSDGPS & sessions'
   }
 ];
 
 /**
  * Configuration du menu pour le Super Admin
  */
+const ALL_ADMIN_ROLES = ['ROLE_SUPER_ADMIN', 'ROLE_ADMIN_SYSTEME', 'ROLE_ORGANISATION_ADMIN'];
+const SUPER_OR_SYSTEME = ['ROLE_SUPER_ADMIN', 'ROLE_ADMIN_SYSTEME'];
+
 export const ADMIN_MENU: MenuItem[] = [
   {
     id: 'dashboard',
@@ -32,7 +35,8 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-tachometer-alt',
     route: '/admin/dashboard',
     type: 'link',
-    description: 'Vue d\'ensemble système'
+    description: 'Vue d\'ensemble système',
+    roles: ALL_ADMIN_ROLES,
   },
   {
     id: 'organisations',
@@ -41,6 +45,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/organisations',
     type: 'link',
     description: 'CRUD des organisations',
+    roles: SUPER_OR_SYSTEME,
     children: [
       {
         id: 'liste-organisations',
@@ -48,7 +53,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-list',
         route: '/admin/organisations/liste',
         type: 'link',
-        description: 'Voir toutes les organisations'
+        description: 'Voir toutes les organisations',
+        roles: SUPER_OR_SYSTEME,
       },
       {
         id: 'ajouter-organisation',
@@ -56,9 +62,19 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-plus-circle',
         route: '/admin/organisations/ajouter',
         type: 'link',
-        description: 'Créer une nouvelle organisation'
+        description: 'Créer une nouvelle organisation',
+        roles: SUPER_OR_SYSTEME,
       }
     ]
+  },
+  {
+    id: 'projets',
+    title: 'Projets',
+    icon: 'fas fa-project-diagram',
+    route: '/admin/projets',
+    type: 'link',
+    description: 'Projets, propriétés, affaires, SSDGPS & sessions',
+    roles: ALL_ADMIN_ROLES,
   },
   {
     id: 'utilisateurs',
@@ -67,6 +83,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/utilisateurs',
     type: 'link',
     description: 'Gestion des utilisateurs et permissions',
+    roles: ALL_ADMIN_ROLES,
     children: [
       {
         id: 'liste-utilisateurs',
@@ -74,7 +91,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-users',
         route: '/admin/utilisateurs/liste',
         type: 'link',
-        description: 'Tous les utilisateurs'
+        description: 'Tous les utilisateurs',
+        roles: ALL_ADMIN_ROLES,
       },
       {
         id: 'invitations',
@@ -82,7 +100,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-envelope-open-text',
         route: '/admin/utilisateurs/invitations',
         type: 'link',
-        description: 'Inviter Admins/Managers/Utilisateurs'
+        description: 'Inviter Admins/Managers/Utilisateurs',
+        roles: ALL_ADMIN_ROLES,
       },
       {
         id: 'roles-permissions',
@@ -90,7 +109,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-user-shield',
         route: '/admin/utilisateurs/roles',
         type: 'link',
-        description: 'Configuration RBAC'
+        description: 'Configuration RBAC',
+        roles: ALL_ADMIN_ROLES,
       }
     ]
   },
@@ -100,7 +120,8 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-history',
     route: '/admin/logs-audit',
     type: 'link',
-    description: 'Traçabilité des actions utilisateurs'
+    description: 'Traçabilité des actions utilisateurs',
+    roles: SUPER_OR_SYSTEME,
   },
   {
     id: 'supervision',
@@ -109,6 +130,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/supervision',
     type: 'link',
     description: 'Health Check & Stats globales',
+    roles: SUPER_OR_SYSTEME,
     children: [
       {
         id: 'health-check',
@@ -116,7 +138,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-heartbeat',
         route: '/admin/supervision/health',
         type: 'link',
-        description: 'État des services'
+        description: 'État des services',
+        roles: SUPER_OR_SYSTEME,
       },
       {
         id: 'stats-globales',
@@ -124,7 +147,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-chart-bar',
         route: '/admin/supervision/stats',
         type: 'link',
-        description: 'Métriques système'
+        description: 'Métriques système',
+        roles: SUPER_OR_SYSTEME,
       }
     ]
   },
@@ -135,6 +159,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/quotas',
     type: 'link',
     description: 'Stockage & Limites projets',
+    roles: SUPER_OR_SYSTEME,
     children: [
       {
         id: 'stockage',
@@ -142,7 +167,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-hdd',
         route: '/admin/quotas/stockage',
         type: 'link',
-        description: 'Gestion du stockage'
+        description: 'Gestion du stockage',
+        roles: SUPER_OR_SYSTEME,
       },
       {
         id: 'limites-projets',
@@ -150,7 +176,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-sliders-h',
         route: '/admin/quotas/limites',
         type: 'link',
-        description: 'Configuration des quotas'
+        description: 'Configuration des quotas',
+        roles: SUPER_OR_SYSTEME,
       }
     ]
   },
@@ -160,6 +187,7 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-tools',
     route: '/admin/maintenance',
     type: 'link',
-    description: 'Switch global maintenance'
+    description: 'Switch global maintenance',
+    roles: SUPER_OR_SYSTEME,
   }
 ];

@@ -92,8 +92,10 @@
         <!-- Bouton Ajouter une organisation -->
         <button 
           class="btn btn-success btn-add-org"
-          (click)="openAddOrganizationModal()"
-          title="Ajouter une nouvelle organisation">
+          [class.btn-disabled]="!canCreateOrganization"
+          [disabled]="!canCreateOrganization"
+          (click)="canCreateOrganization && openAddOrganizationModal()"
+          [title]="canCreateOrganization ? 'Ajouter une nouvelle organisation' : 'Seuls les Super Admins et Admins Système peuvent créer des organisations'">
           <i class="fas fa-plus-circle"></i>
           <span>Ajouter</span>
         </button>

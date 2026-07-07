@@ -123,6 +123,21 @@ export class OrganizationListComponent implements OnInit {
   editOrgForm!: FormGroup;
   editing: boolean = false;
 
+  get currentUserRole(): string {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return 'ROLE_ORGANISATION_AGENT';
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.platform_role || payload.role || 'ROLE_ORGANISATION_AGENT';
+    } catch {
+      return 'ROLE_ORGANISATION_AGENT';
+    }
+  }
+
+  get canCreateOrganization(): boolean {
+    return this.currentUserRole === 'ROLE_SUPER_ADMIN' || this.currentUserRole === 'ROLE_ADMIN_SYSTEME';
+  }
+
   // Subject pour sauvegarde différée des préférences
   private savePreferencesSubject = new Subject<void>();
 

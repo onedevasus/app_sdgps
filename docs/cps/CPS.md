@@ -14,11 +14,11 @@
   - [1.1 Objectifs fonctionnels](#11-objectifs-fonctionnels)
   - [1.2 Objectifs techniques](#12-objectifs-techniques)
 - **II. [Acteurs et Rôles](#ii-acteurs-et-rôles)**
-  - [Administrateur de l'application (ROLE_APP_ADMIN)](#administrateur-de-lapplication-role_app_admin)
+  - [Administrateur de l'application (ROLE_ADMIN_SYSTEME)](#administrateur-de-lapplication-role_app_admin)
   - [Responsable Admin d'une organisation (ROLE_ORGANISATION_ADMIN)](#responsable-admin-dune-organisation-role_organisation_admin)
   - [Agent d'une organisation (ROLE_ORGANISATION_AGENT)](#agent-dune-organisation-role_organisation_agent)
 - **III. [Description des Fonctionnalités](#iii-description-des-fonctionnalités)**
-  - [3.1 Espace Administration — ROLE_APP_ADMIN](#31-espace-administration--role_app_admin)
+  - [3.1 Espace Administration — ROLE_ADMIN_SYSTEME](#31-espace-administration--role_app_admin)
   - [3.2 Responsable Admin d'une organisation — ROLE_ORGANISATION_ADMIN](#32-responsable-admin-dune-organisation--role_organisation_admin)
   - [3.3 Espace Agent d'une organisation — ROLE_ORGANISATION_AGENT](#33-espace-agent-dune-organisation--role_organisation_agent)
   - [3.4 Fonctionnalités Innovantes](#34-fonctionnalités-innovantes)
@@ -83,7 +83,7 @@ Le projet SDGPS vise à doter l'ANCFCC et les cabinets privés partenaires d'une
 
 La plateforme distingue trois profils utilisateurs, chacun disposant de droits et responsabilités spécifiques :
 
-### Administrateur de l'application (ROLE_APP_ADMIN)
+### Administrateur de l'application (ROLE_ADMIN_SYSTEME)
 
 Profil de plus haut niveau. Gère l'ensemble de la plateforme : configuration globale, gestion des utilisateurs et organisations, paramétrage système, supervision des activités et consultation des rapports consolidés.
 
@@ -99,7 +99,7 @@ Profil opérationnel. Assure la gestion courante des projets, la saisie et l'imp
 
 ## III. Description des Fonctionnalités
 
-### 3.1 Espace Administration — ROLE_APP_ADMIN
+### 3.1 Espace Administration — ROLE_ADMIN_SYSTEME
 
 | Réf | Fonctionnalité | Description |
 |-----|---------------|-------------|
