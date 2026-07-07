@@ -14,7 +14,10 @@ export interface Projet {
   organization_name?: string;
   statut: ProjetStatut;
   statut_display?: string;
-  proprietes_count?: number;
+  nbr_total_proprietes?: number;
+  nbr_total_affaires?: number;
+  nbr_total_ssdgps?: number;
+  nbr_total_sessions?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;
@@ -27,6 +30,9 @@ export interface Propriete {
   id_requisition?: string;
   id_titre?: string;
   projet: string;
+  nbr_total_affaires?: number;
+  nbr_total_ssdgps?: number;
+  nbr_total_sessions?: number;
   is_deleted?: boolean;
   deleted_at?: string | null;
 }
@@ -46,6 +52,8 @@ export interface Affaire {
   nature_affaire: NatureAffaire;
   date_bornage?: string | null;
   propriete: string;
+  nbr_total_ssdgps?: number;
+  nbr_total_sessions?: number;
   is_deleted?: boolean;
   deleted_at?: string | null;
 }
@@ -59,7 +67,7 @@ export interface Ssdgps {
   numero_ssdgps: number;
   type_ssdgps: TypeSsdgps;
   affaire: string;
-  sessions_count?: number;
+  nbr_total_sessions?: number;
   is_deleted?: boolean;
   deleted_at?: string | null;
 }

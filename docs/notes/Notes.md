@@ -2,6 +2,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -654,3 +656,18 @@ Corrige les points suivants:
 Les donnees de tests doivent etres ajoutees pour les utilisateurs suivantes : agent1@sdgps.ma / agent2@sdgps.ma / agent3@sdgps.ma. ces donnees doivent contenir entre 3-4 projets, 3-4 proprietees par projets, 3-4 affaires par propriete. 3-4 ssdgps par affaire, 1-4 sessions par ssdgps. ne rien tester juste ajoute ces donnees de tests dans la bdd et faire en sorte que ces donnees s'ajoute dans la bdd apres une reinitialisation de la bdd.
 
 Que pense tu de mettre les elements actifs de l'explorateur (Propriété → Affaire → SSDGPS → Session) dans un onglet par defaut et ceux supprimes dans un autre onglet pour une meilleure UI/UX. si tu a une meilleur idee plus intuitive pour separer les elements actifs de ceux supprimes propose la pour moi.
+
+
+Que pense tu si les donnees des entitees dans l'explorateur (Propriété → Affaire → SSDGPS → Session) s'affichent sous format de tableaux (les donnees de chaque entite dans un tableau) avec toutes les outils necessaires et indisponsables pour interagir avec le tableau (memes outiles que dans le tableau de la liste des utilisateurs et des projets), toute en gardant la structure explorateur.
+
+Que pense tu des modifs suivantes : 
+  - ajouter la vue "carte" pour la liste des projets.
+  - ajouter les infos suivantes dans la vue carte et tableau pour la liste des projets : nbr_total_proprietes, nbr_total_affaires, nbr_total_ssdgps, nbr_total_sessions.
+  - ajouter les infos suivantes dans la vue carte et tableau pour de la liste des proprietes : id_titre, id_requisition, propriete_dite, nbr_total_affaires, nbr_total_ssdgps, nbr_total_sessions.
+  - faire de meme pour les autres niveaux : affaires, ssdgps, sessions
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige les points suivants :
+  - l'outil remonter la selection en haut ne fonctionne pas.
+  -

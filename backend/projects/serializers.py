@@ -8,19 +8,21 @@ from .validators import validate_affaire_coherence
 class ProjetSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source='get_statut_display', read_only=True)
     organization_name = serializers.CharField(source='organization.name', read_only=True)
-    proprietes_count = serializers.SerializerMethodField()
+    # Alimentés par l'annotation de queryset dans ProjetViewSet._annotate_counts
+    nbr_total_proprietes = serializers.IntegerField(read_only=True)
+    nbr_total_affaires = serializers.IntegerField(read_only=True)
+    nbr_total_ssdgps = serializers.IntegerField(read_only=True)
+    nbr_total_sessions = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Projet
         fields = [
             'id', 'nom_projet', 'description_projet', 'code_projet',
             'organization', 'organization_name', 'statut', 'statut_display',
-            'proprietes_count', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+            'nbr_total_proprietes', 'nbr_total_affaires', 'nbr_total_ssdgps', 'nbr_total_sessions',
+            'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
-
-    def get_proprietes_count(self, obj):
-        return obj.proprietes.filter(is_deleted=False).count()
 
     def validate_code_projet(self, value):
         qs = Projet.objects.filter(code_projet=value)
@@ -32,10 +34,15 @@ class ProjetSerializer(serializers.ModelSerializer):
 
 
 class ProprieteSerializer(serializers.ModelSerializer):
+    nbr_total_affaires = serializers.IntegerField(read_only=True)
+    nbr_total_ssdgps = serializers.IntegerField(read_only=True)
+    nbr_total_sessions = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Propriete
         fields = [
             'id', 'nom_propriete', 'id_requisition', 'id_titre', 'projet',
+            'nbr_total_affaires', 'nbr_total_ssdgps', 'nbr_total_sessions',
             'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
@@ -51,11 +58,15 @@ class ProprieteSerializer(serializers.ModelSerializer):
 
 
 class AffaireSerializer(serializers.ModelSerializer):
+    nbr_total_ssdgps = serializers.IntegerField(read_only=True)
+    nbr_total_sessions = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Affaire
         fields = [
             'id', 'numero_sd_affaire', 'nature_procedure_affaire', 'nature_affaire',
-            'date_bornage', 'propriete', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+            'date_bornage', 'propriete', 'nbr_total_ssdgps', 'nbr_total_sessions',
+            'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
@@ -70,18 +81,15 @@ class AffaireSerializer(serializers.ModelSerializer):
 
 
 class SsdgpsSerializer(serializers.ModelSerializer):
-    sessions_count = serializers.SerializerMethodField()
+    nbr_total_sessions = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Ssdgps
         fields = [
             'id', 'nature_ssdgps', 'numero_ssdgps', 'type_ssdgps', 'affaire',
-            'sessions_count', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+            'nbr_total_sessions', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
-
-    def get_sessions_count(self, obj):
-        return obj.sessions.filter(is_deleted=False).count()
 
 
 class SessionSerializer(serializers.ModelSerializer):

@@ -6,7 +6,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import Organization, Membership
-from projects.models import Projet, Propriete, Affaire, Ssdgps
+from projects.models import Projet, Propriete, Affaire, Ssdgps, Session
 
 User = get_user_model()
 
@@ -42,6 +42,12 @@ class DomainBaseTest(TestCase):
         return Affaire.objects.create(
             numero_sd_affaire=1, nature_procedure_affaire='IFF', nature_affaire='BI',
             date_bornage='2023-04-09', propriete=propriete or self._propriete(),
+        )
+
+    def _ssdgps(self, affaire=None, numero=1):
+        return Ssdgps.objects.create(
+            nature_ssdgps='PDC/GPS', numero_ssdgps=numero,
+            type_ssdgps='multi-session', affaire=affaire or self._affaire(),
         )
 
 
@@ -200,3 +206,73 @@ class RestoreTests(DomainBaseTest):
 
         resp = self.client.post(f'/api/v1/projets/{foreign.id}/restore/')
         self.assertEqual(resp.status_code, 404)
+
+
+class AggregateCountsTests(DomainBaseTest):
+    """Compteurs `nbr_total_*` annotés au niveau du queryset, à chaque niveau."""
+
+    def setUp(self):
+        super().setUp()
+        self.projet = self._projet(code='P-COUNTS')
+        self.propriete = self._propriete(projet=self.projet)
+        self.affaire = self._affaire(propriete=self.propriete)
+        # Ssdgps en multi-session : pas de session auto-créée, on en ajoute 2 manuellement.
+        self.ssdgps = self._ssdgps(affaire=self.affaire, numero=1)
+        Session.objects.create(ssdgps=self.ssdgps, numero_session=1, date_session='2023-04-09')
+        Session.objects.create(ssdgps=self.ssdgps, numero_session=2, date_session='2023-04-10')
+        # Un 2e SSDGPS avec une session supprimée : ne doit pas être compté.
+        self.ssdgps2 = self._ssdgps(affaire=self.affaire, numero=2)
+        deleted_session = Session.objects.create(
+            ssdgps=self.ssdgps2, numero_session=1, date_session='2023-04-09',
+        )
+        deleted_session.is_deleted = True
+        deleted_session.save(update_fields=['is_deleted'])
+
+    def test_projet_counts(self):
+        resp = self.client.get(f'/api/v1/projets/{self.projet.id}/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        data = resp.json()
+        self.assertEqual(data['nbr_total_proprietes'], 1)
+        self.assertEqual(data['nbr_total_affaires'], 1)
+        self.assertEqual(data['nbr_total_ssdgps'], 2)
+        self.assertEqual(data['nbr_total_sessions'], 2)
+
+    def test_propriete_counts(self):
+        resp = self.client.get(f'/api/v1/proprietes/{self.propriete.id}/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        data = resp.json()
+        self.assertEqual(data['nbr_total_affaires'], 1)
+        self.assertEqual(data['nbr_total_ssdgps'], 2)
+        self.assertEqual(data['nbr_total_sessions'], 2)
+
+    def test_affaire_counts(self):
+        resp = self.client.get(f'/api/v1/affaires/{self.affaire.id}/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        data = resp.json()
+        self.assertEqual(data['nbr_total_ssdgps'], 2)
+        self.assertEqual(data['nbr_total_sessions'], 2)
+
+    def test_ssdgps_counts(self):
+        resp = self.client.get(f'/api/v1/ssdgps/{self.ssdgps.id}/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['nbr_total_sessions'], 2)
+
+        resp2 = self.client.get(f'/api/v1/ssdgps/{self.ssdgps2.id}/')
+        self.assertEqual(resp2.json()['nbr_total_sessions'], 0)
+
+    def test_deleted_propriete_excluded_from_projet_counts(self):
+        extra = self._propriete(projet=self.projet)
+        extra.is_deleted = True
+        extra.save(update_fields=['is_deleted'])
+
+        resp = self.client.get(f'/api/v1/projets/{self.projet.id}/')
+        self.assertEqual(resp.json()['nbr_total_proprietes'], 1)
+
+    def test_restore_response_includes_counts(self):
+        """Le sérialiseur de restore doit lire les compteurs sans planter (queryset annoté)."""
+        self.projet.is_deleted = True
+        self.projet.save(update_fields=['is_deleted'])
+
+        resp = self.client.post(f'/api/v1/projets/{self.projet.id}/restore/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['nbr_total_proprietes'], 1)

@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -12,15 +12,82 @@ import {
 
 type Level = 'propriete' | 'affaire' | 'ssdgps' | 'session';
 
+interface ColumnConfig {
+  field: string;
+  label: string;
+  visible: boolean;
+  type?: 'text' | 'date' | 'number';
+}
+
+const VIEW_MODE_KEY = 'sdgps_explorer_view_mode';
+
+const COLUMNS_BY_LEVEL: Record<Level, ColumnConfig[]> = {
+  propriete: [
+    { field: 'nom_propriete', label: 'Propriété-dite', visible: true, type: 'text' },
+    { field: 'id_requisition', label: 'Réquisition', visible: true, type: 'text' },
+    { field: 'id_titre', label: 'Titre foncier', visible: true, type: 'text' },
+    { field: 'nbr_total_affaires', label: 'Affaires', visible: true, type: 'number' },
+    { field: 'nbr_total_ssdgps', label: 'SSDGPS', visible: true, type: 'number' },
+    { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
+    { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
+  ],
+  affaire: [
+    { field: 'numero_sd_affaire', label: 'N° SD', visible: true, type: 'number' },
+    { field: 'nature_procedure_affaire', label: 'Procédure', visible: true, type: 'text' },
+    { field: 'nature_affaire', label: 'Nature', visible: true, type: 'text' },
+    { field: 'date_bornage', label: 'Date bornage', visible: true, type: 'date' },
+    { field: 'nbr_total_ssdgps', label: 'SSDGPS', visible: true, type: 'number' },
+    { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
+    { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
+  ],
+  ssdgps: [
+    { field: 'nature_ssdgps', label: 'Nature SSDGPS', visible: true, type: 'text' },
+    { field: 'numero_ssdgps', label: 'Numéro', visible: true, type: 'number' },
+    { field: 'type_ssdgps', label: 'Type', visible: true, type: 'text' },
+    { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
+    { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
+  ],
+  session: [
+    { field: 'numero_session', label: 'N° Session', visible: true, type: 'number' },
+    { field: 'date_session', label: 'Date session', visible: true, type: 'date' },
+    { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
+  ],
+};
+
+const DEFAULT_SORT_BY_LEVEL: Record<Level, string> = {
+  propriete: 'nom_propriete', affaire: 'numero_sd_affaire', ssdgps: 'numero_ssdgps', session: 'numero_session',
+};
+
+const FIELD_DESCRIPTIONS: Record<string, string> = {
+  nom_propriete: 'Nom de la propriété (propriété-dite)',
+  id_requisition: 'Identifiant de réquisition (R<numéro>/<indice>)',
+  id_titre: 'Identifiant du titre foncier (T<numéro>/<indice>)',
+  numero_sd_affaire: "Numéro d'ordre du SD d'affaire dans la propriété",
+  nature_procedure_affaire: "Type de procédure d'immatriculation",
+  nature_affaire: "Nature précise de l'affaire (dépend de la procédure)",
+  date_bornage: 'Date de bornage ou de recollement',
+  nature_ssdgps: 'Nature du sous-sous-dossier GPS',
+  numero_ssdgps: "Numéro d'ordre du SSDGPS dans l'affaire",
+  type_ssdgps: 'Mono-session ou multi-session',
+  nbr_total_affaires: 'Nombre total d\'affaires (SD) rattachées',
+  nbr_total_ssdgps: 'Nombre total de SSDGPS rattachés',
+  nbr_total_sessions: 'Nombre total de sessions rattachées',
+  numero_session: "Numéro d'ordre de la session",
+  date_session: "Date de l'observation",
+  created_at: "Date de création de l'enregistrement",
+};
+
 @Component({
   selector: 'app-project-explorer',
   templateUrl: './project-explorer.component.html',
   styleUrls: ['./project-explorer.component.scss'],
 })
-export class ProjectExplorerComponent implements OnInit {
+export class ProjectExplorerComponent implements OnInit, OnDestroy {
   readonly procedureOptions = PROCEDURE_OPTIONS;
   readonly natureSsdgpsOptions = NATURE_SSDGPS_OPTIONS;
   readonly typeSsdgpsOptions = TYPE_SSDGPS_OPTIONS;
+
+  private boundHandleClickOutside!: (event: Event) => void;
 
   projet: Projet | null = null;
   level: Level = 'propriete';
@@ -34,12 +101,38 @@ export class ProjectExplorerComponent implements OnInit {
   get activeCount(): number { return this.activeItems.length; }
   get deletedCount(): number { return this.deletedItems.length; }
 
+  // Vue Cartes / Tableau
+  viewMode: 'cards' | 'table' = 'cards';
+
   // Recherche & sélection
   searchText = '';
   selectedIds = new Set<string>();
 
-  // Tri
+  // Mode d'affichage (footer) / filtre par champ
+  displayMode: 'all' | 'selected' = 'all';
+  activeFieldFilter: string | null = null;
+  activeFieldFilterLabel = '';
+  fieldFilterValue = '';
+  showFilterMenu = false;
+  showFieldFilterMenu = false;
+
+  // Tri (générique, partagé entre les modes Cartes et Tableau)
+  sortColumn = DEFAULT_SORT_BY_LEVEL.propriete;
   sortDirection: 'asc' | 'desc' = 'asc';
+
+  // Colonnes (mode Tableau)
+  columns: ColumnConfig[] = [];
+  private columnsBackup: ColumnConfig[] = [];
+  showColumnConfig = false;
+  columnFilter: 'all' | 'visible' = 'all';
+  showColumnFilterMenu = false;
+  draggedColumnIndex: number | null = null;
+  dragOverIndex: number | null = null;
+
+  // Pagination (mode Tableau)
+  currentPage = 1;
+  pageSize = 10;
+  pageSizeOptions = [5, 10, 25, 50];
 
   // Affichage des éléments supprimés
   showDeleted = false;
@@ -66,10 +159,16 @@ export class ProjectExplorerComponent implements OnInit {
   availableNatures: { value: NatureAffaire; label: string }[] = [];
   dateBornageRequired = true;
 
-  // Menu contextuel
+  // Menu contextuel des lignes/cellules
   showContextMenu = false;
   contextMenuPosition = { x: 0, y: 0 };
   contextMenuItem: any = null;
+  contextMenuField: string | null = null;
+  selectedCellValue: string | null = null;
+
+  // Menu contextuel des colonnes
+  showColumnContextMenu = false;
+  contextMenuColumn: ColumnConfig | null = null;
 
   constructor(
     private service: ProjectsService,
@@ -80,6 +179,10 @@ export class ProjectExplorerComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.viewMode = (localStorage.getItem(VIEW_MODE_KEY) as 'cards' | 'table') || 'cards';
+    this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
+    document.addEventListener('click', this.boundHandleClickOutside);
+
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.getProjet(id).subscribe({
       next: (p) => { this.projet = p; this.goToLevel('propriete'); },
@@ -87,9 +190,29 @@ export class ProjectExplorerComponent implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    if (this.boundHandleClickOutside) document.removeEventListener('click', this.boundHandleClickOutside);
+  }
+
+  toggleViewMode(mode: 'cards' | 'table'): void {
+    this.viewMode = mode;
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  }
+
   // --- Navigation ---
   private childOf(level: Level): Level | null {
     return ({ propriete: 'affaire', affaire: 'ssdgps', ssdgps: 'session', session: null } as any)[level];
+  }
+
+  private resetLevelState(): void {
+    this.columns = COLUMNS_BY_LEVEL[this.level].map(c => ({ ...c }));
+    this.loadColumnPreferences();
+    this.sortColumn = DEFAULT_SORT_BY_LEVEL[this.level];
+    this.sortDirection = 'asc';
+    this.currentPage = 1;
+    this.displayMode = 'all';
+    this.clearFieldFilter();
+    this.closeAllContextMenus();
   }
 
   goToLevel(level: Level): void {
@@ -99,6 +222,7 @@ export class ProjectExplorerComponent implements OnInit {
     if (level === 'propriete') this.chain = {};
     else if (level === 'affaire') this.chain = { propriete: this.chain.propriete };
     else if (level === 'ssdgps') this.chain = { propriete: this.chain.propriete, affaire: this.chain.affaire };
+    this.resetLevelState();
     this.loadLevel();
   }
 
@@ -150,6 +274,7 @@ export class ProjectExplorerComponent implements OnInit {
     else if (this.level === 'ssdgps') this.chain.ssdgps = item;
     this.level = child;
     this.showDeleted = false;
+    this.resetLevelState();
     this.loadLevel();
   }
 
@@ -159,6 +284,7 @@ export class ProjectExplorerComponent implements OnInit {
     this.showDeleted = deleted;
     this.selectedIds.clear();
     this.searchText = '';
+    this.currentPage = 1;
   }
 
   // --- Tri ---
@@ -166,14 +292,21 @@ export class ProjectExplorerComponent implements OnInit {
     this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
   }
 
-  private sortKey(item: any): number | string {
-    switch (this.level) {
-      case 'propriete': return (item.nom_propriete || '').toLowerCase();
-      case 'affaire': return item.numero_sd_affaire ?? 0;
-      case 'ssdgps': return item.numero_ssdgps ?? 0;
-      case 'session': return item.numero_session ?? 0;
-      default: return 0;
-    }
+  sortBy(field: string): void {
+    if (this.sortColumn === field) this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    else { this.sortColumn = field; this.sortDirection = 'asc'; }
+    this.currentPage = 1;
+  }
+
+  getSortIcon(field: string): string {
+    if (this.sortColumn !== field) return 'fas fa-sort';
+    return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  }
+
+  private sortValue(item: any): number | string {
+    const v = item[this.sortColumn];
+    if (v == null) return '';
+    return typeof v === 'string' ? v.toLowerCase() : v;
   }
 
   // --- Libellés ---
@@ -202,20 +335,59 @@ export class ProjectExplorerComponent implements OnInit {
     return { propriete: 'propriété', affaire: 'affaire', ssdgps: 'SSDGPS', session: '' }[this.level];
   }
 
-  // --- Recherche, tri & sélection ---
+  formatDate(value: any): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
+
+  // --- Recherche, filtre, tri & sélection ---
   get filteredItems(): any[] {
     let result = this.items;
+    if (this.displayMode === 'selected') {
+      result = result.filter(it => this.selectedIds.has(it.id));
+    }
     if (this.searchText) {
       const q = this.searchText.toLowerCase();
       result = result.filter(it => this.itemLabel(it).toLowerCase().includes(q));
     }
+    if (this.activeFieldFilter && this.fieldFilterValue) {
+      const ff = this.activeFieldFilter;
+      const fv = this.fieldFilterValue.toLowerCase();
+      result = result.filter(it => {
+        const val = it[ff];
+        return val != null && String(val).toLowerCase().includes(fv);
+      });
+    }
     result = [...result].sort((a, b) => {
-      const ka = this.sortKey(a), kb = this.sortKey(b);
+      const ka = this.sortValue(a), kb = this.sortValue(b);
       const cmp = ka < kb ? -1 : ka > kb ? 1 : 0;
       return this.sortDirection === 'asc' ? cmp : -cmp;
     });
     return result;
   }
+
+  get paginatedItems(): any[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredItems.slice(start, start + this.pageSize);
+  }
+
+  get totalPages(): number { return Math.max(1, Math.ceil(this.filteredItems.length / this.pageSize)); }
+
+  get pageNumbers(): number[] {
+    const pages: number[] = [];
+    const start = Math.max(1, this.currentPage - 2);
+    const end = Math.min(this.totalPages, this.currentPage + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  }
+
+  goToPage(page: number): void { if (page >= 1 && page <= this.totalPages) this.currentPage = page; }
+  goToFirstPage(): void { this.goToPage(1); }
+  goToLastPage(): void { this.goToPage(this.totalPages); }
+  prevPage(): void { if (this.currentPage > 1) this.currentPage--; }
+  nextPage(): void { if (this.currentPage < this.totalPages) this.currentPage++; }
+  setPageSize(size: number): void { this.pageSize = size; this.currentPage = 1; }
+
   isSelected(it: any): boolean { return this.selectedIds.has(it.id); }
   toggleSelect(it: any, ev: Event): void {
     ev.stopPropagation();
@@ -224,15 +396,182 @@ export class ProjectExplorerComponent implements OnInit {
   get selectedCount(): number { return this.selectedIds.size; }
   clearSelection(): void { this.selectedIds.clear(); }
   get isAllSelected(): boolean {
-    const f = this.filteredItems;
+    const f = this.viewMode === 'table' ? this.paginatedItems : this.filteredItems;
     return f.length > 0 && f.every(it => this.selectedIds.has(it.id));
   }
   toggleSelectAll(): void {
-    if (this.isAllSelected) this.filteredItems.forEach(it => this.selectedIds.delete(it.id));
-    else this.filteredItems.forEach(it => this.selectedIds.add(it.id));
+    const f = this.viewMode === 'table' ? this.paginatedItems : this.filteredItems;
+    if (this.isAllSelected) f.forEach(it => this.selectedIds.delete(it.id));
+    else f.forEach(it => this.selectedIds.add(it.id));
   }
+  selectAll(): void { this.filteredItems.forEach(it => this.selectedIds.add(it.id)); }
+  deselectAll(): void { this.selectedIds.clear(); }
   invertSelection(): void {
-    this.filteredItems.forEach(it => this.selectedIds.has(it.id) ? this.selectedIds.delete(it.id) : this.selectedIds.add(it.id));
+    const f = this.viewMode === 'table' ? this.paginatedItems : this.filteredItems;
+    f.forEach(it => this.selectedIds.has(it.id) ? this.selectedIds.delete(it.id) : this.selectedIds.add(it.id));
+  }
+
+  getSelectedItemsList(): any[] { return this.items.filter(it => this.selectedIds.has(it.id)); }
+
+  get allSelectedAreDeleted(): boolean {
+    if (this.selectedCount === 0) return false;
+    return this.getSelectedItemsList().every(it => it.is_deleted);
+  }
+
+  moveSelectionToTop(): void {
+    if (this.selectedIds.size === 0) return;
+    const source = this.items;
+    const selected = source.filter(it => this.selectedIds.has(it.id));
+    const rest = source.filter(it => !this.selectedIds.has(it.id));
+    const reordered = [...selected, ...rest];
+    if (this.showDeleted) this.deletedItems = reordered; else this.activeItems = reordered;
+    this.currentPage = 1;
+  }
+
+  // --- Mode d'affichage / filtre par champ (pied de tableau) ---
+  setDisplayMode(mode: 'all' | 'selected'): void { this.displayMode = mode; this.currentPage = 1; }
+
+  toggleFilterMenu(): void { this.showFilterMenu = !this.showFilterMenu; }
+
+  selectFieldForFilter(field: string, label: string): void {
+    this.activeFieldFilter = field;
+    this.activeFieldFilterLabel = label;
+    this.fieldFilterValue = '';
+    this.showFieldFilterMenu = false;
+    this.showFilterMenu = false;
+    this.currentPage = 1;
+  }
+
+  onFieldFilterInput(event: Event): void {
+    this.fieldFilterValue = (event.target as HTMLInputElement).value;
+    this.currentPage = 1;
+  }
+
+  clearFieldFilter(): void {
+    this.activeFieldFilter = null;
+    this.activeFieldFilterLabel = '';
+    this.fieldFilterValue = '';
+  }
+
+  // --- Colonnes (mode Tableau) ---
+  private columnPrefsKey(): string { return `sdgps_explorer_columns_${this.level}`; }
+
+  private loadColumnPreferences(): void {
+    try {
+      const raw = localStorage.getItem(this.columnPrefsKey());
+      if (!raw) return;
+      const saved: { field: string; visible: boolean }[] = JSON.parse(raw);
+      saved.forEach(sc => {
+        const col = this.columns.find(c => c.field === sc.field);
+        if (col) col.visible = sc.visible;
+      });
+      const ordered: ColumnConfig[] = [];
+      saved.forEach(sc => {
+        const col = this.columns.find(c => c.field === sc.field);
+        if (col) ordered.push(col);
+      });
+      this.columns.forEach(c => { if (!ordered.includes(c)) ordered.push(c); });
+      if (ordered.length === this.columns.length) this.columns = ordered;
+    } catch { /* ignore */ }
+  }
+
+  private saveColumnPreferences(): void {
+    localStorage.setItem(this.columnPrefsKey(), JSON.stringify(this.columns.map(c => ({ field: c.field, visible: c.visible }))));
+  }
+
+  getVisibleColumns(): ColumnConfig[] { return this.columns.filter(c => c.visible); }
+  getFilteredColumns(): ColumnConfig[] { return this.columnFilter === 'visible' ? this.columns.filter(c => c.visible) : this.columns; }
+  getColumnStats(): { total: number; visible: number; hidden: number } {
+    const total = this.columns.length;
+    const visible = this.columns.filter(c => c.visible).length;
+    return { total, visible, hidden: total - visible };
+  }
+  toggleColumnVisibility(field: string): void {
+    const col = this.columns.find(c => c.field === field);
+    if (col) col.visible = !col.visible;
+  }
+
+  toggleColumnConfig(): void {
+    if (!this.showColumnConfig) this.saveColumnsBackup();
+    else this.restoreColumnsBackup();
+    this.showColumnConfig = !this.showColumnConfig;
+  }
+  openColumnConfig(): void { this.saveColumnsBackup(); this.showColumnConfig = true; }
+  confirmColumnConfig(): void { this.showColumnConfig = false; this.columnsBackup = []; this.saveColumnPreferences(); }
+  cancelColumnConfig(): void { this.restoreColumnsBackup(); this.showColumnConfig = false; }
+  private saveColumnsBackup(): void { this.columnsBackup = this.columns.map(c => ({ ...c })); }
+  private restoreColumnsBackup(): void {
+    if (this.columnsBackup.length > 0) { this.columns = this.columnsBackup.map(c => ({ ...c })); this.columnsBackup = []; }
+  }
+
+  selectAllColumns(): void { this.columns.forEach(c => c.visible = true); }
+  deselectAllColumns(): void { this.columns.forEach(c => c.visible = false); }
+  invertColumnSelection(): void { this.columns.forEach(c => c.visible = !c.visible); }
+
+  toggleColumnFilterMenu(event: Event): void { event.stopPropagation(); this.showColumnFilterMenu = !this.showColumnFilterMenu; }
+  applyColumnFilter(filter: 'all' | 'visible'): void { this.columnFilter = filter; this.showColumnFilterMenu = false; }
+  getColumnFilterLabel(): string { return this.columnFilter === 'all' ? 'Toutes les colonnes' : 'Colonnes visibles'; }
+
+  // Drag & drop réordonnancement
+  onDragStart(index: number): void { this.draggedColumnIndex = index; }
+  onDragOver(event: DragEvent, index: number): void { event.preventDefault(); this.dragOverIndex = index; }
+  onDragLeave(): void { this.dragOverIndex = null; }
+  onDrop(index: number): void {
+    if (this.draggedColumnIndex === null || this.draggedColumnIndex === index) { this.draggedColumnIndex = null; this.dragOverIndex = null; return; }
+    const dragged = this.columns[this.draggedColumnIndex];
+    this.columns.splice(this.draggedColumnIndex, 1);
+    this.columns.splice(index, 0, dragged);
+    this.draggedColumnIndex = null; this.dragOverIndex = null;
+  }
+  onDragEnd(): void { this.draggedColumnIndex = null; this.dragOverIndex = null; }
+
+  moveColumnUp(index: number): void { if (index > 0) { [this.columns[index], this.columns[index - 1]] = [this.columns[index - 1], this.columns[index]]; } }
+  moveColumnDown(index: number): void { if (index < this.columns.length - 1) { [this.columns[index], this.columns[index + 1]] = [this.columns[index + 1], this.columns[index]]; } }
+  moveColumnToTop(index: number): void { if (index > 0) { const c = this.columns.splice(index, 1)[0]; this.columns.unshift(c); } }
+  moveColumnToBottom(index: number): void { if (index < this.columns.length - 1) { const c = this.columns.splice(index, 1)[0]; this.columns.push(c); } }
+
+  onColumnHeaderRightClick(event: MouseEvent, col: ColumnConfig): void {
+    event.preventDefault(); event.stopPropagation();
+    this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+    this.contextMenuColumn = col;
+    this.showColumnContextMenu = true;
+  }
+  hideColumnFromContext(): void {
+    if (this.contextMenuColumn) this.contextMenuColumn.visible = false;
+    this.showColumnContextMenu = false; this.contextMenuColumn = null;
+  }
+  openColumnConfigFromContext(): void { this.showColumnContextMenu = false; this.openColumnConfig(); }
+
+  getTypeLabel(type?: string): string {
+    return { text: 'TEXTE', date: 'DATE', number: 'NOMBRE' }[type || 'text'] || 'TEXTE';
+  }
+  getFieldDescription(field: string): string { return FIELD_DESCRIPTIONS[field] || ''; }
+
+  getCellValue(item: any, field: string): string {
+    if (field === 'date_bornage' || field === 'date_session' || field === 'created_at') return this.formatDate(item[field]);
+    if (field === 'nature_affaire') return this.natureLabel(item[field]);
+    return String(item[field] ?? '—');
+  }
+
+  // --- Export CSV ---
+  private csvEscape(v: any): string {
+    const s = v == null ? '' : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  exportCsv(): void {
+    const cols = this.columns.filter(c => c.visible);
+    const header = cols.map(c => c.label).join(';');
+    const rows = this.filteredItems.map(it => cols.map(c => this.csvEscape(this.getCellValue(it, c.field))).join(';'));
+    const csv = '﻿' + [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.level}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this.toast.success('Export', `${this.filteredItems.length} élément(s) exporté(s)`);
   }
 
   // --- Formulaire ---
@@ -388,14 +727,23 @@ export class ProjectExplorerComponent implements OnInit {
     }
   }
 
-  // --- Menu contextuel (clic droit) ---
-  onItemRightClick(event: MouseEvent, item: any): void {
+  // --- Menu contextuel des lignes/cellules (clic droit) ---
+  onItemRightClick(event: MouseEvent, item: any, field: string | null = null): void {
     event.preventDefault(); event.stopPropagation();
     this.contextMenuPosition = { x: event.clientX, y: event.clientY };
     this.contextMenuItem = item;
+    this.contextMenuField = field;
+    this.selectedCellValue = field ? this.getCellValue(item, field) : null;
     this.showContextMenu = true;
   }
   toggleSelectFromContext(): void { if (this.contextMenuItem) this.toggleSelect(this.contextMenuItem, new Event('click')); this.closeContextMenu(); }
+  selectAllFromContext(): void { this.selectAll(); this.closeContextMenu(); }
+  copyCellValueFromContext(): void {
+    if (this.selectedCellValue != null) {
+      navigator.clipboard.writeText(this.selectedCellValue).then(() => this.toast.success('Copié', 'Valeur copiée dans le presse-papier'));
+    }
+    this.closeContextMenu();
+  }
   openFromContext(): void { if (this.contextMenuItem && !this.contextMenuItem.is_deleted) this.descend(this.contextMenuItem); this.closeContextMenu(); }
   openEditFromContext(): void {
     if (this.contextMenuItem && !this.contextMenuItem.is_deleted) { this.editing = this.contextMenuItem; this.buildForm(this.contextMenuItem); this.showModal = true; }
@@ -409,14 +757,27 @@ export class ProjectExplorerComponent implements OnInit {
     if (this.contextMenuItem?.is_deleted) this.openRestoreModal(this.contextMenuItem);
     this.closeContextMenu();
   }
-  closeContextMenu(): void { this.showContextMenu = false; this.contextMenuItem = null; }
+  closeContextMenu(): void { this.showContextMenu = false; this.contextMenuItem = null; this.contextMenuField = null; }
 
-  @HostListener('document:click')
-  onDocumentClick(): void { this.closeContextMenu(); }
+  closeAllContextMenus(): void {
+    this.showColumnContextMenu = false; this.contextMenuColumn = null;
+    this.closeContextMenu();
+  }
+
+  private handleGlobalClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.filter-menu-wrapper') && !target.closest('.context-menu') && !target.closest('.dropdown-container')) {
+      this.showFilterMenu = false;
+      this.showFieldFilterMenu = false;
+      this.showColumnFilterMenu = false;
+      this.closeAllContextMenus();
+    }
+  }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    if (this.showContextMenu) { this.closeContextMenu(); return; }
+    if (this.showColumnConfig) { this.cancelColumnConfig(); return; }
+    if (this.showContextMenu || this.showColumnContextMenu) { this.closeAllContextMenus(); return; }
     if (this.showModal) { this.closeModal(); return; }
     if (this.showDeleteModal) { this.closeDeleteModal(); return; }
     if (this.showRestoreModal) { this.closeRestoreModal(); return; }

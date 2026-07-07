@@ -18,6 +18,7 @@ interface ColumnConfig {
 }
 
 const PREFS_KEY = 'sdgps_projects_table_prefs';
+const VIEW_MODE_KEY = 'sdgps_projects_view_mode';
 
 @Component({
   selector: 'app-project-list',
@@ -34,13 +35,19 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   filteredProjets: Projet[] = [];
   paginatedProjets: Projet[] = [];
 
+  // Vue Cartes / Tableau
+  viewMode: 'cards' | 'table' = 'table';
+
   // Configuration des colonnes
   columns: ColumnConfig[] = [
     { field: 'code_projet', label: 'Code', visible: true, type: 'text' },
     { field: 'nom_projet', label: 'Nom du projet', visible: true, type: 'text' },
     { field: 'statut', label: 'Statut', visible: true, type: 'status' },
     { field: 'organization_name', label: 'Organisation', visible: true, type: 'text' },
-    { field: 'proprietes_count', label: 'Propriétés', visible: true, type: 'number' },
+    { field: 'nbr_total_proprietes', label: 'Propriétés', visible: true, type: 'number' },
+    { field: 'nbr_total_affaires', label: 'Affaires', visible: true, type: 'number' },
+    { field: 'nbr_total_ssdgps', label: 'SSDGPS', visible: true, type: 'number' },
+    { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
     { field: 'created_at', label: 'Date de création', visible: false, type: 'date' },
     { field: 'updated_at', label: 'Dernière modification', visible: false, type: 'date' },
     { field: 'is_deleted', label: 'Supprimé', visible: false, type: 'boolean' },
@@ -134,6 +141,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.viewMode = (localStorage.getItem(VIEW_MODE_KEY) as 'cards' | 'table') || 'table';
     this.loadPreferences();
     this.load();
     this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
@@ -160,6 +168,11 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   get isAdmin(): boolean { return !this.currentOrgId; }
+
+  toggleViewMode(mode: 'cards' | 'table'): void {
+    this.viewMode = mode;
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  }
 
   // ============================================
   // Chargement des données
@@ -246,7 +259,10 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         case 'nom_projet': valA = a.nom_projet; valB = b.nom_projet; break;
         case 'statut': valA = a.statut_display || a.statut; valB = b.statut_display || b.statut; break;
         case 'organization_name': valA = a.organization_name || ''; valB = b.organization_name || ''; break;
-        case 'proprietes_count': valA = a.proprietes_count ?? 0; valB = b.proprietes_count ?? 0; break;
+        case 'nbr_total_proprietes': valA = a.nbr_total_proprietes ?? 0; valB = b.nbr_total_proprietes ?? 0; break;
+        case 'nbr_total_affaires': valA = a.nbr_total_affaires ?? 0; valB = b.nbr_total_affaires ?? 0; break;
+        case 'nbr_total_ssdgps': valA = a.nbr_total_ssdgps ?? 0; valB = b.nbr_total_ssdgps ?? 0; break;
+        case 'nbr_total_sessions': valA = a.nbr_total_sessions ?? 0; valB = b.nbr_total_sessions ?? 0; break;
         case 'updated_at': valA = a.updated_at; valB = b.updated_at; break;
         default: valA = a.created_at; valB = b.created_at; break;
       }
@@ -486,7 +502,10 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       nom_projet: 'Nom complet du projet',
       statut: 'État d\'avancement du projet',
       organization_name: 'Organisation à laquelle appartient le projet',
-      proprietes_count: 'Nombre de propriétés rattachées au projet',
+      nbr_total_proprietes: 'Nombre total de propriétés rattachées au projet',
+      nbr_total_affaires: 'Nombre total d\'affaires (SD) rattachées au projet',
+      nbr_total_ssdgps: 'Nombre total de SSDGPS rattachés au projet',
+      nbr_total_sessions: 'Nombre total de sessions rattachées au projet',
       created_at: 'Date de création du projet',
       updated_at: 'Date de dernière modification',
       is_deleted: 'Indique si le projet a été supprimé (logique)',

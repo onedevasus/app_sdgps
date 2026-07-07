@@ -49,6 +49,15 @@
       </div>
 
       <div class="toolbar-right">
+        <div class="view-toggle">
+          <button class="view-toggle-btn" [class.active]="viewMode==='cards'" (click)="toggleViewMode('cards')" title="Vue cartes">
+            <i class="fas fa-th-large"></i>
+          </button>
+          <button class="view-toggle-btn" [class.active]="viewMode==='table'" (click)="toggleViewMode('table')" title="Vue tableau">
+            <i class="fas fa-table"></i>
+          </button>
+        </div>
+
         <button class="btn btn-success btn-add-org" (click)="openCreate()" title="Ajouter un nouveau projet">
           <i class="fas fa-plus-circle"></i>
           <span>Ajouter</span>
@@ -81,7 +90,49 @@
 
   <!-- Chargement -->
   <ng-container *ngIf="!loading; else loadingTpl">
-    <div class="table-wrapper">
+
+    <!-- Liste des projets — vue Cartes -->
+    <div class="projects-cards" *ngIf="viewMode==='cards'">
+      <div *ngFor="let p of filteredProjets"
+           class="project-card"
+           [class.selected]="isSelected(p)"
+           [class.deleted]="p.is_deleted"
+           (click)="open(p)"
+           (contextmenu)="onRowRightClick($event, p)">
+        <label class="item-check" (click)="$event.stopPropagation()">
+          <input type="checkbox" [checked]="isSelected(p)" (change)="toggleSelection(p.id)">
+        </label>
+        <span class="item-icon"><i class="fas fa-project-diagram"></i></span>
+        <div class="item-main">
+          <span class="item-label">
+            <span class="code-chip">{{ p.code_projet }}</span>
+            {{ p.nom_projet }}
+            <span class="deleted-badge" *ngIf="p.is_deleted"><i class="fas fa-trash"></i> Supprimé</span>
+          </span>
+          <span class="item-meta">
+            <span class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ p.statut_display || statutLabel(p.statut) }}</span>
+            <span *ngIf="p.organization_name">{{ p.organization_name }}</span>
+            <span class="tag">{{ p.nbr_total_proprietes ?? 0 }} propriété(s)</span>
+            <span class="tag">{{ p.nbr_total_affaires ?? 0 }} affaire(s)</span>
+            <span class="tag">{{ p.nbr_total_ssdgps ?? 0 }} SSDGPS</span>
+            <span class="tag">{{ p.nbr_total_sessions ?? 0 }} session(s)</span>
+          </span>
+        </div>
+        <div class="item-actions" (click)="$event.stopPropagation()">
+          <button class="icon-btn" title="Modifier" *ngIf="!p.is_deleted" (click)="openEdit(p, $event)"><i class="fas fa-pen"></i></button>
+          <button class="icon-btn danger" title="Supprimer" *ngIf="!p.is_deleted" (click)="openDeleteModal(p, $event)"><i class="fas fa-trash-alt"></i></button>
+          <button class="icon-btn restore" title="Restaurer" *ngIf="p.is_deleted" (click)="openRestoreModal(p); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+        </div>
+        <i class="fas fa-chevron-right chev"></i>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredProjets.length === 0">
+        <i class="fas fa-project-diagram"></i>
+        <p>Aucun projet trouvé</p>
+      </div>
+    </div>
+
+    <div class="table-wrapper" *ngIf="viewMode==='table'">
       <div class="table-container">
         <table class="modern-table">
           <thead>
@@ -114,7 +165,10 @@
                 <span *ngIf="col.field === 'nom_projet'" class="cell-primary">{{ p.nom_projet }}</span>
                 <span *ngIf="col.field === 'statut'" class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ p.statut_display || statutLabel(p.statut) }}</span>
                 <span *ngIf="col.field === 'organization_name'">{{ p.organization_name || '—' }}</span>
-                <span *ngIf="col.field === 'proprietes_count'" class="num-value">{{ p.proprietes_count ?? 0 }}</span>
+                <span *ngIf="col.field === 'nbr_total_proprietes'" class="num-value">{{ p.nbr_total_proprietes ?? 0 }}</span>
+                <span *ngIf="col.field === 'nbr_total_affaires'" class="num-value">{{ p.nbr_total_affaires ?? 0 }}</span>
+                <span *ngIf="col.field === 'nbr_total_ssdgps'" class="num-value">{{ p.nbr_total_ssdgps ?? 0 }}</span>
+                <span *ngIf="col.field === 'nbr_total_sessions'" class="num-value">{{ p.nbr_total_sessions ?? 0 }}</span>
                 <span *ngIf="col.field === 'is_deleted'" class="badge" [class.badge-success]="!p.is_deleted" [class.badge-secondary]="p.is_deleted">{{ getCellValue(p, col.field) }}</span>
                 <span *ngIf="col.field === 'created_at' || col.field === 'updated_at'">{{ formatDate($any(p)[col.field]) }}</span>
               </td>
