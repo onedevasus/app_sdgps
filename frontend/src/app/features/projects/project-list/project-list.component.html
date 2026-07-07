@@ -1,85 +1,557 @@
-<div class="projects-page">
-  <div class="page-header">
-    <div>
-      <h2><i class="fas fa-project-diagram"></i> Projets</h2>
-      <p class="subtitle">Projet → Propriété → Affaire → SSDGPS → Session</p>
+<div class="projects-list-container">
+  <!-- En-tête -->
+  <div class="list-header">
+    <h2>Projets — <span class="status-info small-font"><strong>Total : </strong><strong>{{ projets.length }}</strong> | <strong>Filtrés : </strong><strong>{{ filteredProjets.length }}</strong> | <strong>Sélectionnés : </strong><strong>{{ selectedIds.size }}</strong></span></h2>
+
+    <div class="header-actions">
+      <div class="toolbar-left">
+        <button class="btn btn-secondary" (click)="selectAll()" title="Sélectionner tout">
+          <i class="fas fa-check-double"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="deselectAll()" title="Désélectionner tout">
+          <i class="fas fa-times"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="invertSelection()" title="Inverser la sélection">
+          <i class="fas fa-exchange-alt"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="moveSelectionToTop()" [disabled]="selectedIds.size === 0" title="Déplacer la sélection en haut">
+          <i class="fas fa-arrow-up"></i>
+        </button>
+
+        <div class="dropdown-container" [class.open]="showExportMenu">
+          <button class="btn btn-secondary" (click)="$event.stopPropagation(); toggleExportMenu()" title="Exporter les données">
+            <i class="fas fa-file-export"></i> Exporter
+            <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showExportMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); exportCSV(false); toggleExportMenu()">
+              <i class="fas fa-file-csv"></i>
+              <span>Tous les projets</span>
+            </div>
+            <div class="dropdown-item" (click)="$event.stopPropagation(); exportCSV(true); toggleExportMenu()" [class.disabled]="selectedIds.size === 0">
+              <i class="fas fa-check-square"></i>
+              <span>Projets sélectionnés</span>
+              <span *ngIf="selectedIds.size > 0" class="badge-count">{{ selectedIds.size }}</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary" (click)="toggleColumnConfig()" title="Organiser les colonnes">
+          <i class="fas fa-columns"></i>
+        </button>
+
+        <button class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0" title="Supprimer la sélection">
+          <i class="fas fa-trash"></i>
+        </button>
+        <button class="btn btn-success" (click)="openBulkRestoreModal()" [disabled]="!allSelectedAreDeleted" title="{{ allSelectedAreDeleted ? 'Restaurer la sélection' : 'La sélection contient des projets non supprimés' }}">
+          <i class="fas fa-undo"></i>
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <button class="btn btn-success btn-add-org" (click)="openCreate()" title="Ajouter un nouveau projet">
+          <i class="fas fa-plus-circle"></i>
+          <span>Ajouter</span>
+        </button>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="search-box-right">
+          <i class="fas fa-search"></i>
+          <input type="text" [value]="searchText" (input)="onSearchInput($event)" placeholder="Rechercher un projet...">
+          <button *ngIf="searchText && searchText.length > 0" class="btn-clear-search" (click)="clearSearch()" title="Effacer la recherche">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
     </div>
-    <button class="btn btn-success" (click)="openCreate()">
-      <i class="fas fa-plus-circle"></i> Nouveau projet
-    </button>
+
+    <div class="filters-line">
+      <select class="filter-select" [value]="selectedStatut" (change)="onStatutFilterChange($event)">
+        <option value="">Tous les statuts</option>
+        <option *ngFor="let o of statutOptions" [value]="o.value">{{ o.label }}</option>
+        <option value="supprime">Supprimé</option>
+      </select>
+      <select class="filter-select" *ngIf="isAdmin" [value]="selectedOrganization" (change)="onOrganizationFilterChange($event)">
+        <option value="">Toutes les organisations</option>
+        <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+      </select>
+    </div>
   </div>
 
-  <div class="toolbar">
-    <input type="text" class="search" placeholder="Rechercher (nom, code)…"
-           [(ngModel)]="searchText" (ngModelChange)="applyFilter()">
-    <select class="filter" [(ngModel)]="statutFilter" (ngModelChange)="applyFilter()">
-      <option value="">Tous les statuts</option>
-      <option *ngFor="let o of statutOptions" [value]="o.value">{{ o.label }}</option>
-    </select>
-  </div>
+  <!-- Chargement -->
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <div class="table-wrapper">
+      <div class="table-container">
+        <table class="modern-table">
+          <thead>
+            <tr>
+              <th class="checkbox-col">
+                <input type="checkbox" [checked]="isAllSelected" (change)="toggleSelectAll()">
+              </th>
+              <th *ngFor="let col of getVisibleColumns()"
+                  [class.sortable]="true"
+                  (click)="sortBy(col.field)"
+                  (contextmenu)="onColumnHeaderRightClick($event, col)"
+                  [title]="getFieldDescription(col.field)">
+                <span>{{ col.label }}</span>
+                <i [class]="getSortIcon(col.field)"></i>
+              </th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of paginatedProjets"
+                [class.selected]="isSelected(p)"
+                [class.row-deleted]="p.is_deleted"
+                (click)="open(p)"
+                (contextmenu)="onRowRightClick($event, p)">
+              <td class="checkbox-col" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(p)" (change)="toggleSelection(p.id)">
+              </td>
+              <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onCellRightClick($event, p, col.field)" (click)="$event.stopPropagation()">
+                <span *ngIf="col.field === 'code_projet'" class="code-chip">{{ p.code_projet }}</span>
+                <span *ngIf="col.field === 'nom_projet'" class="cell-primary">{{ p.nom_projet }}</span>
+                <span *ngIf="col.field === 'statut'" class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ p.statut_display || statutLabel(p.statut) }}</span>
+                <span *ngIf="col.field === 'organization_name'">{{ p.organization_name || '—' }}</span>
+                <span *ngIf="col.field === 'proprietes_count'" class="num-value">{{ p.proprietes_count ?? 0 }}</span>
+                <span *ngIf="col.field === 'is_deleted'" class="badge" [class.badge-success]="!p.is_deleted" [class.badge-secondary]="p.is_deleted">{{ getCellValue(p, col.field) }}</span>
+                <span *ngIf="col.field === 'created_at' || col.field === 'updated_at'">{{ formatDate($any(p)[col.field]) }}</span>
+              </td>
+              <td class="actions-col" (click)="$event.stopPropagation()">
+                <button class="btn-icon" (click)="open(p)" title="Ouvrir">
+                  <i class="fas fa-folder-open"></i>
+                </button>
+                <button class="btn-icon" [class.btn-icon-disabled]="p.is_deleted" [disabled]="p.is_deleted" (click)="!p.is_deleted && openEdit(p, $event)" title="Modifier">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="p.is_deleted" [disabled]="p.is_deleted" (click)="!p.is_deleted && openDeleteModal(p, $event)" title="Supprimer">
+                  <i class="fas fa-trash"></i>
+                </button>
+                <button class="btn-icon btn-icon-restore" *ngIf="p.is_deleted" (click)="openRestoreModal(p)" title="Restaurer">
+                  <i class="fas fa-undo"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredProjets.length === 0" class="empty-row">
+              <td [attr.colspan]="getVisibleColumns().length + 2" class="no-data">
+                <div class="no-data-content">
+                  <i class="fas fa-project-diagram"></i>
+                  <p>Aucun projet trouvé</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-  <div class="loading" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+      <!-- Footer -->
+      <div class="table-footer">
+        <div class="table-footer-left">
+          <div class="filter-menu-wrapper">
+            <button class="filter-menu-trigger" (click)="$event.stopPropagation(); toggleFilterMenu()">
+              <i class="fas fa-filter"></i>
+              Filtrer
+              <span class="filter-menu-badge" *ngIf="displayMode !== 'all' || activeFieldFilter"></span>
+            </button>
+            <div class="filter-menu-dropdown" *ngIf="showFilterMenu" (click)="$event.stopPropagation()">
+              <div class="filter-menu-item" (click)="setDisplayMode('all'); toggleFilterMenu()" [class.active]="displayMode === 'all' && !activeFieldFilter">
+                <i class="fas fa-list filter-menu-item-icon"></i>
+                <span>Afficher tous les projets</span>
+                <i class="fas fa-check filter-menu-check" *ngIf="displayMode === 'all' && !activeFieldFilter"></i>
+              </div>
+              <div class="filter-menu-item" (click)="setDisplayMode('selected'); toggleFilterMenu()" [class.disabled]="selectedIds.size === 0" [class.active]="displayMode === 'selected'">
+                <i class="fas fa-check-square filter-menu-item-icon"></i>
+                <span>Afficher les projets sélectionnés</span>
+                <span class="badge-count" *ngIf="selectedIds.size > 0">{{ selectedIds.size }}</span>
+                <i class="fas fa-check filter-menu-check" *ngIf="displayMode === 'selected'"></i>
+              </div>
+              <div class="filter-menu-divider"></div>
+              <div class="filter-menu-item filter-menu-item-sub" (click)="showFieldFilterMenu = !showFieldFilterMenu">
+                <span>Filtrage par champs</span>
+                <i class="fas fa-chevron-right filter-menu-chevron"></i>
+              </div>
+              <div class="filter-submenu" *ngIf="showFieldFilterMenu">
+                <div class="filter-menu-item" *ngFor="let column of columns" (click)="selectFieldForFilter(column.field, column.label)">
+                  <i class="fas fa-tag filter-menu-item-icon"></i>
+                  <span>{{ column.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field-input" *ngIf="activeFieldFilter">
+            <input type="text" class="field-filter-input" [placeholder]="'Filtrer par ' + activeFieldFilterLabel + '…'" [value]="fieldFilterValue" (input)="onFieldFilterInput($event)">
+            <button class="input-clear-btn" (click)="clearFieldFilter()" title="Effacer le filtre">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <div class="table-footer-right">
+          <div class="pagination-size">
+            <span class="pagination-size-label">Éléments par page :</span>
+            <div class="pagination-size-select-wrapper">
+              <select class="pagination-size-select" [value]="pageSize" (change)="setPageSize(+$any($event.target).value)">
+                <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+              </select>
+              <i class="fas fa-chevron-down pagination-size-arrow"></i>
+            </div>
+          </div>
+          <div class="pagination-nav">
+            <button class="pagination-nav-btn" [disabled]="currentPage <= 1" (click)="goToFirstPage()" title="Première page">
+              <i class="fas fa-angle-double-left"></i>
+            </button>
+            <button class="pagination-nav-btn" [disabled]="currentPage <= 1" (click)="prevPage()" title="Page précédente">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button *ngFor="let p of pageNumbers" class="pagination-page-btn" [class.active]="p === currentPage" (click)="goToPage(p)">{{ p }}</button>
+            <span class="pagination-nav-label">Page {{ currentPage }} sur {{ totalPages }}</span>
+            <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="nextPage()" title="Page suivante">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+            <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="goToLastPage()" title="Dernière page">
+              <i class="fas fa-angle-double-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
 
-  <table class="data-table" *ngIf="!loading">
-    <thead>
-      <tr>
-        <th>Code</th><th>Nom</th><th>Statut</th><th>Organisation</th><th>Propriétés</th><th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let p of filtered" class="row" (click)="open(p)">
-        <td><strong>{{ p.code_projet }}</strong></td>
-        <td>{{ p.nom_projet }}</td>
-        <td><span class="badge">{{ p.statut_display || statutLabel(p.statut) }}</span></td>
-        <td>{{ p.organization_name }}</td>
-        <td>{{ p.proprietes_count ?? 0 }}</td>
-        <td class="actions">
-          <button class="icon-btn" title="Ouvrir" (click)="open(p)"><i class="fas fa-folder-open"></i></button>
-          <button class="icon-btn" title="Modifier" (click)="openEdit(p, $event)"><i class="fas fa-pen"></i></button>
-          <button class="icon-btn danger" title="Supprimer" (click)="remove(p, $event)"><i class="fas fa-trash"></i></button>
-        </td>
-      </tr>
-      <tr *ngIf="filtered.length === 0">
-        <td colspan="6" class="empty">Aucun projet. Créez-en un pour commencer.</td>
-      </tr>
-    </tbody>
-  </table>
+  <ng-template #loadingTpl>
+    <div class="loading-spinner">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Chargement des projets...</p>
+    </div>
+  </ng-template>
 </div>
 
-<!-- Modale créer/modifier -->
-<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <h3>{{ editing ? 'Modifier le projet' : 'Nouveau projet' }}</h3>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <label>Nom du projet *</label>
-      <input type="text" formControlName="nom_projet">
-
-      <label>Code projet *</label>
-      <input type="text" formControlName="code_projet" placeholder="Ex. PRJ-2026-001">
-
-      <label>Description</label>
-      <textarea formControlName="description_projet" rows="2"></textarea>
-
-      <label>Statut *</label>
-      <select formControlName="statut">
-        <option *ngFor="let o of statutOptions" [value]="o.value">{{ o.label }}</option>
-      </select>
-
-      <label>Organisation *</label>
-      <div class="locked-org" *ngIf="isOrgLocked">
-        <i class="fas fa-building"></i> {{ currentOrgName }} <span class="hint">(votre organisation)</span>
+<!-- ========================================== -->
+<!-- MODALE: Organiser les colonnes             -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showColumnConfig" (click)="toggleColumnConfig()">
+  <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-columns header-icon"></i>
+        <div>
+          <h3>Organiser les colonnes</h3>
+          <span class="modal-stats">
+            <i class="fas fa-table"></i>
+            Total: {{ getColumnStats().total }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye"></i>
+            Visibles : {{ getColumnStats().visible }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye-slash"></i>
+            Masquées : {{ getColumnStats().hidden }}
+          </span>
+        </div>
       </div>
-      <select *ngIf="!isOrgLocked" formControlName="organization">
-        <option value="">Sélectionner…</option>
-        <option *ngFor="let o of organizations" [value]="o.id">{{ o.name }}</option>
-      </select>
+      <div class="modal-header-right">
+        <div class="dropdown-container" [class.open]="showColumnFilterMenu">
+          <button type="button" class="btn btn-filter-toggle" (click)="toggleColumnFilterMenu($event)" [title]="getColumnFilterLabel()">
+            <i class="fas fa-filter"></i>
+            {{ getColumnFilterLabel() }}
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('all')" [class.active]="columnFilter === 'all'">
+              <i class="fas fa-eye"></i>
+              <span>Afficher toutes les colonnes</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'all'"></i>
+            </div>
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('visible')" [class.active]="columnFilter === 'visible'">
+              <i class="fas fa-eye-slash"></i>
+              <span>Afficher uniquement les colonnes visibles</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'visible'"></i>
+            </div>
+          </div>
+        </div>
+        <button class="close-btn" (click)="toggleColumnConfig()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
 
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="closeModal()">Annuler</button>
-        <button type="submit" class="btn btn-primary" [disabled]="form.invalid || submitting">
-          {{ submitting ? 'Enregistrement…' : (editing ? 'Enregistrer' : 'Créer') }}
+    <div class="modal-body">
+      <ul class="column-list">
+        <li *ngFor="let col of getFilteredColumns(); let i = index"
+            class="column-item"
+            [class.dragging]="draggedColumnIndex === columns.indexOf(col)"
+            [class.drag-over]="dragOverIndex === columns.indexOf(col)"
+            draggable="true"
+            (dragstart)="onDragStart(columns.indexOf(col))"
+            (dragover)="onDragOver($event, columns.indexOf(col))"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop(columns.indexOf(col))"
+            (dragend)="onDragEnd()">
+          <div class="column-row">
+            <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.field)">
+
+            <div class="column-reorder-buttons">
+              <button type="button" class="btn-reorder" [disabled]="i === 0" (click)="moveColumnToTop(i)" title="Déplacer en première position">
+                <i class="fas fa-angle-double-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === 0" (click)="moveColumnUp(i)" title="Monter">
+                <i class="fas fa-angle-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === columns.length - 1" (click)="moveColumnDown(i)" title="Descendre">
+                <i class="fas fa-angle-down"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === columns.length - 1" (click)="moveColumnToBottom(i)" title="Déplacer en dernière position">
+                <i class="fas fa-angle-double-down"></i>
+              </button>
+            </div>
+
+            <label>
+              <span class="column-type">{{ getTypeLabel(col.type) }}</span>
+              <span class="column-name">{{ col.label }}</span>
+              <i class="fas fa-info-circle column-info-icon" *ngIf="getFieldDescription(col.field)" [title]="getFieldDescription(col.field)"></i>
+            </label>
+            <div class="column-description-cell" *ngIf="getFieldDescription(col.field)">
+              {{ getFieldDescription(col.field) }}
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="modal-footer">
+      <div class="footer-actions">
+        <button class="btn btn-action" (click)="selectAllColumns()">
+          <i class="fas fa-check-double"></i>
+          Sélectionner tout
+        </button>
+        <button class="btn btn-action" (click)="deselectAllColumns()">
+          <i class="fas fa-times"></i>
+          Désélectionner tout
+        </button>
+        <button class="btn btn-action" (click)="invertColumnSelection()">
+          <i class="fas fa-exchange-alt"></i>
+          Inverser
+        </button>
+      </div>
+      <div class="footer-buttons">
+        <button class="btn btn-cancel" (click)="cancelColumnConfig()">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button class="btn btn-confirm" (click)="confirmColumnConfig()">
+          <i class="fas fa-check"></i>
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MENU CONTEXTUEL: En-têtes de colonnes      -->
+<!-- ========================================== -->
+<div class="context-menu"
+     *ngIf="showColumnContextMenu"
+     [style.top.px]="contextMenuPosition.y"
+     [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="hideColumnFromContext()">
+    <i class="fas fa-eye-slash"></i>
+    <span>Masquer la colonne</span>
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" (click)="openColumnConfigFromContext()">
+    <i class="fas fa-columns"></i>
+    <span>Organiser les colonnes</span>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MENU CONTEXTUEL: Lignes (clic droit)       -->
+<!-- ========================================== -->
+<div class="context-menu"
+     *ngIf="showRowContextMenu"
+     [style.top.px]="contextMenuPosition.y"
+     [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="toggleRowSelectionFromContext()">
+    <i class="fas" [class.fa-check-square]="contextMenuProjet && isSelected(contextMenuProjet)" [class.fa-square]="!contextMenuProjet || !isSelected(contextMenuProjet)"></i>
+    <span>{{ contextMenuProjet && isSelected(contextMenuProjet) ? 'Désélectionner cette ligne' : 'Sélectionner cette ligne' }}</span>
+  </div>
+  <div class="context-menu-item" (click)="selectAllFromContext()">
+    <i class="fas fa-check-double"></i>
+    <span>Sélectionner tout</span>
+  </div>
+  <div class="context-menu-divider" *ngIf="contextMenuField"></div>
+  <div class="context-menu-item" *ngIf="contextMenuField" (click)="copyCellValueFromContext()">
+    <i class="fas fa-copy"></i>
+    <span>Copier la valeur de la cellule</span>
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" (click)="openFromContext()">
+    <i class="fas fa-folder-open"></i>
+    <span>Ouvrir</span>
+  </div>
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuProjet?.is_deleted" (click)="!contextMenuProjet?.is_deleted && openEditFromContext()">
+    <i class="fas fa-edit"></i>
+    <span>Modifier</span>
+  </div>
+  <div class="context-menu-divider" *ngIf="contextMenuProjet && !contextMenuProjet.is_deleted"></div>
+  <div class="context-menu-item context-menu-item-danger" *ngIf="contextMenuProjet && !contextMenuProjet.is_deleted" (click)="openDeleteFromContext()">
+    <i class="fas fa-trash"></i>
+    <span>Supprimer</span>
+  </div>
+  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuProjet?.is_deleted" (click)="openRestoreFromContext()">
+    <i class="fas fa-undo"></i>
+    <span>Restaurer</span>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Créer / Modifier un projet         -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal-content modal-add-user" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h3><i class="fas" [ngClass]="editing ? 'fa-pen' : 'fa-plus-circle'"></i> {{ editing ? 'Modifier le projet' : 'Nouveau projet' }}</h3>
+      </div>
+      <button class="close-btn" (click)="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="modal-body">
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nom du projet <span class="required">*</span></label>
+              <input type="text" formControlName="nom_projet" placeholder="Ex. Densification cadastrale Azilal">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Code projet <span class="required">*</span></label>
+              <input type="text" formControlName="code_projet" placeholder="PRJ-2026-001">
+            </div>
+            <div class="form-group">
+              <label>Statut <span class="required">*</span></label>
+              <select formControlName="statut">
+                <option *ngFor="let o of statutOptions" [value]="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Description</label>
+              <textarea formControlName="description_projet" rows="2" placeholder="Description (optionnel)"></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Organisation <span class="required">*</span></label>
+              <div class="locked-field" *ngIf="isOrgLocked">
+                <i class="fas fa-building"></i> {{ currentOrgName }} <span class="hint">votre organisation</span>
+              </div>
+              <select *ngIf="!isOrgLocked" formControlName="organization">
+                <option value="">Sélectionner une organisation…</option>
+                <option *ngFor="let o of organizations" [value]="o.id">{{ o.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-cancel" (click)="closeModal()">
+          <i class="fas fa-times"></i> Annuler
+        </button>
+        <button type="submit" class="btn btn-confirm" [disabled]="form.invalid || submitting">
+          <i class="fas" [ngClass]="submitting ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+          {{ submitting ? 'Enregistrement…' : (editing ? 'Enregistrer' : 'Créer le projet') }}
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Confirmation de suppression        -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-danger">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-exclamation-triangle"></i> Confirmer la suppression</h3>
+      </div>
+      <button class="close-btn" (click)="closeDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="delete-warning">
+        <div class="warning-icon"><i class="fas fa-trash"></i></div>
+        <div class="warning-content">
+          <h4 *ngIf="!isBulkDelete && deleteTarget">Supprimer le projet « {{ deleteTarget.nom_projet }} » ?</h4>
+          <h4 *ngIf="isBulkDelete">Supprimer {{ selectedIds.size }} projet(s) sélectionné(s) ?</h4>
+          <p class="warning-text">
+            Cette action est <strong>réversible</strong> (soft-delete). Le(s) projet(s) pourront être restaurés.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeDeleteModal()" [disabled]="deleting">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+      <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="deleting">
+        <i class="fas" [class.fa-spinner]="deleting" [class.fa-spin]="deleting" [class.fa-trash]="!deleting"></i>
+        {{ deleting ? 'Suppression…' : 'Supprimer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Confirmation de restauration       -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showRestoreModal" (click)="closeRestoreModal()">
+  <div class="modal-content modal-restore-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-success">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-undo"></i> Restaurer le Projet</h3>
+      </div>
+      <button class="close-btn" (click)="closeRestoreModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="delete-warning" *ngIf="!isBulkRestore && restoreTarget">
+        <div class="warning-icon warning-icon-success"><i class="fas fa-undo"></i></div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment restaurer ce projet ?</h4>
+          <p class="user-name">« {{ restoreTarget.nom_projet }} » ({{ restoreTarget.code_projet }})</p>
+          <p class="warning-text">Le projet sera à nouveau visible et modifiable.</p>
+        </div>
+      </div>
+      <div class="delete-warning" *ngIf="isBulkRestore">
+        <div class="warning-icon warning-icon-success"><i class="fas fa-undo"></i></div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment restaurer {{ getSelectedProjetsList().length }} projet(s) ?</h4>
+          <div class="user-list-preview" *ngIf="getSelectedProjetsList().length > 0">
+            <p class="user-list-title">Projets sélectionnés :</p>
+            <ul class="user-list">
+              <li *ngFor="let p of getSelectedProjetsList() | slice:0:5">
+                <i class="fas fa-project-diagram"></i> {{ p.nom_projet }} ({{ p.code_projet }})
+              </li>
+              <li *ngIf="getSelectedProjetsList().length > 5" class="more-items">
+                <i class="fas fa-ellipsis-h"></i> et {{ getSelectedProjetsList().length - 5 }} autre(s)
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeRestoreModal()" [disabled]="restoring">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+      <button type="button" class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
+        <i class="fas" [class.fa-spinner]="restoring" [class.fa-spin]="restoring" [class.fa-undo]="!restoring"></i>
+        {{ restoring ? 'Restauration...' : 'Oui, Restaurer' }}
+      </button>
+    </div>
   </div>
 </div>

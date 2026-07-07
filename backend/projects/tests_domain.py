@@ -150,3 +150,53 @@ class RbacScopingTests(DomainBaseTest):
             'nom_projet': 'X', 'code_projet': 'P-OK', 'organization': str(self.org1.id),
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.content)
+
+
+class RestoreTests(DomainBaseTest):
+    """Suppression logique + restauration (unitaire et groupée), scopées par organisation."""
+
+    def test_deleted_project_hidden_by_default_and_listed_with_show_deleted(self):
+        p = self._projet(code='P-DEL')
+        self.client.delete(f'/api/v1/projets/{p.id}/')
+
+        resp = self.client.get('/api/v1/projets/')
+        codes = {x['code_projet'] for x in resp.json().get('results', resp.json())} \
+            if isinstance(resp.json(), dict) else {x['code_projet'] for x in resp.json()}
+        self.assertNotIn('P-DEL', codes)
+
+        resp2 = self.client.get('/api/v1/projets/?show_deleted=true')
+        data2 = resp2.json()
+        data2 = data2.get('results', data2) if isinstance(data2, dict) else data2
+        codes2 = {x['code_projet'] for x in data2}
+        self.assertIn('P-DEL', codes2)
+
+    def test_restore_single_project(self):
+        p = self._projet(code='P-RESTORE')
+        self.client.delete(f'/api/v1/projets/{p.id}/')
+
+        resp = self.client.post(f'/api/v1/projets/{p.id}/restore/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        p.refresh_from_db()
+        self.assertFalse(p.is_deleted)
+        self.assertIsNone(p.deleted_at)
+
+    def test_bulk_restore_projects(self):
+        p1 = self._projet(code='P-BULK1')
+        p2 = self._projet(code='P-BULK2')
+        self.client.delete(f'/api/v1/projets/{p1.id}/')
+        self.client.delete(f'/api/v1/projets/{p2.id}/')
+
+        resp = self.client.post('/api/v1/projets/bulk-restore/', {'ids': [str(p1.id), str(p2.id)]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['restored_count'], 2)
+        p1.refresh_from_db(); p2.refresh_from_db()
+        self.assertFalse(p1.is_deleted)
+        self.assertFalse(p2.is_deleted)
+
+    def test_cannot_restore_project_of_foreign_org(self):
+        foreign = self._projet(org=self.org2, code='P-FOREIGN')
+        foreign.is_deleted = True
+        foreign.save(update_fields=['is_deleted'])
+
+        resp = self.client.post(f'/api/v1/projets/{foreign.id}/restore/')
+        self.assertEqual(resp.status_code, 404)

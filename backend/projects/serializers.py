@@ -15,9 +15,9 @@ class ProjetSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nom_projet', 'description_projet', 'code_projet',
             'organization', 'organization_name', 'statut', 'statut_display',
-            'proprietes_count', 'created_at', 'updated_at',
+            'proprietes_count', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
     def get_proprietes_count(self, obj):
         return obj.proprietes.filter(is_deleted=False).count()
@@ -36,9 +36,9 @@ class ProprieteSerializer(serializers.ModelSerializer):
         model = Propriete
         fields = [
             'id', 'nom_propriete', 'id_requisition', 'id_titre', 'projet',
-            'created_at', 'updated_at',
+            'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
     def validate(self, attrs):
         req = attrs.get('id_requisition', getattr(self.instance, 'id_requisition', ''))
@@ -55,9 +55,9 @@ class AffaireSerializer(serializers.ModelSerializer):
         model = Affaire
         fields = [
             'id', 'numero_sd_affaire', 'nature_procedure_affaire', 'nature_affaire',
-            'date_bornage', 'propriete', 'created_at', 'updated_at',
+            'date_bornage', 'propriete', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
     def validate(self, attrs):
         inst = self.instance
@@ -76,9 +76,9 @@ class SsdgpsSerializer(serializers.ModelSerializer):
         model = Ssdgps
         fields = [
             'id', 'nature_ssdgps', 'numero_ssdgps', 'type_ssdgps', 'affaire',
-            'sessions_count', 'created_at', 'updated_at',
+            'sessions_count', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
     def get_sessions_count(self, obj):
         return obj.sessions.filter(is_deleted=False).count()
@@ -87,5 +87,5 @@ class SsdgpsSerializer(serializers.ModelSerializer):
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Session
-        fields = ['id', 'ssdgps', 'numero_session', 'date_session', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'ssdgps', 'numero_session', 'date_session', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']

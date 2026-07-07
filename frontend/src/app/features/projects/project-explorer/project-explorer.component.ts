@@ -1,6 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Observable } from 'rxjs';
+import { Observable, forkJoin } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService } from '../../../core/services/projects.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -25,8 +25,36 @@ export class ProjectExplorerComponent implements OnInit {
   projet: Projet | null = null;
   level: Level = 'propriete';
   chain: { propriete?: Propriete; affaire?: Affaire; ssdgps?: Ssdgps } = {};
-  items: any[] = [];
+  activeItems: any[] = [];
+  deletedItems: any[] = [];
   loading = false;
+
+  /** Éléments du niveau courant selon l'onglet sélectionné (Actifs / Corbeille). */
+  get items(): any[] { return this.showDeleted ? this.deletedItems : this.activeItems; }
+  get activeCount(): number { return this.activeItems.length; }
+  get deletedCount(): number { return this.deletedItems.length; }
+
+  // Recherche & sélection
+  searchText = '';
+  selectedIds = new Set<string>();
+
+  // Tri
+  sortDirection: 'asc' | 'desc' = 'asc';
+
+  // Affichage des éléments supprimés
+  showDeleted = false;
+
+  // Suppression (confirmation)
+  showDeleteModal = false;
+  deleteTarget: any = null;
+  isBulkDelete = false;
+  deleting = false;
+
+  // Restauration
+  showRestoreModal = false;
+  restoreTarget: any = null;
+  isBulkRestore = false;
+  restoring = false;
 
   // Modale de saisie
   showModal = false;
@@ -37,6 +65,11 @@ export class ProjectExplorerComponent implements OnInit {
   // Formulaire Affaire dynamique
   availableNatures: { value: NatureAffaire; label: string }[] = [];
   dateBornageRequired = true;
+
+  // Menu contextuel
+  showContextMenu = false;
+  contextMenuPosition = { x: 0, y: 0 };
+  contextMenuItem: any = null;
 
   constructor(
     private service: ProjectsService,
@@ -50,7 +83,7 @@ export class ProjectExplorerComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.getProjet(id).subscribe({
       next: (p) => { this.projet = p; this.goToLevel('propriete'); },
-      error: () => { this.toast.error('Erreur', 'Projet introuvable'); this.router.navigate(['/admin/projets']); },
+      error: () => { this.toast.error('Erreur', 'Projet introuvable'); this.backToList(); },
     });
   }
 
@@ -61,6 +94,7 @@ export class ProjectExplorerComponent implements OnInit {
 
   goToLevel(level: Level): void {
     this.level = level;
+    this.showDeleted = false;
     // Nettoie la chaîne au-delà du niveau courant
     if (level === 'propriete') this.chain = {};
     else if (level === 'affaire') this.chain = { propriete: this.chain.propriete };
@@ -68,26 +102,78 @@ export class ProjectExplorerComponent implements OnInit {
     this.loadLevel();
   }
 
+  /**
+   * Charge en une fois les éléments actifs ET supprimés du niveau courant, afin d'afficher
+   * les deux compteurs des onglets Actifs/Corbeille sans aller-retour réseau supplémentaire
+   * lors du changement d'onglet.
+   */
   loadLevel(): void {
     this.loading = true;
-    const done = (data: any[]) => { this.items = data; this.loading = false; };
+    this.searchText = '';
+    this.selectedIds.clear();
+    const done = ([active, deleted]: [any[], any[]]) => {
+      this.activeItems = active;
+      this.deletedItems = deleted;
+      this.loading = false;
+    };
     const fail = () => { this.toast.error('Erreur', 'Chargement impossible'); this.loading = false; };
+    const deletedParams = { show_deleted: true };
+    let active$: Observable<any[]>;
+    let deleted$: Observable<any[]>;
     switch (this.level) {
-      case 'propriete': this.service.getProprietes(this.projet!.id).subscribe({ next: done, error: fail }); break;
-      case 'affaire': this.service.getAffaires(this.chain.propriete!.id).subscribe({ next: done, error: fail }); break;
-      case 'ssdgps': this.service.getSsdgps(this.chain.affaire!.id).subscribe({ next: done, error: fail }); break;
-      case 'session': this.service.getSessions(this.chain.ssdgps!.id).subscribe({ next: done, error: fail }); break;
+      case 'propriete':
+        active$ = this.service.getProprietes(this.projet!.id);
+        deleted$ = this.service.getProprietes(this.projet!.id, deletedParams);
+        break;
+      case 'affaire':
+        active$ = this.service.getAffaires(this.chain.propriete!.id);
+        deleted$ = this.service.getAffaires(this.chain.propriete!.id, deletedParams);
+        break;
+      case 'ssdgps':
+        active$ = this.service.getSsdgps(this.chain.affaire!.id);
+        deleted$ = this.service.getSsdgps(this.chain.affaire!.id, deletedParams);
+        break;
+      case 'session':
+        active$ = this.service.getSessions(this.chain.ssdgps!.id);
+        deleted$ = this.service.getSessions(this.chain.ssdgps!.id, deletedParams);
+        break;
     }
+    forkJoin([active$, deleted$]).subscribe({ next: done, error: fail });
   }
 
   descend(item: any): void {
+    if (item.is_deleted) return; // ne pas naviguer dans un élément supprimé
     const child = this.childOf(this.level);
     if (!child) return; // session = feuille
     if (this.level === 'propriete') this.chain.propriete = item;
     else if (this.level === 'affaire') this.chain.affaire = item;
     else if (this.level === 'ssdgps') this.chain.ssdgps = item;
     this.level = child;
+    this.showDeleted = false;
     this.loadLevel();
+  }
+
+  // --- Onglets Actifs / Corbeille ---
+  setTab(deleted: boolean): void {
+    if (this.showDeleted === deleted) return;
+    this.showDeleted = deleted;
+    this.selectedIds.clear();
+    this.searchText = '';
+  }
+
+  // --- Tri ---
+  toggleSort(): void {
+    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+  }
+
+  private sortKey(item: any): number | string {
+    switch (this.level) {
+      case 'propriete': return (item.nom_propriete || '').toLowerCase();
+      case 'affaire': return item.numero_sd_affaire ?? 0;
+      case 'ssdgps': return item.numero_ssdgps ?? 0;
+      case 'session': return item.numero_session ?? 0;
+      default: return 0;
+    }
   }
 
   // --- Libellés ---
@@ -108,10 +194,51 @@ export class ProjectExplorerComponent implements OnInit {
   natureLabel(v: string): string { return NATURE_AFFAIRE_LABELS[v as NatureAffaire] || v; }
   isLeaf(): boolean { return this.level === 'session'; }
 
+  levelIcon(level: Level = this.level): string {
+    return { propriete: 'fa-map-marker-alt', affaire: 'fa-file-signature', ssdgps: 'fa-satellite-dish', session: 'fa-clock' }[level];
+  }
+
+  childLabel(): string {
+    return { propriete: 'propriété', affaire: 'affaire', ssdgps: 'SSDGPS', session: '' }[this.level];
+  }
+
+  // --- Recherche, tri & sélection ---
+  get filteredItems(): any[] {
+    let result = this.items;
+    if (this.searchText) {
+      const q = this.searchText.toLowerCase();
+      result = result.filter(it => this.itemLabel(it).toLowerCase().includes(q));
+    }
+    result = [...result].sort((a, b) => {
+      const ka = this.sortKey(a), kb = this.sortKey(b);
+      const cmp = ka < kb ? -1 : ka > kb ? 1 : 0;
+      return this.sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return result;
+  }
+  isSelected(it: any): boolean { return this.selectedIds.has(it.id); }
+  toggleSelect(it: any, ev: Event): void {
+    ev.stopPropagation();
+    this.selectedIds.has(it.id) ? this.selectedIds.delete(it.id) : this.selectedIds.add(it.id);
+  }
+  get selectedCount(): number { return this.selectedIds.size; }
+  clearSelection(): void { this.selectedIds.clear(); }
+  get isAllSelected(): boolean {
+    const f = this.filteredItems;
+    return f.length > 0 && f.every(it => this.selectedIds.has(it.id));
+  }
+  toggleSelectAll(): void {
+    if (this.isAllSelected) this.filteredItems.forEach(it => this.selectedIds.delete(it.id));
+    else this.filteredItems.forEach(it => this.selectedIds.add(it.id));
+  }
+  invertSelection(): void {
+    this.filteredItems.forEach(it => this.selectedIds.has(it.id) ? this.selectedIds.delete(it.id) : this.selectedIds.add(it.id));
+  }
+
   // --- Formulaire ---
   openCreate(): void { this.editing = null; this.buildForm(); this.showModal = true; }
   openEdit(item: any, ev: Event): void { ev.stopPropagation(); this.editing = item; this.buildForm(item); this.showModal = true; }
-  closeModal(): void { this.showModal = false; this.editing = null; }
+  closeModal(): void { if (this.submitting) return; this.showModal = false; this.editing = null; }
 
   private buildForm(item?: any): void {
     switch (this.level) {
@@ -195,21 +322,108 @@ export class ProjectExplorerComponent implements OnInit {
     call.subscribe({ next: done, error: fail });
   }
 
-  remove(item: any, ev: Event): void {
-    ev.stopPropagation();
-    if (!confirm('Confirmer la suppression ?')) return;
+  // --- Suppression (avec confirmation) ---
+  private deleteCall(id: string): Observable<any> {
     const svc = this.service;
-    const call: Observable<any> = {
-      propriete: () => svc.deletePropriete(item.id),
-      affaire: () => svc.deleteAffaire(item.id),
-      ssdgps: () => svc.deleteSsdgps(item.id),
-      session: () => svc.deleteSession(item.id),
+    return {
+      propriete: () => svc.deletePropriete(id),
+      affaire: () => svc.deleteAffaire(id),
+      ssdgps: () => svc.deleteSsdgps(id),
+      session: () => svc.deleteSession(id),
     }[this.level]();
-    call.subscribe({
-      next: () => { this.toast.success('Succès', 'Supprimé'); this.loadLevel(); },
-      error: () => this.toast.error('Erreur', 'Suppression impossible'),
-    });
   }
 
-  backToList(): void { this.router.navigate(['/admin/projets']); }
+  openDeleteModal(item: any, ev: Event): void {
+    ev.stopPropagation();
+    this.deleteTarget = item; this.isBulkDelete = false; this.showDeleteModal = true;
+  }
+  openBulkDelete(): void {
+    if (this.selectedCount === 0) return;
+    this.deleteTarget = null; this.isBulkDelete = true; this.showDeleteModal = true;
+  }
+  closeDeleteModal(): void { if (!this.deleting) { this.showDeleteModal = false; this.deleteTarget = null; } }
+
+  confirmDelete(): void {
+    this.deleting = true;
+    const finish = (n: number) => {
+      this.deleting = false; this.showDeleteModal = false; this.deleteTarget = null;
+      this.clearSelection(); this.loadLevel(); this.toast.success('Succès', `${n} élément(s) supprimé(s)`);
+    };
+    const fail = () => { this.deleting = false; this.toast.error('Erreur', 'Suppression impossible'); };
+    if (this.isBulkDelete) {
+      const ids = Array.from(this.selectedIds);
+      forkJoin(ids.map(id => this.deleteCall(id))).subscribe({ next: () => finish(ids.length), error: fail });
+    } else if (this.deleteTarget) {
+      this.deleteCall(this.deleteTarget.id).subscribe({ next: () => finish(1), error: fail });
+    }
+  }
+
+  // --- Restauration ---
+  private restoreCall(id: string): Observable<any> {
+    const svc = this.service;
+    return {
+      propriete: () => svc.restorePropriete(id),
+      affaire: () => svc.restoreAffaire(id),
+      ssdgps: () => svc.restoreSsdgps(id),
+      session: () => svc.restoreSession(id),
+    }[this.level]();
+  }
+
+  openRestoreModal(item: any): void { this.restoreTarget = item; this.isBulkRestore = false; this.showRestoreModal = true; }
+  openBulkRestoreModal(): void { if (this.selectedCount === 0) return; this.restoreTarget = null; this.isBulkRestore = true; this.showRestoreModal = true; }
+  closeRestoreModal(): void { if (!this.restoring) { this.showRestoreModal = false; this.restoreTarget = null; } }
+
+  confirmRestore(): void {
+    this.restoring = true;
+    const finish = (n: number) => {
+      this.restoring = false; this.showRestoreModal = false; this.restoreTarget = null;
+      this.clearSelection(); this.loadLevel(); this.toast.success('Succès', `${n} élément(s) restauré(s)`);
+    };
+    const fail = () => { this.restoring = false; this.toast.error('Erreur', 'Restauration impossible'); };
+    if (this.isBulkRestore) {
+      const ids = Array.from(this.selectedIds);
+      forkJoin(ids.map(id => this.restoreCall(id))).subscribe({ next: () => finish(ids.length), error: fail });
+    } else if (this.restoreTarget) {
+      this.restoreCall(this.restoreTarget.id).subscribe({ next: () => finish(1), error: fail });
+    }
+  }
+
+  // --- Menu contextuel (clic droit) ---
+  onItemRightClick(event: MouseEvent, item: any): void {
+    event.preventDefault(); event.stopPropagation();
+    this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+    this.contextMenuItem = item;
+    this.showContextMenu = true;
+  }
+  toggleSelectFromContext(): void { if (this.contextMenuItem) this.toggleSelect(this.contextMenuItem, new Event('click')); this.closeContextMenu(); }
+  openFromContext(): void { if (this.contextMenuItem && !this.contextMenuItem.is_deleted) this.descend(this.contextMenuItem); this.closeContextMenu(); }
+  openEditFromContext(): void {
+    if (this.contextMenuItem && !this.contextMenuItem.is_deleted) { this.editing = this.contextMenuItem; this.buildForm(this.contextMenuItem); this.showModal = true; }
+    this.closeContextMenu();
+  }
+  openDeleteFromContext(): void {
+    if (this.contextMenuItem && !this.contextMenuItem.is_deleted) { this.deleteTarget = this.contextMenuItem; this.isBulkDelete = false; this.showDeleteModal = true; }
+    this.closeContextMenu();
+  }
+  openRestoreFromContext(): void {
+    if (this.contextMenuItem?.is_deleted) this.openRestoreModal(this.contextMenuItem);
+    this.closeContextMenu();
+  }
+  closeContextMenu(): void { this.showContextMenu = false; this.contextMenuItem = null; }
+
+  @HostListener('document:click')
+  onDocumentClick(): void { this.closeContextMenu(); }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showContextMenu) { this.closeContextMenu(); return; }
+    if (this.showModal) { this.closeModal(); return; }
+    if (this.showDeleteModal) { this.closeDeleteModal(); return; }
+    if (this.showRestoreModal) { this.closeRestoreModal(); return; }
+  }
+
+  backToList(): void {
+    // Navigation relative : remonte de /…/projets/:id vers /…/projets (admin ou dashboard).
+    this.router.navigate(['..'], { relativeTo: this.route });
+  }
 }

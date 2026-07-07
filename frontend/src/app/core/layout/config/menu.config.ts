@@ -13,12 +13,12 @@ export const USER_MENU: MenuItem[] = [
     description: 'Vue d\'ensemble de vos projets et activités'
   },
   {
-    id: 'mes-projets',
-    title: 'Mes Projets',
+    id: 'projets',
+    title: 'Projets',
     icon: 'fas fa-project-diagram',
-    route: '/dashboard/mes-projets',
+    route: '/dashboard/projets',
     type: 'link',
-    description: 'Gestion de vos projets personnels'
+    description: 'Projets, propriétés, affaires, SSDGPS & sessions'
   }
 ];
 

@@ -48,6 +48,12 @@ const routes: Routes = [
         path: 'mes-projets',
         component: PlaceholderComponent,
         data: { title: 'Mes Projets' }
+      },
+      {
+        // Feature Projets (Phase 5) accessible aux Agents d'organisation.
+        path: 'projets',
+        loadChildren: () => import('./features/projects/projects.module').then(m => m.ProjectsModule),
+        data: { title: 'Projets' }
       }
     ]
   },

@@ -5,8 +5,10 @@ Portée : Admin Système / Super Admin → tout ; Admin Org & Agent → entités
 organisation(s). Suppression = soft-delete. `created_by` renseigné automatiquement.
 """
 from django.utils import timezone
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 
 from .models import Projet, Propriete, Affaire, Ssdgps, Session
 from .serializers import (
@@ -33,7 +35,8 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
     parent_query_param = None  # ex. ('projet', 'projet_id')
 
     def get_queryset(self):
-        qs = self.queryset.filter(is_deleted=False)
+        show_deleted = self.request.query_params.get('show_deleted', '').lower() in ('true', '1', 'yes')
+        qs = self.queryset.filter(is_deleted=True) if show_deleted else self.queryset.filter(is_deleted=False)
         ids = user_org_ids(self.request.user)
         if ids is not None:
             qs = qs.filter(**{f'{self.org_lookup}__in': ids})
@@ -42,6 +45,14 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
             value = self.request.query_params.get(param)
             if value:
                 qs = qs.filter(**{field: value})
+        return qs
+
+    def _org_scoped_queryset(self):
+        """Queryset filtré par organisation, SANS filtre is_deleted (pour la restauration)."""
+        qs = self.queryset
+        ids = user_org_ids(self.request.user)
+        if ids is not None:
+            qs = qs.filter(**{f'{self.org_lookup}__in': ids})
         return qs
 
     def _org_id_of_validated(self, serializer):
@@ -62,6 +73,29 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
         instance.is_deleted = True
         instance.deleted_at = timezone.now()
         instance.save(update_fields=['is_deleted', 'deleted_at'])
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk=None):
+        """POST /…/{id}/restore/ — annule la suppression logique (scopé à l'organisation)."""
+        instance = self._org_scoped_queryset().filter(pk=pk, is_deleted=True).first()
+        if instance is None:
+            return Response({'detail': 'Élément non trouvé ou non supprimé.'}, status=status.HTTP_404_NOT_FOUND)
+        instance.is_deleted = False
+        instance.deleted_at = None
+        instance.save(update_fields=['is_deleted', 'deleted_at'])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='bulk-restore')
+    def bulk_restore(self, request):
+        """POST /…/bulk-restore/ — {"ids": [...]} — restaure plusieurs éléments (scopé)."""
+        ids = request.data.get('ids', [])
+        if not isinstance(ids, list) or not ids:
+            return Response({'detail': 'La liste ids est requise.'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self._org_scoped_queryset().filter(pk__in=ids, is_deleted=True)
+        restored_count = qs.count()
+        qs.update(is_deleted=False, deleted_at=None)
+        return Response({'restored_count': restored_count}, status=status.HTTP_200_OK)
 
 
 class ProjetViewSet(BaseOrgScopedViewSet):

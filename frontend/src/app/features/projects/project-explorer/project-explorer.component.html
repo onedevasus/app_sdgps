@@ -1,125 +1,326 @@
 <div class="explorer" *ngIf="projet">
   <!-- Fil d'Ariane -->
   <nav class="breadcrumb">
-    <a (click)="backToList()"><i class="fas fa-arrow-left"></i> Projets</a>
-    <span class="sep">/</span>
-    <a (click)="goToLevel('propriete')" [class.active]="level==='propriete'">
+    <button class="crumb back" (click)="backToList()"><i class="fas fa-arrow-left"></i> Projets</button>
+    <i class="fas fa-chevron-right sep"></i>
+    <button class="crumb root" [class.active]="level==='propriete'" (click)="goToLevel('propriete')">
       <i class="fas fa-folder"></i> {{ projet.code_projet }}
-    </a>
+    </button>
     <ng-container *ngIf="chain.propriete">
-      <span class="sep">/</span>
-      <a (click)="goToLevel('affaire')" [class.active]="level==='affaire'">{{ itemLabel(chain.propriete, 'propriete') }}</a>
+      <i class="fas fa-chevron-right sep"></i>
+      <button class="crumb" [class.active]="level==='affaire'" (click)="goToLevel('affaire')">{{ itemLabel(chain.propriete, 'propriete') }}</button>
     </ng-container>
     <ng-container *ngIf="chain.affaire">
-      <span class="sep">/</span>
-      <a (click)="goToLevel('ssdgps')" [class.active]="level==='ssdgps'">{{ itemLabel(chain.affaire, 'affaire') }}</a>
+      <i class="fas fa-chevron-right sep"></i>
+      <button class="crumb" [class.active]="level==='ssdgps'" (click)="goToLevel('ssdgps')">{{ itemLabel(chain.affaire, 'affaire') }}</button>
     </ng-container>
     <ng-container *ngIf="chain.ssdgps">
-      <span class="sep">/</span>
-      <a [class.active]="level==='session'">{{ itemLabel(chain.ssdgps, 'ssdgps') }}</a>
+      <i class="fas fa-chevron-right sep"></i>
+      <button class="crumb active">{{ itemLabel(chain.ssdgps, 'ssdgps') }}</button>
     </ng-container>
   </nav>
 
-  <div class="level-header">
-    <h2>{{ levelTitle }}</h2>
-    <button class="btn btn-success" (click)="openCreate()"><i class="fas fa-plus-circle"></i> Ajouter</button>
+  <!-- En-tête de niveau -->
+  <header class="level-header">
+    <div class="level-title">
+      <span class="level-icon"><i class="fas" [ngClass]="levelIcon()"></i></span>
+      <div>
+        <h2>{{ levelTitle }}</h2>
+        <p class="subtitle" *ngIf="!loading">
+          <strong>Total : </strong>{{ items.length }} | <strong>Filtrés : </strong>{{ filteredItems.length }} | <strong>Sélectionnés : </strong>{{ selectedCount }}
+        </p>
+      </div>
+    </div>
+    <button class="btn btn-success" *ngIf="!showDeleted" (click)="openCreate()"><i class="fas fa-plus-circle"></i> Ajouter</button>
+  </header>
+
+  <!-- Onglets Actifs / Corbeille -->
+  <div class="level-tabs">
+    <button class="level-tab" [class.active]="!showDeleted" (click)="setTab(false)">
+      <i class="fas fa-layer-group"></i> Actifs <span class="tab-count">{{ activeCount }}</span>
+    </button>
+    <button class="level-tab deleted" [class.active]="showDeleted" (click)="setTab(true)">
+      <i class="fas fa-trash-restore"></i> Corbeille <span class="tab-count">{{ deletedCount }}</span>
+    </button>
   </div>
 
-  <div class="loading" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+  <!-- Barre d'outils du niveau -->
+  <div class="level-toolbar" *ngIf="!loading">
+    <div class="toolbar-group">
+      <button class="icon-tool" (click)="toggleSelectAll()" title="Tout sélectionner / désélectionner">
+        <i class="fas" [class.fa-check-double]="!isAllSelected" [class.fa-times]="isAllSelected"></i>
+      </button>
+      <button class="icon-tool" (click)="invertSelection()" title="Inverser la sélection">
+        <i class="fas fa-exchange-alt"></i>
+      </button>
+      <button class="icon-tool" (click)="toggleSort()" [title]="sortDirection === 'asc' ? 'Tri croissant (cliquer pour inverser)' : 'Tri décroissant (cliquer pour inverser)'">
+        <i class="fas" [class.fa-sort-alpha-down]="sortDirection === 'asc'" [class.fa-sort-alpha-up]="sortDirection === 'desc'"></i>
+      </button>
 
-  <ul class="item-list" *ngIf="!loading">
-    <li *ngFor="let it of items" class="item" [class.leaf]="isLeaf()" (click)="descend(it)">
-      <span class="label">
-        <i class="fas" [class.fa-map-marker-alt]="level==='propriete'" [class.fa-file-signature]="level==='affaire'"
-           [class.fa-satellite-dish]="level==='ssdgps'" [class.fa-clock]="level==='session'"></i>
-        {{ itemLabel(it) }}
-        <small class="meta" *ngIf="level==='affaire'">
-          {{ it.nature_procedure_affaire }} · {{ natureLabel(it.nature_affaire) }}
+      <div class="toolbar-sep"></div>
+
+      <button class="btn btn-danger sm" *ngIf="!showDeleted" [disabled]="selectedCount === 0" (click)="openBulkDelete()" title="Supprimer la sélection">
+        <i class="fas fa-trash"></i> <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
+      </button>
+      <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount === 0" (click)="openBulkRestoreModal()" title="Restaurer la sélection">
+        <i class="fas fa-undo"></i> Restaurer <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
+      </button>
+    </div>
+
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" placeholder="Filtrer ce niveau…" [(ngModel)]="searchText">
+      <button *ngIf="searchText" class="clear-btn" (click)="searchText=''"><i class="fas fa-times"></i></button>
+    </div>
+  </div>
+
+  <!-- Chargement -->
+  <div class="loading-state" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i><span>Chargement…</span></div>
+
+  <!-- Liste des éléments -->
+  <div class="items" *ngIf="!loading">
+    <div *ngFor="let it of filteredItems"
+         class="item-card"
+         [class.leaf]="isLeaf()"
+         [class.selected]="isSelected(it)"
+         [class.deleted]="it.is_deleted"
+         (click)="descend(it)"
+         (contextmenu)="onItemRightClick($event, it)">
+      <label class="item-check" (click)="$event.stopPropagation()">
+        <input type="checkbox" [checked]="isSelected(it)" (change)="toggleSelect(it, $event)">
+      </label>
+      <span class="item-icon"><i class="fas" [ngClass]="levelIcon()"></i></span>
+      <div class="item-main">
+        <span class="item-label">
+          {{ itemLabel(it) }}
+          <span class="deleted-badge" *ngIf="it.is_deleted"><i class="fas fa-trash"></i> Supprimé</span>
+        </span>
+        <span class="item-meta" *ngIf="level==='affaire'">
+          <span class="tag">{{ it.nature_procedure_affaire }}</span>
+          {{ natureLabel(it.nature_affaire) }}
           <ng-container *ngIf="it.date_bornage"> · bornage {{ it.date_bornage }}</ng-container>
-        </small>
-        <small class="meta" *ngIf="level==='ssdgps'">{{ it.type_ssdgps }} · {{ it.sessions_count ?? 0 }} session(s)</small>
-        <small class="meta" *ngIf="level==='session' && it.date_session"> {{ it.date_session }}</small>
-      </span>
-      <span class="row-actions">
-        <button class="icon-btn" title="Modifier" (click)="openEdit(it, $event)"><i class="fas fa-pen"></i></button>
-        <button class="icon-btn danger" title="Supprimer" (click)="remove(it, $event)"><i class="fas fa-trash"></i></button>
-        <i class="fas fa-chevron-right chev" *ngIf="!isLeaf()"></i>
-      </span>
-    </li>
-    <li *ngIf="items.length === 0" class="empty">Aucun élément à ce niveau.</li>
-  </ul>
+        </span>
+        <span class="item-meta" *ngIf="level==='ssdgps'">
+          <span class="tag">{{ it.type_ssdgps }}</span> {{ it.sessions_count ?? 0 }} session(s)
+        </span>
+        <span class="item-meta" *ngIf="level==='session' && it.date_session">{{ it.date_session }}</span>
+      </div>
+      <div class="item-actions" (click)="$event.stopPropagation()">
+        <button class="icon-btn" title="Modifier" *ngIf="!it.is_deleted" (click)="openEdit(it, $event)"><i class="fas fa-pen"></i></button>
+        <button class="icon-btn danger" title="Supprimer" *ngIf="!it.is_deleted" (click)="openDeleteModal(it, $event)"><i class="fas fa-trash-alt"></i></button>
+        <button class="icon-btn restore" title="Restaurer" *ngIf="it.is_deleted" (click)="openRestoreModal(it); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+      </div>
+      <i class="fas fa-chevron-right chev" *ngIf="!isLeaf() && !it.is_deleted"></i>
+    </div>
+
+    <div class="empty-state" *ngIf="items.length === 0 && !showDeleted">
+      <i class="fas" [ngClass]="levelIcon()"></i>
+      <p>Aucun élément</p>
+      <span *ngIf="childLabel()">Ajoutez une {{ childLabel() }} à ce niveau.</span>
+      <button class="btn btn-success" (click)="openCreate()"><i class="fas fa-plus-circle"></i> Ajouter</button>
+    </div>
+    <div class="empty-state" *ngIf="items.length === 0 && showDeleted">
+      <i class="fas fa-trash-restore"></i>
+      <p>Corbeille vide</p>
+      <span>Aucun élément supprimé à ce niveau.</span>
+    </div>
+    <div class="empty-state" *ngIf="items.length > 0 && filteredItems.length === 0">
+      <i class="fas fa-search"></i>
+      <p>Aucun résultat</p>
+      <span>Aucun élément ne correspond à « {{ searchText }} ».</span>
+    </div>
+  </div>
+</div>
+
+<!-- Menu contextuel -->
+<div class="context-menu"
+     *ngIf="showContextMenu"
+     [style.top.px]="contextMenuPosition.y"
+     [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="toggleSelectFromContext()">
+    <i class="fas" [class.fa-check-square]="contextMenuItem && isSelected(contextMenuItem)" [class.fa-square]="!contextMenuItem || !isSelected(contextMenuItem)"></i>
+    <span>{{ contextMenuItem && isSelected(contextMenuItem) ? 'Désélectionner' : 'Sélectionner' }}</span>
+  </div>
+  <div class="context-menu-divider" *ngIf="!isLeaf() && contextMenuItem && !contextMenuItem.is_deleted"></div>
+  <div class="context-menu-item" *ngIf="!isLeaf() && contextMenuItem && !contextMenuItem.is_deleted" (click)="openFromContext()">
+    <i class="fas fa-folder-open"></i>
+    <span>Ouvrir</span>
+  </div>
+  <div class="context-menu-item" *ngIf="contextMenuItem && !contextMenuItem.is_deleted" (click)="openEditFromContext()">
+    <i class="fas fa-edit"></i>
+    <span>Modifier</span>
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item context-menu-item-danger" *ngIf="contextMenuItem && !contextMenuItem.is_deleted" (click)="openDeleteFromContext()">
+    <i class="fas fa-trash"></i>
+    <span>Supprimer</span>
+  </div>
+  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuItem?.is_deleted" (click)="openRestoreFromContext()">
+    <i class="fas fa-undo"></i>
+    <span>Restaurer</span>
+  </div>
 </div>
 
 <!-- Modale de saisie -->
 <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <h3>{{ editing ? 'Modifier' : 'Ajouter' }} — {{ levelTitle }}</h3>
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas" [ngClass]="levelIcon()"></i></span>
+        <h3>{{ editing ? 'Modifier' : 'Ajouter' }} — {{ levelTitle }}</h3>
+      </div>
+      <button class="close-btn" (click)="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+
     <form [formGroup]="form" (ngSubmit)="submit()" [ngSwitch]="level">
+      <div class="modal-body">
 
-      <!-- Propriété -->
-      <ng-container *ngSwitchCase="'propriete'">
-        <label>Propriété-dite *</label>
-        <input type="text" formControlName="nom_propriete">
-        <label>Réquisition</label>
-        <input type="text" formControlName="id_requisition" placeholder="R19000/55">
-        <label>Titre foncier</label>
-        <input type="text" formControlName="id_titre" placeholder="T12345/A">
-        <p class="hint">Renseignez au moins la réquisition ou le titre.</p>
-      </ng-container>
-
-      <!-- Affaire (formulaire dynamique) -->
-      <ng-container *ngSwitchCase="'affaire'">
-        <label>Numéro du SD *</label>
-        <input type="number" formControlName="numero_sd_affaire">
-        <label>Nature de procédure *</label>
-        <select formControlName="nature_procedure_affaire">
-          <option value="">Sélectionner…</option>
-          <option *ngFor="let o of procedureOptions" [value]="o.value">{{ o.label }}</option>
-        </select>
-        <label>Nature d'affaire *</label>
-        <select formControlName="nature_affaire">
-          <option value="">{{ availableNatures.length ? 'Sélectionner…' : 'Choisissez d\'abord la procédure' }}</option>
-          <option *ngFor="let n of availableNatures" [value]="n.value">{{ n.label }}</option>
-        </select>
-        <ng-container *ngIf="dateBornageRequired">
-          <label>Date de bornage / recollement *</label>
-          <input type="date" formControlName="date_bornage">
+        <!-- Propriété -->
+        <ng-container *ngSwitchCase="'propriete'">
+          <div class="form-group">
+            <label>Propriété-dite <span class="req">*</span></label>
+            <input type="text" formControlName="nom_propriete" placeholder="Nom de la propriété">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Réquisition</label>
+              <input type="text" formControlName="id_requisition" placeholder="R19000/55">
+            </div>
+            <div class="form-group">
+              <label>Titre foncier</label>
+              <input type="text" formControlName="id_titre" placeholder="T12345/A">
+            </div>
+          </div>
+          <p class="form-hint"><i class="fas fa-info-circle"></i> Renseignez au moins la réquisition ou le titre.</p>
         </ng-container>
-        <p class="hint" *ngIf="!dateBornageRequired && form.value.nature_procedure_affaire">
-          Date de bornage non applicable pour cette procédure (IFE/IFR).
-        </p>
-      </ng-container>
 
-      <!-- SSDGPS -->
-      <ng-container *ngSwitchCase="'ssdgps'">
-        <label>Nature du SSDGPS *</label>
-        <select formControlName="nature_ssdgps">
-          <option value="">Sélectionner…</option>
-          <option *ngFor="let o of natureSsdgpsOptions" [value]="o.value">{{ o.label }}</option>
-        </select>
-        <label>Numéro du SSDGPS *</label>
-        <input type="number" formControlName="numero_ssdgps">
-        <label>Type *</label>
-        <select formControlName="type_ssdgps">
-          <option *ngFor="let o of typeSsdgpsOptions" [value]="o.value">{{ o.label }}</option>
-        </select>
-        <p class="hint">Un SSDGPS mono-session reçoit automatiquement une session n°1.</p>
-      </ng-container>
+        <!-- Affaire (dynamique) -->
+        <ng-container *ngSwitchCase="'affaire'">
+          <div class="form-group">
+            <label>Numéro du SD <span class="req">*</span></label>
+            <input type="number" formControlName="numero_sd_affaire" placeholder="1">
+          </div>
+          <div class="form-group">
+            <label>Nature de procédure <span class="req">*</span></label>
+            <select formControlName="nature_procedure_affaire">
+              <option value="">Sélectionner…</option>
+              <option *ngFor="let o of procedureOptions" [value]="o.value">{{ o.label }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nature d'affaire <span class="req">*</span></label>
+            <select formControlName="nature_affaire">
+              <option value="">{{ availableNatures.length ? 'Sélectionner…' : 'Choisissez d\'abord la procédure' }}</option>
+              <option *ngFor="let n of availableNatures" [value]="n.value">{{ n.label }}</option>
+            </select>
+          </div>
+          <div class="form-group" *ngIf="dateBornageRequired">
+            <label>Date de bornage / recollement <span class="req">*</span></label>
+            <input type="date" formControlName="date_bornage">
+          </div>
+          <p class="form-hint" *ngIf="!dateBornageRequired && form.value.nature_procedure_affaire">
+            <i class="fas fa-info-circle"></i> Date de bornage non applicable (procédures IFE/IFR).
+          </p>
+        </ng-container>
 
-      <!-- Session -->
-      <ng-container *ngSwitchCase="'session'">
-        <label>Numéro de session *</label>
-        <input type="number" formControlName="numero_session">
-        <label>Date de la session</label>
-        <input type="date" formControlName="date_session">
-      </ng-container>
+        <!-- SSDGPS -->
+        <ng-container *ngSwitchCase="'ssdgps'">
+          <div class="form-group">
+            <label>Nature du SSDGPS <span class="req">*</span></label>
+            <select formControlName="nature_ssdgps">
+              <option value="">Sélectionner…</option>
+              <option *ngFor="let o of natureSsdgpsOptions" [value]="o.value">{{ o.label }}</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Numéro <span class="req">*</span></label>
+              <input type="number" formControlName="numero_ssdgps" placeholder="1">
+            </div>
+            <div class="form-group">
+              <label>Type <span class="req">*</span></label>
+              <select formControlName="type_ssdgps">
+                <option *ngFor="let o of typeSsdgpsOptions" [value]="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+          </div>
+          <p class="form-hint"><i class="fas fa-info-circle"></i> Un SSDGPS mono-session reçoit automatiquement une session n°1.</p>
+        </ng-container>
 
-      <div class="modal-actions">
+        <!-- Session -->
+        <ng-container *ngSwitchCase="'session'">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Numéro de session <span class="req">*</span></label>
+              <input type="number" formControlName="numero_session" placeholder="1">
+            </div>
+            <div class="form-group">
+              <label>Date de la session</label>
+              <input type="date" formControlName="date_session">
+            </div>
+          </div>
+        </ng-container>
+
+      </div>
+
+      <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="closeModal()">Annuler</button>
         <button type="submit" class="btn btn-primary" [disabled]="form.invalid || submitting">
+          <i class="fas" [ngClass]="submitting ? 'fa-spinner fa-spin' : 'fa-check'"></i>
           {{ submitting ? 'Enregistrement…' : 'Enregistrer' }}
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modale confirmation suppression -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left">
+        <span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span>
+        <h3>Confirmer la suppression</h3>
+      </div>
+      <button class="close-btn" (click)="closeDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" *ngIf="isBulkDelete">Supprimer <strong>{{ selectedCount }} élément(s)</strong> sélectionné(s) ?</p>
+      <p class="confirm-text" *ngIf="!isBulkDelete && deleteTarget">Supprimer <strong>« {{ itemLabel(deleteTarget) }} »</strong> ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Suppression logique — les données sont conservées et peuvent être restaurées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeDeleteModal()" [disabled]="deleting">Annuler</button>
+      <button class="btn btn-danger" (click)="confirmDelete()" [disabled]="deleting">
+        <i class="fas" [ngClass]="deleting ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+        {{ deleting ? 'Suppression…' : 'Supprimer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale confirmation restauration -->
+<div class="modal-overlay" *ngIf="showRestoreModal" (click)="closeRestoreModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header success">
+      <div class="modal-header-left">
+        <span class="header-icon success"><i class="fas fa-undo"></i></span>
+        <h3>Restaurer</h3>
+      </div>
+      <button class="close-btn" (click)="closeRestoreModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" *ngIf="isBulkRestore">Restaurer <strong>{{ selectedCount }} élément(s)</strong> sélectionné(s) ?</p>
+      <p class="confirm-text" *ngIf="!isBulkRestore && restoreTarget">Restaurer <strong>« {{ itemLabel(restoreTarget) }} »</strong> ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> L'élément sera à nouveau visible et modifiable.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeRestoreModal()" [disabled]="restoring">Annuler</button>
+      <button class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
+        <i class="fas" [ngClass]="restoring ? 'fa-spinner fa-spin' : 'fa-undo'"></i>
+        {{ restoring ? 'Restauration…' : 'Restaurer' }}
+      </button>
+    </div>
   </div>
 </div>

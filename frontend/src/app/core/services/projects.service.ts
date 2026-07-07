@@ -29,34 +29,52 @@ export class ProjectsService {
     );
   }
 
+  private restore<T>(resource: string, id: string): Observable<T> {
+    return this.http.post<T>(`${this.base}${resource}/${id}/restore/`, {});
+  }
+
+  private bulkRestore(resource: string, ids: string[]): Observable<{ restored_count: number }> {
+    return this.http.post<{ restored_count: number }>(`${this.base}${resource}/bulk-restore/`, { ids });
+  }
+
   // --- Projets ---
   getProjets(params?: Record<string, any>): Observable<Projet[]> { return this.list('projets', params); }
   getProjet(id: string): Observable<Projet> { return this.http.get<Projet>(`${this.base}projets/${id}/`); }
   createProjet(p: Partial<Projet>): Observable<Projet> { return this.http.post<Projet>(`${this.base}projets/`, p); }
   updateProjet(id: string, p: Partial<Projet>): Observable<Projet> { return this.http.patch<Projet>(`${this.base}projets/${id}/`, p); }
   deleteProjet(id: string): Observable<void> { return this.http.delete<void>(`${this.base}projets/${id}/`); }
+  restoreProjet(id: string): Observable<Projet> { return this.restore('projets', id); }
+  bulkRestoreProjets(ids: string[]): Observable<{ restored_count: number }> { return this.bulkRestore('projets', ids); }
 
   // --- Propriétés ---
-  getProprietes(projetId: string): Observable<Propriete[]> { return this.list('proprietes', { projet: projetId }); }
+  getProprietes(projetId: string, params?: Record<string, any>): Observable<Propriete[]> { return this.list('proprietes', { projet: projetId, ...params }); }
   createPropriete(p: Partial<Propriete>): Observable<Propriete> { return this.http.post<Propriete>(`${this.base}proprietes/`, p); }
   updatePropriete(id: string, p: Partial<Propriete>): Observable<Propriete> { return this.http.patch<Propriete>(`${this.base}proprietes/${id}/`, p); }
   deletePropriete(id: string): Observable<void> { return this.http.delete<void>(`${this.base}proprietes/${id}/`); }
+  restorePropriete(id: string): Observable<Propriete> { return this.restore('proprietes', id); }
+  bulkRestoreProprietes(ids: string[]): Observable<{ restored_count: number }> { return this.bulkRestore('proprietes', ids); }
 
   // --- Affaires ---
-  getAffaires(proprieteId: string): Observable<Affaire[]> { return this.list('affaires', { propriete: proprieteId }); }
+  getAffaires(proprieteId: string, params?: Record<string, any>): Observable<Affaire[]> { return this.list('affaires', { propriete: proprieteId, ...params }); }
   createAffaire(a: Partial<Affaire>): Observable<Affaire> { return this.http.post<Affaire>(`${this.base}affaires/`, a); }
   updateAffaire(id: string, a: Partial<Affaire>): Observable<Affaire> { return this.http.patch<Affaire>(`${this.base}affaires/${id}/`, a); }
   deleteAffaire(id: string): Observable<void> { return this.http.delete<void>(`${this.base}affaires/${id}/`); }
+  restoreAffaire(id: string): Observable<Affaire> { return this.restore('affaires', id); }
+  bulkRestoreAffaires(ids: string[]): Observable<{ restored_count: number }> { return this.bulkRestore('affaires', ids); }
 
   // --- SSDGPS ---
-  getSsdgps(affaireId: string): Observable<Ssdgps[]> { return this.list('ssdgps', { affaire: affaireId }); }
+  getSsdgps(affaireId: string, params?: Record<string, any>): Observable<Ssdgps[]> { return this.list('ssdgps', { affaire: affaireId, ...params }); }
   createSsdgps(s: Partial<Ssdgps>): Observable<Ssdgps> { return this.http.post<Ssdgps>(`${this.base}ssdgps/`, s); }
   updateSsdgps(id: string, s: Partial<Ssdgps>): Observable<Ssdgps> { return this.http.patch<Ssdgps>(`${this.base}ssdgps/${id}/`, s); }
   deleteSsdgps(id: string): Observable<void> { return this.http.delete<void>(`${this.base}ssdgps/${id}/`); }
+  restoreSsdgps(id: string): Observable<Ssdgps> { return this.restore('ssdgps', id); }
+  bulkRestoreSsdgps(ids: string[]): Observable<{ restored_count: number }> { return this.bulkRestore('ssdgps', ids); }
 
   // --- Sessions ---
-  getSessions(ssdgpsId: string): Observable<Session[]> { return this.list('sessions', { ssdgps: ssdgpsId }); }
+  getSessions(ssdgpsId: string, params?: Record<string, any>): Observable<Session[]> { return this.list('sessions', { ssdgps: ssdgpsId, ...params }); }
   createSession(s: Partial<Session>): Observable<Session> { return this.http.post<Session>(`${this.base}sessions/`, s); }
   updateSession(id: string, s: Partial<Session>): Observable<Session> { return this.http.patch<Session>(`${this.base}sessions/${id}/`, s); }
   deleteSession(id: string): Observable<void> { return this.http.delete<void>(`${this.base}sessions/${id}/`); }
+  restoreSession(id: string): Observable<Session> { return this.restore('sessions', id); }
+  bulkRestoreSessions(ids: string[]): Observable<{ restored_count: number }> { return this.bulkRestore('sessions', ids); }
 }

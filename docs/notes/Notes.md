@@ -2,68 +2,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -110,6 +48,7 @@
   - [Phase Developpement de l'app dans Claude Code.](#phase-developpement-de-lapp-dans-claude-code)
     - [Plan des taches a faire](#plan-des-taches-a-faire)
     - [maj du plan de developpement de l'app](#maj-du-plan-de-developpement-de-lapp)
+    - [finalisation liste projets + projet explorer](#finalisation-liste-projets-projet-explorer)
 
 # Taches a faire
   - Divers
@@ -122,7 +61,10 @@
     - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs  (fait)
 
     - implementer les tests backend + frontend de la gestion des utilisateurs
-  - gestion des projets/proprietes/affaires/ssd-gps
+  - gestion (CRUD) des projets/proprietes/affaires/ssd-gps/sessions
+     - 
+  - configuration des pieces du ssdgps
+  - import des donneees des pieces 
     - gestion des ssd-gps mono-session
     - gestion des ssd-gps multi-sessions
       
@@ -580,8 +522,18 @@ Quelle solution propose tu pour ajouter la possibiliter de recuperer les comptes
 ## Phase Developpement de l'app dans Claude Code.
 
 ### Plan des taches a faire
-  - maj du plan de developpement de l'app
-    - validation choix du moteur de rendu 
+  - maj du plan de developpement de l'app (fait)
+  - finalisation liste projets + projet explorer:
+    - generation des donnees tests pour agents agent1/2/3@sdgps.ma
+    - separation elements actifs de ceux supprimes dans l'explorateur (Propriété → Affaire → SSDGPS → Session).
+
+  - Harmoniser les methodes d'ajout des donnees tests : 
+    - Migrations automatiques (RunPython) — exécutées par migrate
+    - Commandes de gestion manuelles : python manage.py seed_test_users / python manage.py seed_demo_orgs
+    - Fixture JSON (loaddata) : python manage.py loaddata backup_real_orgs.json (25 organisations)
+
+
+  - Validation choix du moteur de rendu de generation des fichiers pdf.
 
 
 ### maj du plan de developpement de l'app
@@ -671,3 +623,34 @@ La liste des pieces qui peuvent etre incluses dans un rapport du ssdgps sont les
 Des exemples de rapports PDF des quatres natures des SSDGPS sont fournies en pieces jointes.
 
 D'apres cette description de l'app. adapte le plan de developpement de l'app dans docs/plans/PLAN_DEV.md en y ajoutant les phases et etapes necessaires pour implementer les fonctionnalites manquantes dans l'app. n'hesiter pas a me poser les questions necessaires pour clarifier les points ambigues ou manquants.
+
+
+implementons la Phase 5 — Domaine métier & saisie des données. n'hesiter pas a me poser les questions necessaires pour clarifier les points ambigues ou manquants. et en meme temps maj le plan de dev dans docs/plans/PLAN_DEV.md avec ces clarifications.
+
+
+
+### finalisation liste projets + projet explorer
+
+corrige le style et design des pages de la fonctionnalite menu Projets → liste + explorateur (Propriété → Affaire → SSDGPS → Session) en mettant le tout dans un style élégant, pro et conforme au design System de l'app.
+
+ajoute les outils suivantes : 
+  - outils de selection : selectionner tout, deselectionner tout, inverser la selection, deplacer la selection en haut.
+  - afficher les stats : total, filtres, selectionnes dans le titre de la page.
+  - formatter la boite de dialoguer organiser les colonnes pour qu'elle soient identique a cette de la page de la liste des utilisateurs.
+  - Ajouter l'option supprimes dans le menu tous les statut avec possibilite de recuperer les projets supprimes.
+  - Ajouter les autres outils manquantes dans la barre des outils du tableau.
+  - ajouter les outils de filtrage dans la partie gauche du footer du tableau.
+  - ajouter les options de tri et de filtrage sur les colonnes du tableau.
+  - ajouter le menu contextuel du clique droit sur les colonnnes et les lignes du tableau.
+  - ajouter les outiles importantes pour la navigation dans l'explorateur (Propriété → Affaire → SSDGPS → Session)
+le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige les points suivants:
+  - lorsque aucun projet n'est present dans le tableau liste des projets. l'icon projet doit etre centree avec le texte dans le centre de la zone des lignes dans le tableau
+  - outils pour afficher et restaurer les elements supprimes dans l'explorateur (Propriété → Affaire → SSDGPS → Session).
+  - ajouter des donnees de tests seed de projets et pour les  entitees  : Propriété → Affaire → SSDGPS → Session, de tellesorte que si la bdd est reinitialisee ces donnees sont ajoutees dans la bdd apres reinitialisation. ces donnees de tests doivent etre ignorees si deja presents dans la bdd.
+
+Les donnees de tests doivent etres ajoutees pour les utilisateurs suivantes : agent1@sdgps.ma / agent2@sdgps.ma / agent3@sdgps.ma. ces donnees doivent contenir entre 3-4 projets, 3-4 proprietees par projets, 3-4 affaires par propriete. 3-4 ssdgps par affaire, 1-4 sessions par ssdgps. ne rien tester juste ajoute ces donnees de tests dans la bdd et faire en sorte que ces donnees s'ajoute dans la bdd apres une reinitialisation de la bdd.
+
+Que pense tu de mettre les elements actifs de l'explorateur (Propriété → Affaire → SSDGPS → Session) dans un onglet par defaut et ceux supprimes dans un autre onglet pour une meilleure UI/UX. si tu a une meilleur idee plus intuitive pour separer les elements actifs de ceux supprimes propose la pour moi.

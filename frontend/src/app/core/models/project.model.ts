@@ -17,6 +17,8 @@ export interface Projet {
   proprietes_count?: number;
   created_at?: string;
   updated_at?: string;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 export interface Propriete {
@@ -25,6 +27,8 @@ export interface Propriete {
   id_requisition?: string;
   id_titre?: string;
   projet: string;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 export type NatureProcedure =
@@ -42,6 +46,8 @@ export interface Affaire {
   nature_affaire: NatureAffaire;
   date_bornage?: string | null;
   propriete: string;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 export type NatureSsdgps = 'PDC/GPS' | 'DDC/GPS' | 'PLC/GPS' | 'DLC/GPS';
@@ -54,6 +60,8 @@ export interface Ssdgps {
   type_ssdgps: TypeSsdgps;
   affaire: string;
   sessions_count?: number;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 export interface Session {
@@ -61,6 +69,8 @@ export interface Session {
   ssdgps: string;
   numero_session: number;
   date_session?: string | null;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
 }
 
 // --- Options / libellés pour les <select> -----------------------------------
