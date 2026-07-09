@@ -1,0 +1,30 @@
+﻿c,c,C,C,c,c,C,c,c,c,C,C
+ID,Point,Heure Début,Heure Fin,Durée,Type,Fichier,Epoques,Cadence,Haut. Ant. (m),Antenne,Réf. antenne
+1,SY8,04/11/2022 12:59:38,04/11/2022 18:28:44,05:29:07,Statique,2084308m59.22o,19746,00:00:01,1.360,Externe inconnu,Centre de phase de l'antenne
+2,SY8,21/10/2022 10:55:27,21/10/2022 18:33:00,07:37:34,Statique,9378294k55.22o,27454,00:00:01,1.780,Externe inconnu,Centre de phase de l'antenne
+3,SY5,04/11/2022 13:36:07,04/11/2022 17:51:41,04:15:35,Statique,9378308n36.22o,15335,00:00:01,1.840,Externe inconnu,Centre de phase de l'antenne
+4,SY5,21/10/2022 11:34:00,21/10/2022 17:45:13,06:11:14,Statique,2084294l34.22o,22274,00:00:01,1.220,Externe inconnu,Centre de phase de l'antenne
+5,SY2,21/10/2022 15:40:46,21/10/2022 16:04:52,00:24:07,Statique,3489980294P.22o,1447,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+6,se13,04/11/2022 16:30:48,04/11/2022 16:33:52,00:03:05,Arrêt et marche,D2R19046308O1.22o,185,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+7,se12,04/11/2022 16:27:19,04/11/2022 16:30:23,00:03:05,Arrêt et marche,D2R19046308O1.22o,185,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+8,se11,04/11/2022 16:16:30,04/11/2022 16:19:34,00:03:05,Arrêt et marche,D2R19046308O1.22o,185,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+9,se10,04/11/2022 16:10:04,04/11/2022 16:13:07,00:03:04,Arrêt et marche,D2R19046308O1.22o,184,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+10,se9,04/11/2022 16:01:37,04/11/2022 16:04:42,00:03:06,Arrêt et marche,D2R19046308O1.22o,186,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+11,se8,04/11/2022 15:54:38,04/11/2022 15:57:41,00:03:04,Arrêt et marche,D2R19046308O1.22o,184,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+12,se7,04/11/2022 15:51:15,04/11/2022 15:54:19,00:03:05,Arrêt et marche,D2R19046308O1.22o,185,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+13,se6,04/11/2022 15:47:56,04/11/2022 15:51:06,00:03:11,Arrêt et marche,D2R19046308O1.22o,191,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+14,se5,04/11/2022 15:44:43,04/11/2022 15:47:49,00:03:07,Arrêt et marche,D2R19046308O1.22o,187,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+15,se4,04/11/2022 15:41:16,04/11/2022 15:44:20,00:03:05,Arrêt et marche,D2R19046308O1.22o,185,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+16,se3,04/11/2022 15:37:33,04/11/2022 15:41:07,00:03:35,Arrêt et marche,D2R19046308O1.22o,215,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+17,se2,04/11/2022 15:34:14,04/11/2022 15:37:18,00:03:05,Arrêt et marche,D2R19046308O1.22o,185,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+18,se1,04/11/2022 15:30:15,04/11/2022 15:33:56,00:03:42,Arrêt et marche,D2R19046308O1.22o,222,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+19,cour2,04/11/2022 15:19:05,04/11/2022 15:22:12,00:03:08,Arrêt et marche,D2R19046308O1.22o,188,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+20,cour1,04/11/2022 15:15:30,04/11/2022 15:18:41,00:03:12,Arrêt et marche,D2R19046308O1.22o,192,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+21,B39853,04/11/2022 15:05:29,04/11/2022 15:08:34,00:03:06,Arrêt et marche,D2R19046308O1.22o,186,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+22,B2Rf-R58182,04/11/2022 14:30:12,04/11/2022 14:33:14,00:03:03,Arrêt et marche,D2R19046308O1.22o,183,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+23,B2Rf-R57517,04/11/2022 14:23:03,04/11/2022 14:26:07,0:03:05,Arrêt et marche,D2R19046308O1.22o,185,0:00:01,2.000,Externe inconnu,Base du support d'antenne
+24,B2Rf,04/11/2022 14:46:25,04/11/2022 14:49:29,0:03:05,Arrêt et marche,D2R19046308O1.22o,185,0:00:01,2.000,Externe inconnu,Base du support d'antenne
+25,B1Rf-R57517,04/11/2022 14:18:00,04/11/2022 14:21:03,0:03:04,Arrêt et marche,D2R19046308O1.22o,184,0:00:01,2.000,Externe inconnu,Base du support d'antenne
+26,B1Rf-R57031,04/11/2022 14:57:30,04/11/2022 15:00:38,0:03:09,Arrêt et marche,D2R19046308O1.22o,189,0:00:01,2.000,Externe inconnu,Base du support d'antenne
+27,B1Rf,04/11/2022 14:35:07,04/11/2022 14:38:10,0:03:04,Arrêt et marche,D2R19046308O1.22o,184,0:00:01,2.000,Externe inconnu,Base du support d'antenne
+28,Amandier1,04/11/2022 16:34:52,04/11/2022 16:38:47,0:03:56,Arrêt et marche,D2R19046308O1.22o,236,0:00:01,2.000,Externe inconnu,Base du support d'antenne

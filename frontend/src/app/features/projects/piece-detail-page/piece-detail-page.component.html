@@ -1,0 +1,31 @@
+<div class="piece-page" *ngIf="piece && ssdgps">
+  <nav class="page-crumb">
+    <button class="crumb-back" (click)="backToList()">
+      <i class="fas fa-arrow-left"></i> Retour aux pièces
+    </button>
+    <span class="crumb-title">
+      <i class="fas" [ngClass]="mode==='edit' ? 'fa-edit' : 'fa-eye'"></i>
+      {{ mode==='edit' ? 'Modifier' : 'Consulter' }} — {{ piece.type_piece }}<span *ngIf="piece.numero"> n°{{ piece.numero }}</span>
+    </span>
+    <button class="crumb-edit" *ngIf="mode==='view'" (click)="goToEdit()">
+      <i class="fas fa-edit"></i> Modifier
+    </button>
+  </nav>
+
+  <div class="page-body">
+    <app-piece-detail-modal
+      [embedded]="true"
+      [initialMode]="mode"
+      [piece]="piece"
+      [ssdgps]="ssdgps"
+      [sessions]="sessions"
+      [catalog]="catalog"
+      (saved)="onSaved($event)"
+      (closed)="backToList()">
+    </app-piece-detail-modal>
+  </div>
+</div>
+
+<div class="page-loading" *ngIf="loading && !piece">
+  <i class="fas fa-spinner fa-spin"></i> Chargement…
+</div>

@@ -8,7 +8,7 @@
     </button>
     <ng-container *ngIf="chain.propriete">
       <i class="fas fa-chevron-right sep"></i>
-      <button class="crumb" [class.active]="level==='affaire'" (click)="goToLevel('affaire')">{{ itemLabel(chain.propriete, 'propriete') }}</button>
+      <button class="crumb" [class.active]="level==='affaire'" (click)="goToLevel('affaire')">{{ proprieteBreadcrumbLabel(chain.propriete) }}</button>
     </ng-container>
     <ng-container *ngIf="chain.affaire">
       <i class="fas fa-chevron-right sep"></i>
@@ -16,7 +16,14 @@
     </ng-container>
     <ng-container *ngIf="chain.ssdgps">
       <i class="fas fa-chevron-right sep"></i>
-      <button class="crumb active">{{ itemLabel(chain.ssdgps, 'ssdgps') }}</button>
+      <button class="crumb" [class.active]="level === 'ssdgps'" (click)="goToLevel('ssdgps')">
+        {{ itemLabel(chain.ssdgps, 'ssdgps') }}
+      </button>
+    </ng-container>
+    <!-- Segment Sessions : uniquement au niveau session (multi-session) -->
+    <ng-container *ngIf="level === 'session'">
+      <i class="fas fa-chevron-right sep"></i>
+      <button class="crumb active"><i class="fas fa-clock"></i> Sessions</button>
     </ng-container>
   </nav>
 
@@ -158,10 +165,14 @@
         </span>
         <span class="item-meta" *ngIf="level==='ssdgps'">
           <span class="tag">{{ it.type_ssdgps }}</span> {{ it.nbr_total_sessions ?? 0 }} session(s)
+          <span class="tag">{{ it.nbr_total_pieces ?? 0 }} pièce(s)</span>
         </span>
-        <span class="item-meta" *ngIf="level==='session' && it.date_session">{{ it.date_session }}</span>
+        <span class="item-meta" *ngIf="level==='session'">
+          <ng-container *ngIf="it.date_session">{{ it.date_session }} · </ng-container>{{ it.nbr_total_pieces ?? 0 }} pièce(s)
+        </span>
       </div>
       <div class="item-actions" (click)="$event.stopPropagation()">
+        <button class="icon-btn" title="Pièces" *ngIf="(level==='ssdgps' || level==='session') && !it.is_deleted" (click)="openPieces(it, $event)"><i class="fas fa-paperclip"></i></button>
         <button class="icon-btn" title="Modifier" *ngIf="!it.is_deleted" (click)="openEdit(it, $event)"><i class="fas fa-pen"></i></button>
         <button class="icon-btn danger" title="Supprimer" *ngIf="!it.is_deleted" (click)="openDeleteModal(it, $event)"><i class="fas fa-trash-alt"></i></button>
         <button class="icon-btn restore" title="Restaurer" *ngIf="it.is_deleted" (click)="openRestoreModal(it); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
@@ -224,6 +235,7 @@
             </td>
             <td class="actions-col" (click)="$event.stopPropagation()">
               <button class="btn-icon" title="Ouvrir" *ngIf="!isLeaf() && !it.is_deleted" (click)="descend(it)"><i class="fas fa-folder-open"></i></button>
+              <button class="btn-icon" title="Pièces" *ngIf="(level==='ssdgps' || level==='session') && !it.is_deleted" (click)="openPieces(it, $event)"><i class="fas fa-paperclip"></i></button>
               <button class="btn-icon" title="Modifier" *ngIf="!it.is_deleted" (click)="openEdit(it, $event)"><i class="fas fa-edit"></i></button>
               <button class="btn-icon btn-icon-danger" title="Supprimer" *ngIf="!it.is_deleted" (click)="openDeleteModal(it, $event)"><i class="fas fa-trash"></i></button>
               <button class="btn-icon btn-icon-restore" title="Restaurer" *ngIf="it.is_deleted" (click)="openRestoreModal(it); $event.stopPropagation()"><i class="fas fa-undo"></i></button>

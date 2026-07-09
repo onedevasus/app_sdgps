@@ -212,6 +212,8 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
         return qs.annotate(
             nbr_total_sessions=Count(
                 'sessions', filter=Q(sessions__is_deleted=False), distinct=True),
+            nbr_total_pieces=Count(
+                'pieces', filter=Q(pieces__is_deleted=False), distinct=True),
         )
 
 
@@ -223,3 +225,9 @@ class SessionViewSet(BaseOrgScopedViewSet):
 
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['ssdgps'].affaire.propriete.projet.organization_id
+
+    def _annotate_counts(self, qs):
+        return qs.annotate(
+            nbr_total_pieces=Count(
+                'pieces', filter=Q(pieces__is_deleted=False), distinct=True),
+        )

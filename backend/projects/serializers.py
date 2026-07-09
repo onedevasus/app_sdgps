@@ -94,6 +94,7 @@ class AffaireSerializer(serializers.ModelSerializer):
 
 class SsdgpsSerializer(serializers.ModelSerializer):
     nbr_total_sessions = serializers.IntegerField(read_only=True)
+    nbr_total_pieces = serializers.IntegerField(read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     updated_by_email = serializers.EmailField(source='updated_by.email', read_only=True)
     deleted_by_email = serializers.EmailField(source='deleted_by.email', read_only=True)
@@ -102,13 +103,14 @@ class SsdgpsSerializer(serializers.ModelSerializer):
         model = Ssdgps
         fields = [
             'id', 'nature_ssdgps', 'numero_ssdgps', 'type_ssdgps', 'affaire',
-            'nbr_total_sessions', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+            'nbr_total_sessions', 'nbr_total_pieces', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
             'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
 
 class SessionSerializer(serializers.ModelSerializer):
+    nbr_total_pieces = serializers.IntegerField(read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     updated_by_email = serializers.EmailField(source='updated_by.email', read_only=True)
     deleted_by_email = serializers.EmailField(source='deleted_by.email', read_only=True)
@@ -116,7 +118,7 @@ class SessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Session
         fields = [
-            'id', 'ssdgps', 'numero_session', 'date_session',
+            'id', 'ssdgps', 'numero_session', 'date_session', 'nbr_total_pieces',
             'created_at', 'updated_at', 'is_deleted', 'deleted_at',
             'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]

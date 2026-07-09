@@ -81,6 +81,7 @@ export interface Ssdgps {
   type_ssdgps: TypeSsdgps;
   affaire: string;
   nbr_total_sessions?: number;
+  nbr_total_pieces?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;
@@ -95,6 +96,7 @@ export interface Session {
   ssdgps: string;
   numero_session: number;
   date_session?: string | null;
+  nbr_total_pieces?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;

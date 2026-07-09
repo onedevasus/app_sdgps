@@ -57,6 +57,7 @@ const COLUMNS_BY_LEVEL: Record<Level, ColumnConfig[]> = {
     { field: 'numero_ssdgps', label: 'Numéro', visible: true, type: 'number' },
     { field: 'type_ssdgps', label: 'Type', visible: true, type: 'text' },
     { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
+    { field: 'nbr_total_pieces', label: 'Pièces', visible: true, type: 'number' },
     { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
     { field: 'updated_at', label: 'Modifié le', visible: false, type: 'date' },
     { field: 'is_deleted', label: 'Supprimé', visible: false, type: 'boolean' },
@@ -68,6 +69,7 @@ const COLUMNS_BY_LEVEL: Record<Level, ColumnConfig[]> = {
   session: [
     { field: 'numero_session', label: 'N° Session', visible: true, type: 'number' },
     { field: 'date_session', label: 'Date session', visible: true, type: 'date' },
+    { field: 'nbr_total_pieces', label: 'Pièces', visible: true, type: 'number' },
     { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
     { field: 'updated_at', label: 'Modifié le', visible: false, type: 'date' },
     { field: 'is_deleted', label: 'Supprimé', visible: false, type: 'boolean' },
@@ -96,6 +98,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   nbr_total_affaires: 'Nombre total d\'affaires (SD) rattachées',
   nbr_total_ssdgps: 'Nombre total de SSDGPS rattachés',
   nbr_total_sessions: 'Nombre total de sessions rattachées',
+  nbr_total_pieces: 'Nombre total de pièces rattachées au rapport',
   numero_session: "Numéro d'ordre de la session",
   date_session: "Date de l'observation",
   created_at: "Date de création de l'enregistrement",
@@ -180,6 +183,27 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   isBulkRestore = false;
   restoring = false;
 
+  // Pièces (Phase 6.5) — page dédiée par SSDGPS
+  openPieces(item: any, ev: Event): void {
+    ev.stopPropagation();
+    const base = { proprieteId: this.chain.propriete?.id, affaireId: this.chain.affaire?.id };
+    if (this.level === 'ssdgps') {
+      if (item.type_ssdgps === 'mono-session') {
+        // Mono-session : accès direct aux pièces, aucune sélection de session intermédiaire
+        this.router.navigate(['pieces', item.id], { relativeTo: this.route, queryParams: base });
+      } else {
+        // Multi-session : descendre en liste sessions (même effet que clic carte)
+        this.descend(item);
+      }
+    } else if (this.level === 'session') {
+      // Session précise → passer ssdgpsId pour que goBack() revienne ici
+      this.router.navigate(['pieces', this.chain.ssdgps!.id], {
+        relativeTo: this.route,
+        queryParams: { ...base, session: item.id, ssdgpsId: this.chain.ssdgps!.id },
+      });
+    }
+  }
+
   // Modale de saisie
   showModal = false;
   editing: any = null;
@@ -215,9 +239,80 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
     document.addEventListener('click', this.boundHandleClickOutside);
 
     const id = this.route.snapshot.paramMap.get('id')!;
+    const proprieteId = this.route.snapshot.queryParamMap.get('proprieteId');
+    const affaireId = this.route.snapshot.queryParamMap.get('affaireId');
+    const ssdgpsId = this.route.snapshot.queryParamMap.get('ssdgpsId');
     this.service.getProjet(id).subscribe({
-      next: (p) => { this.projet = p; this.goToLevel('propriete'); },
+      next: (p) => {
+        this.projet = p;
+        if (proprieteId && affaireId && ssdgpsId) this.restoreToSessionLevel(proprieteId, affaireId, ssdgpsId);
+        else if (proprieteId && affaireId) this.restoreToSsdgpsLevel(proprieteId, affaireId);
+        else this.goToLevel('propriete');
+      },
       error: () => { this.toast.error('Erreur', 'Projet introuvable'); this.backToList(); },
+    });
+  }
+
+  /**
+   * Revient directement au niveau SSDGPS d'une affaire donnée (retour depuis la page
+   * dédiée des pièces, qui vit sur une route sœur de `:id` et ne peut donc pas
+   * reconstruire la chaîne propriété/affaire via une navigation relative `..`).
+   */
+  private restoreToSsdgpsLevel(proprieteId: string, affaireId: string): void {
+    this.service.getProprietes(this.projet!.id).subscribe({
+      next: (proprietes) => {
+        const propriete = proprietes.find(p => p.id === proprieteId);
+        if (!propriete) { this.goToLevel('propriete'); return; }
+        this.service.getAffaires(propriete.id).subscribe({
+          next: (affaires) => {
+            const affaire = affaires.find(a => a.id === affaireId);
+            if (!affaire) { this.goToLevel('propriete'); return; }
+            this.chain = { propriete, affaire };
+            this.level = 'ssdgps';
+            this.showDeleted = false;
+            this.resetLevelState();
+            this.loadLevel();
+          },
+          error: () => this.goToLevel('propriete'),
+        });
+      },
+      error: () => this.goToLevel('propriete'),
+    });
+  }
+
+  /** Restaure la chaîne jusqu'au niveau session (retour depuis la page pièces d'un SSDGPS multi-session). */
+  private restoreToSessionLevel(proprieteId: string, affaireId: string, ssdgpsId: string): void {
+    this.service.getProprietes(this.projet!.id).subscribe({
+      next: (proprietes) => {
+        const propriete = proprietes.find(p => p.id === proprieteId);
+        if (!propriete) { this.goToLevel('propriete'); return; }
+        this.service.getAffaires(propriete.id).subscribe({
+          next: (affaires) => {
+            const affaire = affaires.find(a => a.id === affaireId);
+            if (!affaire) { this.goToLevel('propriete'); return; }
+            this.service.getSsdgps(affaire.id).subscribe({
+              next: (ssdgpsList) => {
+                const ssdgps = ssdgpsList.find(s => s.id === ssdgpsId);
+                if (!ssdgps) {
+                  this.chain = { propriete, affaire };
+                  this.level = 'ssdgps';
+                  this.resetLevelState();
+                  this.loadLevel();
+                  return;
+                }
+                this.chain = { propriete, affaire, ssdgps };
+                this.level = 'session';
+                this.showDeleted = false;
+                this.resetLevelState();
+                this.loadLevel();
+              },
+              error: () => this.goToLevel('propriete'),
+            });
+          },
+          error: () => this.goToLevel('propriete'),
+        });
+      },
+      error: () => this.goToLevel('propriete'),
     });
   }
 
@@ -298,9 +393,15 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   }
 
   descend(item: any): void {
-    if (item.is_deleted) return; // ne pas naviguer dans un élément supprimé
+    if (item.is_deleted) return;
     const child = this.childOf(this.level);
-    if (!child) return; // session = feuille
+    if (!child) return;
+    // Mono-session : aller directement aux pièces (aucun niveau session intermédiaire)
+    if (this.level === 'ssdgps' && item.type_ssdgps === 'mono-session') {
+      const qp = { proprieteId: this.chain.propriete?.id, affaireId: this.chain.affaire?.id };
+      this.router.navigate(['pieces', item.id], { relativeTo: this.route, queryParams: qp });
+      return;
+    }
     if (this.level === 'propriete') this.chain.propriete = item;
     else if (this.level === 'affaire') this.chain.affaire = item;
     else if (this.level === 'ssdgps') this.chain.ssdgps = item;
@@ -351,12 +452,23 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
   itemLabel(item: any, level: Level = this.level): string {
     switch (level) {
-      case 'propriete': return item.nom_propriete + (item.id_requisition ? ` (${item.id_requisition})` : '');
+      case 'propriete': {
+        // Identifiant affiché : le titre foncier s'il existe, sinon la réquisition.
+        const idPropriete = item.id_titre || item.id_requisition;
+        return item.nom_propriete + (idPropriete ? ` (${idPropriete})` : '');
+      }
+      // Note : le fil d'Ariane utilise `proprieteBreadcrumbLabel` (identifiant seul).
       case 'affaire': return `SD ${item.numero_sd_affaire} — ${item.nature_affaire}`;
       case 'ssdgps': return `SSDGPS ${item.numero_ssdgps} (${item.nature_ssdgps})`;
       case 'session': return `Session ${item.numero_session}`;
       default: return '';
     }
+  }
+
+  /** Libellé de propriété pour le fil d'Ariane : uniquement l'identifiant
+   * (titre foncier s'il existe, sinon réquisition), sans le nom de la propriété. */
+  proprieteBreadcrumbLabel(item: any): string {
+    return item?.id_titre || item?.id_requisition || item?.nom_propriete || '';
   }
 
   natureLabel(v: string): string { return NATURE_AFFAIRE_LABELS[v as NatureAffaire] || v; }

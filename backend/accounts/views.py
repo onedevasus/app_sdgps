@@ -36,6 +36,7 @@ class RegisterView(APIView):
 
                 return Response({
                     'token': access_token,
+                    'refresh_token': str(refresh),
                     'user': {
                         'id': user.id,
                         'email': user.email,
@@ -124,6 +125,7 @@ class LoginView(APIView):
                     
                     return Response({
                         'token': access_token,
+                        'refresh_token': str(refresh),
                         'user': {
                             'id': authenticated_user.id,
                             'email': authenticated_user.email,

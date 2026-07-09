@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {BehaviorSubject, Observable, throwError} from 'rxjs';
-import {catchError, tap} from 'rxjs/operators';
+import {catchError, map, tap} from 'rxjs/operators';
 import {AuthResponse, RegisterPayload, UserRole} from '../../features/auth/models/user.model'; // Assurez-vous que le chemin est correct
 
 /**
@@ -50,9 +50,11 @@ export class AuthService {
         // Pourquoi: Appel HTTP POST pour envoyer les données d'inscription au backend.
         return this.http.post<AuthResponse>(`${API_URL}/register/`, payload).pipe(
             tap(response => {
-                // Pourquoi: Si l'API renvoie un token après l'inscription, l'utilisateur est connecté.
                 if (response && response.token) {
                     this.storeAuthToken(response.token);
+                    if (response.refresh_token) {
+                        localStorage.setItem('refreshToken', response.refresh_token);
+                    }
                     this.extractOrganizationInfo(response.token);
                     this.isAuthenticatedSubject.next(true);
                 }
@@ -72,20 +74,37 @@ export class AuthService {
      *              Vérifie si l'utilisateur doit changer son mot de passe.
      */
     login(credentials: any): Observable<AuthResponse> {
-        // Pourquoi: Appel HTTP POST pour envoyer les identifiants de connexion au backend.
         return this.http.post<AuthResponse>(`${API_URL}/login/`, credentials).pipe(
             tap(response => {
-                // Pourquoi: Stocker le token reçu et marquer l'utilisateur comme authentifié.
                 if (response && response.token) {
                     this.storeAuthToken(response.token);
+                    if (response.refresh_token) {
+                        localStorage.setItem('refreshToken', response.refresh_token);
+                    }
                     this.extractOrganizationInfo(response.token);
                     this.isAuthenticatedSubject.next(true);
-
-                    // Vérifier si l'utilisateur doit changer son mot de passe
                     this.checkPasswordChangeRequired(response.token);
                 }
             }),
             catchError(this.handleError)
+        );
+    }
+
+    refreshToken(): Observable<string> {
+        const refresh = localStorage.getItem('refreshToken');
+        if (!refresh) {
+            return throwError(() => new Error('Aucun refresh token disponible'));
+        }
+        return this.http.post<{access: string}>(`${API_URL}/token/refresh/`, {refresh}).pipe(
+            map(response => {
+                this.storeAuthToken(response.access);
+                this.extractOrganizationInfo(response.access);
+                return response.access;
+            }),
+            catchError(err => {
+                this.logout();
+                return throwError(() => err);
+            })
         );
     }
 
@@ -175,8 +194,8 @@ export class AuthService {
     logout(): void {
         console.log('🚪 AuthService: Déconnexion utilisateur...');
         
-        // Supprimer le token JWT du localStorage
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         

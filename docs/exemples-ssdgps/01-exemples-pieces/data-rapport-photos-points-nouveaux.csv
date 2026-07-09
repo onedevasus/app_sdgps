@@ -1,0 +1,5 @@
+﻿c,c,c,c,c,c,c,c
+ID,Nom Point,X(m),Y(m),Date Visite,Sytème Projection,Zone Projection,Fichier Image
+1,AZL1,   333 929.82 ,   120 469.08 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,AZL1.jpg
+2,AZL2,   340 336.12 ,   124 630.44 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,AZL2.jpg
+3,AZL3,   341 969.59 ,   119 956.67 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,AZL3.jpg

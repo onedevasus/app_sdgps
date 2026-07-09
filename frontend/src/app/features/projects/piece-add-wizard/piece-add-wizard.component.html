@@ -1,0 +1,151 @@
+<div [class.modal-overlay]="!embedded" (click)="!embedded && close()">
+  <div [class.modal-content]="!embedded" [class.embedded-content]="embedded" (click)="$event.stopPropagation()">
+    <div class="modal-header" *ngIf="!embedded">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-plus-circle"></i> Ajouter une pièce</h3>
+      </div>
+      <button class="close-btn" (click)="close()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="wizard-steps">
+      <span class="wizard-step" [class.active]="step==='type'" [class.done]="step!=='type'">1. Type</span>
+      <ng-container *ngIf="isMulti">
+        <i class="fas fa-chevron-right"></i>
+        <span class="wizard-step" [class.active]="step==='scope'" [class.done]="step==='source'">2. Session</span>
+      </ng-container>
+      <i class="fas fa-chevron-right"></i>
+      <span class="wizard-step" [class.active]="step==='source'">{{ isMulti ? '3' : '2' }}. Source</span>
+    </div>
+
+    <div class="modal-body">
+      <!-- Étape 1 : type -->
+      <div class="type-grid" *ngIf="step==='type'">
+        <button *ngFor="let def of applicableTypes" class="type-card" (click)="selectType(def)">
+          <span class="type-code">{{ def.code }}</span>
+          <span class="type-nom">{{ def.nom }}</span>
+        </button>
+      </div>
+
+      <!-- Étape 2 : session (multi-session uniquement) -->
+      <div class="scope-step" *ngIf="step==='scope'">
+        <p class="step-intro">À quelle <strong>session</strong> rattacher cette pièce (<strong>{{ selectedType?.nom }}</strong>) ?</p>
+        <div class="scope-options">
+          <div class="scope-option-sessions">
+            <button *ngFor="let s of sessions" class="scope-session-btn" [class.active]="selectedSessionId===s.id" (click)="chooseNiveauSession(s.id)">
+              <i class="fas fa-clock"></i> Session n°{{ s.numero_session }}
+            </button>
+          </div>
+        </div>
+        <button class="btn-back" (click)="backToType()"><i class="fas fa-arrow-left"></i> Changer de type</button>
+      </div>
+
+      <!-- Étape 3 : source -->
+      <div class="source-step" *ngIf="step==='source'">
+        <p class="step-intro">Source des données pour <strong>{{ selectedType?.nom }}</strong>
+          <span *ngIf="selectedNiveau==='session'"> (Session n°{{ selectedSessionNumero }})</span>
+        </p>
+
+        <div class="position-selector">
+          <label class="position-option">
+            <input type="radio" name="position" [checked]="insertAtEnd" (change)="insertAtEnd=true">
+            <span>Ajouter à la fin du rapport</span>
+          </label>
+          <label class="position-option">
+            <input type="radio" name="position" [checked]="!insertAtEnd" (change)="insertAtEnd=false">
+            <span>Position spécifique :</span>
+            <input type="number" class="position-input" min="1" [max]="maxPosition" [(ngModel)]="customPosition" [disabled]="insertAtEnd" (focus)="insertAtEnd=false">
+            <span class="position-hint">/ {{ maxPosition }}</span>
+          </label>
+        </div>
+
+        <div class="source-options" *ngIf="!selectedSource">
+          <button class="source-option" *ngIf="sourceAllows('image')" (click)="selectSource('image')">
+            <i class="fas fa-images"></i><span>Importer des images</span>
+          </button>
+          <button class="source-option" *ngIf="sourceAllows('csv')" (click)="selectSource('csv')">
+            <i class="fas fa-file-csv"></i><span>Importer un fichier CSV/Excel</span>
+          </button>
+          <button class="source-option" *ngIf="sourceAllows('manuel')" (click)="selectSource('manuel')">
+            <i class="fas fa-keyboard"></i><span>Saisie manuelle</span>
+          </button>
+        </div>
+
+        <!-- Sous-formulaire : images (multi) -->
+        <div class="source-form" *ngIf="selectedSource==='image'">
+          <label class="btn-secondary file-label">
+            <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden (change)="onImagesSelected($event)">
+            <i class="fas fa-plus"></i> Sélectionner des images (png/jpg/jpeg/tiff/webp)
+          </label>
+
+          <div class="image-picker" *ngIf="selectedImages.length">
+            <div class="image-picker-item" *ngFor="let f of selectedImages; let i = index">
+              <div class="image-picker-thumb">
+                <img *ngIf="isPreviewable(f)" [src]="selectedImagePreviews[i]" [alt]="f.name">
+                <div class="image-picker-fallback" *ngIf="!isPreviewable(f)"><i class="fas fa-file-image"></i> TIFF</div>
+                <span class="image-picker-index">{{ i + 1 }}</span>
+              </div>
+              <div class="image-picker-name" [title]="f.name">{{ f.name }}</div>
+              <div class="image-picker-actions">
+                <button class="icon-btn" title="Vers la gauche" [disabled]="i===0" (click)="moveLocalImage(i, -1)"><i class="fas fa-arrow-left"></i></button>
+                <button class="icon-btn" title="Vers la droite" [disabled]="i===selectedImages.length-1" (click)="moveLocalImage(i, 1)"><i class="fas fa-arrow-right"></i></button>
+                <button class="icon-btn danger" title="Retirer" (click)="removeLocalImage(i)"><i class="fas fa-trash-alt"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!selectedImages.length || submittingImages" (click)="submitImages()">
+              <i class="fas" [ngClass]="submittingImages ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+              Créer avec {{ selectedImages.length }} image(s)
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : import CSV/Excel -->
+        <div class="source-form" *ngIf="selectedSource==='csv'">
+          <input type="file" accept=".csv,.xlsx" (change)="onImportFileSelected($event)">
+          <app-piece-column-mapper
+            *ngIf="importPreview"
+            [champs]="importPreview.champs"
+            [preview]="importPreview"
+            (mappingChange)="onMappingChange($event)">
+          </app-piece-column-mapper>
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!importPreview || importing" (click)="confirmImport()">
+              <i class="fas" [ngClass]="importing ? 'fa-spinner fa-spin' : 'fa-check'"></i> Confirmer l'import
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : saisie manuelle -->
+        <div class="source-form" *ngIf="selectedSource==='manuel' && manualForm" [formGroup]="manualForm">
+          <div formArrayName="rows">
+            <div class="manual-row" *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
+              <div class="manual-field" *ngFor="let champ of selectedType?.champs">
+                <label>{{ champ.label }}</label>
+                <input *ngIf="champ.type !== 'textarea'"
+                       [type]="champ.type === 'number' ? 'number' : (champ.type === 'date' ? 'date' : 'text')"
+                       [formControlName]="champ.name">
+                <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="2"></textarea>
+              </div>
+              <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)"><i class="fas fa-trash-alt"></i></button>
+            </div>
+          </div>
+          <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="selectedSource=null">Retour</button>
+            <button class="btn-confirm" [disabled]="submittingManual" (click)="submitManual()">
+              <i class="fas" [ngClass]="submittingManual ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-back" *ngIf="!selectedSource" (click)="backToNiveau()">
+          <i class="fas fa-arrow-left"></i> {{ isMulti ? 'Changer de session' : 'Changer de type' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

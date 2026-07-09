@@ -1,0 +1,162 @@
+<div [class.modal-overlay]="!embedded" (click)="!embedded && close()">
+  <div [class.modal-content]="!embedded" [class.embedded-content]="embedded" (click)="$event.stopPropagation()">
+    <div class="modal-header" *ngIf="!embedded">
+      <div class="modal-header-left">
+        <h3><i class="fas" [ngClass]="mode==='view' ? 'fa-eye' : 'fa-edit'"></i> {{ piece.type_piece }} — {{ catalogDef?.nom }}</h3>
+      </div>
+      <button class="close-btn" (click)="close()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="modal-body">
+      <p class="piece-meta">
+        <span class="meta-item" *ngIf="mode==='view'"><i class="fas fa-hashtag"></i> Position {{ piece.ordre + 1 }} du rapport</span>
+        <span class="meta-item ordre-edit" *ngIf="mode==='edit'">
+          <i class="fas fa-hashtag"></i> Position dans le rapport :
+          <input type="number" min="1" class="ordre-input" [(ngModel)]="ordreInput" [disabled]="movingOrdre">
+          <button class="link-btn" [disabled]="movingOrdre || ordreInput===piece.ordre+1" (click)="moveToPosition()">
+            <i class="fas" [ngClass]="movingOrdre ? 'fa-spinner fa-spin' : 'fa-arrows-alt-v'"></i> Déplacer
+          </button>
+        </span>
+        <span class="meta-item" *ngIf="piece.numero"><i class="fas fa-list-ol"></i> N° {{ piece.numero }}</span>
+        <span class="mode-badge" [class.edit]="mode==='edit'"><i class="fas" [ngClass]="mode==='view' ? 'fa-eye' : 'fa-edit'"></i> {{ mode==='view' ? 'Lecture seule' : 'Modification' }}</span>
+      </p>
+
+      <!-- Portée / niveau -->
+      <section class="detail-section">
+        <h4><i class="fas fa-layer-group"></i> Niveau</h4>
+        <div class="scope-selector" *ngIf="mode==='edit' && showScopeSelector; else niveauStatic">
+          <button class="scope-chip" [class.active]="!piece.session" [disabled]="changingScope" (click)="changeScope('')">
+            <i class="fas fa-globe"></i> Commune à toutes les sessions
+          </button>
+          <button *ngFor="let s of sessions" class="scope-chip" [class.active]="piece.session===s.id" [disabled]="changingScope" (click)="changeScope(s.id)">
+            Session n°{{ s.numero_session }}
+          </button>
+        </div>
+        <ng-template #niveauStatic><p class="niveau-static">{{ niveauLabel }}</p></ng-template>
+      </section>
+
+      <!-- Statut & commentaire -->
+      <section class="detail-section">
+        <h4><i class="fas fa-check-circle"></i> Statut &amp; commentaire</h4>
+
+        <div class="view-only" *ngIf="mode==='view'">
+          <span class="badge" [ngClass]="statutBadgeClass(piece.statut)">{{ statutLabel(piece.statut) }}</span>
+          <p class="readonly-text" *ngIf="piece.commentaire; else noComment">{{ piece.commentaire }}</p>
+          <ng-template #noComment><p class="readonly-text muted">Aucun commentaire.</p></ng-template>
+        </div>
+
+        <ng-container *ngIf="mode==='edit'" [formGroup]="metaForm">
+          <div class="meta-fields">
+            <div class="field">
+              <label>Statut</label>
+              <select formControlName="statut">
+                <option *ngFor="let opt of statutOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+            </div>
+            <div class="field grow">
+              <label>Commentaire</label>
+              <textarea formControlName="commentaire" rows="2" placeholder="Note ou remarque libre…"></textarea>
+            </div>
+          </div>
+          <div class="section-actions">
+            <button class="btn-confirm" [disabled]="savingMeta" (click)="saveMeta()">
+              <i class="fas" [ngClass]="savingMeta ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer
+            </button>
+          </div>
+        </ng-container>
+      </section>
+
+      <!-- Données propres à la source -->
+      <section class="detail-section">
+        <h4><i class="fas fa-database"></i> Données</h4>
+
+        <!-- Source : image (galerie multi-images) -->
+        <ng-container *ngIf="piece.source_saisie === 'image'">
+          <app-piece-image-gallery
+            [images]="piece.images || []"
+            [editable]="mode==='edit'"
+            [busy]="imagesBusy"
+            (add)="onAddImages($event)"
+            (remove)="onRemoveImage($event)"
+            (reorderImages)="onReorderImages($event)">
+          </app-piece-image-gallery>
+        </ng-container>
+
+        <!-- Données tabulaires : saisie/édition manuelle + (types CSV) remplacement par fichier -->
+        <ng-container *ngIf="isTabularData">
+          <!-- Vue : tableau en lecture seule -->
+          <div class="source-body" *ngIf="mode==='view'">
+            <div class="preview-table-wrapper" *ngIf="previewRows.length; else noData">
+              <table class="preview-table">
+                <thead><tr><th *ngFor="let champ of catalogDef?.champs">{{ champ.label }}</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let row of previewRows">
+                    <td *ngFor="let champ of catalogDef?.champs">{{ row[champ.name] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #noData><p class="no-file">Aucune donnée saisie.</p></ng-template>
+          </div>
+
+          <!-- Édition : grille manuelle (saisie/modification des lignes) -->
+          <div class="source-body" *ngIf="mode==='edit'">
+            <div class="manual-grid" *ngIf="manualForm" [formGroup]="manualForm">
+              <div formArrayName="rows">
+                <div class="manual-row" *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
+                  <div class="manual-field" *ngFor="let champ of catalogDef?.champs">
+                    <label>{{ champ.label }}</label>
+                    <input *ngIf="champ.type !== 'textarea'"
+                           [type]="champ.type === 'number' ? 'number' : (champ.type === 'date' ? 'date' : 'text')"
+                           [formControlName]="champ.name">
+                    <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="2"></textarea>
+                  </div>
+                  <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)"><i class="fas fa-trash-alt"></i></button>
+                </div>
+              </div>
+              <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
+              <div class="section-actions">
+                <button class="btn-confirm" [disabled]="savingManual" (click)="saveManual()">
+                  <i class="fas" [ngClass]="savingManual ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer les données
+                </button>
+              </div>
+            </div>
+
+            <!-- Remplacement des données par un fichier (types CSV/Excel) -->
+            <div class="import-block" *ngIf="supportsImport">
+              <div class="import-sep"><span>ou</span></div>
+              <button class="btn-secondary" *ngIf="!reimportOpen" (click)="openReimport()">
+                <i class="fas fa-file-import"></i> Remplacer par un fichier CSV/Excel
+              </button>
+              <div class="reimport-form" *ngIf="reimportOpen">
+                <input type="file" accept=".csv,.xlsx" (change)="onReimportFileSelected($event)">
+                <app-piece-column-mapper
+                  *ngIf="reimportPreview"
+                  [champs]="reimportPreview.champs"
+                  [preview]="reimportPreview"
+                  (mappingChange)="onReimportMappingChange($event)">
+                </app-piece-column-mapper>
+                <div class="section-actions">
+                  <button class="btn-cancel" (click)="cancelReimport()">Annuler</button>
+                  <button class="btn-confirm" [disabled]="!reimportPreview || reimporting" (click)="confirmReimport()">
+                    <i class="fas" [ngClass]="reimporting ? 'fa-spinner fa-spin' : 'fa-check'"></i> Confirmer le remplacement
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Source : générée automatiquement -->
+        <p class="no-file" *ngIf="piece.source_saisie === 'ui'">Cette pièce est générée automatiquement lors de l'assemblage du rapport ; aucune donnée à saisir ici.</p>
+      </section>
+    </div>
+
+    <div class="modal-footer" *ngIf="!embedded">
+      <button class="btn-secondary" *ngIf="mode==='view'" (click)="editRequested.emit()">
+        <i class="fas fa-edit"></i> Modifier
+      </button>
+      <button class="btn-cancel" (click)="close()"><i class="fas fa-times"></i> Fermer</button>
+    </div>
+  </div>
+</div>

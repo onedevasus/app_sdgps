@@ -54,6 +54,7 @@
     - [maj du plan de developpement de l'app](#maj-du-plan-de-developpement-de-lapp)
     - [finalisation liste projets + projet explorer](#finalisation-liste-projets-projet-explorer)
     - [Implementation la saisie et l'import des donnees des pieces](#implementation-la-saisie-et-limport-des-donnees-des-pieces)
+      - [Detail des pieces.](#detail-des-pieces)
 
 # Taches a faire
   - Divers
@@ -531,7 +532,7 @@ Quelle solution propose tu pour ajouter la possibiliter de recuperer les comptes
   - finalisation liste projets + projet explorer:
     - generation des donnees tests pour agents agent1/2/3@sdgps.ma  (fait)
     - separation elements actifs de ceux supprimes dans l'explorateur (Propriété → Affaire → SSDGPS → Session).  (fait)
-    - correction quelques points dans l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session).
+    - correction quelques points dans l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session). (fait)
   - implementation de la section : 6.5 Saisie & import des données des pièces et suivantes
   - implementation de la Phase 6 — Pièces & génération de rapports PDF SSDGPS
 
@@ -685,3 +686,50 @@ Le tout dans un style élégant, pro et conforme au design System de l'app.
 
 
 ### Implementation la saisie et l'import des donnees des pieces
+
+Que pense tu des modifs suivantes :  
+  - modifie la facon d'ajouter les pieces d'un sdgps en utilisant une page dediee au lieu d'un modal. la page d'ajout des pieces d'un sdgps doit avoir en plus de la vue carte une vue tableau. les deux doivent contenir tous les outiles de tableau : outiles deja presentes dans les tableaux de l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session). En plus de ces outiles, les lignes des pieces doivent les fonctionnalites suivantes : 
+  - chaque ligne doit contenir les outils pour changer l'ordre de la piece dans le rapport du sdgps (premier, precedant, suivant, dernier) s'inspire des outiles dans le modale de gestion des colonnes dans les vues tableaux. En plus de ces outiles ajouter l'option de reorganiser par glisser deposer.
+  - Pour chaque piece l'utilisateur doit choisir parmi les sources de donnees disponibles pour cette piece. puis en fonction de la source de donnees, une fenetre s'ouvre pour charger ou saisir les donnees de cette piece.
+  - Ajouter la possibilite de soft-delete des pieces + leur restauration exactement comme dans les autres vues carte/tableau precedantes de l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session).
+  -  Si le sdgps est multi-sessions l'app doit permetre a l'utilisateur d'indiquer pour chaque piece si la piece en cours est commune a toutes les sessions ou bien specifique a la session en cours.
+  - Pour les pieces dont le mapping colonnes → champs est obligatoire, ajoute toutes les outiles necessaires pour faire ce mappage de la facon la plus generique, intuitive, pro, et élégante possible.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige les points suivants : 
+  - corrige le style et design des bouttons : premier, precedant, suivant, dernier dans le tableau de la liste des pieces du rapport.
+  - ajoute la description des colonnes du tableau de la liste des pieces dans la fenetre organiser les colonnes.
+  - corriger la possibilite de retourner dans l'entite session/ssdgps quand on est dans l'entite pieces.
+  - que pense tu de toujours mettre la page de garde en tout debut de la liste des pieces. ou bien ne pas le faire car c'est evident.
+  - Ajouter la possibilite de voir/modifier une piece dans la liste des pieces.
+  - ajouter la possibilite de choisir si une piece est de niveau ssdgps ou bien de niveau session lors de l'ajout/modification.
+  - ajouter une mention quelque part (choisit le bon endroit) pour ajouter dans la liste des pieces si le ssdgps en cours est monosession/multission, si multisesssion le numero + date de la session en cours.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige les points suivants : 
+  - centrer verticalement les bouttons : premier, precedant, suivant, dernier dans le tableau de la liste des pieces du rapport.
+  - toujours la description des colonnes du tableau de la liste des pieces dans la fenetre organiser les colonnes est non ajoutee.
+  - ajouter le nombre de pieces dans l'entitee : ssdgps et session.
+  - Ajouter la possibilite de voir (lecture sans modification dans la fenetre modale) des donnees d'une piece dans la liste des pieces .
+  - ajouter la possibilite - lors de l'ajout/modification d'une piece - de modifier le niveau d'une piece ("niveau ssdgps": piece commune a toutes les sessions. c.a.d meme contenu pour toutes les sessions. ou bien "niveau session": piece differente d'une session a une autre. c.a.d contenu de la piece different d'une session a une autre).
+  - ajouter la possibilite - lors de l'ajout/modification d'une piece - de modifier le numero d'ordre de la piece dans le ssdgps.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Que pense tu des modifs suivantes : 
+  - Ajoute dans le fil d'arian de navigation dans l'explorateur Propriété → Affaire → SSDGPS → Session, ajoute le niveau session entre ssdgps et pieces. si le ssdgps est monosession ce niveau session ne doit pas apparaitre en aucun endroit ni dans le fil d'arian, ni dans les pieces l'utilisateur doit automatiquement etre switcher vers la page d'ajout des pieces et leurs donnees sans passer par l'entitee session.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige le probleme suivant : quand l'app est inactive un certain temps. si l'utilisateur clique apres n'importe ou, l'app se deconnecte et redirige vers la page de login.
+
+Corrige le probleme suivant : 
+  - corrige le nom du ssdgps dans le fil d'arian en "SSDGPS Ni - NATURE_SSDGPS - Mono/Multi" avec i est le numero d'ordre du ssdgps dans le sd d'affaire.
+  - Pourquoi l'avant dernier element du fil d'arian (id du ssdgps pour les ssdgps monosessions et id_session_en_cours si le ssdgps est multisession) est non cliquable.
+
+
+
+
+#### Detail des pieces.

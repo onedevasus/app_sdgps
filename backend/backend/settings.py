@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'accounts',
     'organizations',  # ← AJOUT: Gestion des organisations
     'projects',  # ← AJOUT: Domaine métier (Projet→Propriété→Affaire→SSDGPS→Session)
+    'pieces',  # ← AJOUT: Pièces SSDGPS/Session (Phase 6.5)
 ]
 
 MIDDLEWARE = [
@@ -84,7 +85,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
+        'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
     }
 }
 
@@ -129,6 +131,10 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Pièces (Phase 6.5) — limites d'upload et d'import
+PIECE_MAX_FILE_SIZE_MB = 20
+PIECE_IMPORT_MAX_ROWS = 5000
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -141,6 +147,15 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement seulement
 
 # REST Framework settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': False,
+}
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
