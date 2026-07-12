@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import Piece, PieceImage
-from .validators import validate_piece_coherence
+from .validators import validate_piece_coherence, points_without_photo
 
 
 class PieceImageSerializer(serializers.ModelSerializer):
@@ -11,9 +11,9 @@ class PieceImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PieceImage
         fields = [
-            'id', 'fichier_url', 'apercu_url', 'ordre', 'format', 'taille_octets',
-            'largeur', 'hauteur', 'mode_couleur', 'compression', 'date_creation',
-            'date_modification', 'created_at',
+            'id', 'fichier_url', 'apercu_url', 'ordre', 'point_ref', 'format',
+            'taille_octets', 'largeur', 'hauteur', 'mode_couleur', 'compression',
+            'date_creation', 'date_modification', 'created_at',
         ]
 
     def _abs_url(self, field):
@@ -81,4 +81,19 @@ class PieceSerializer(serializers.ModelSerializer):
             type_piece, ssdgps, session, numero, source_saisie,
             exclude_pk=inst.pk if inst else None,
         )
+
+        # PPA/PPN : le passage du statut à « valide » exige qu'au moins une photo soit
+        # rattachée à chaque point. On ne contrôle qu'à la TRANSITION vers `valide`.
+        statut = attrs.get('statut', getattr(inst, 'statut', None))
+        was_valide = getattr(inst, 'statut', None) == 'valide'
+        if inst and statut == 'valide' and not was_valide:
+            payload = attrs.get('payload', inst.payload)
+            refs = list(inst.images.values_list('point_ref', flat=True))
+            missing = points_without_photo(type_piece, payload, refs)
+            if missing:
+                shown = ', '.join(missing[:10]) + ('…' if len(missing) > 10 else '')
+                raise serializers.ValidationError({'statut': (
+                    f"Validation impossible : {len(missing)} point(s) sans photo ({shown}). "
+                    "Chaque point doit avoir au moins une photo."
+                )})
         return attrs

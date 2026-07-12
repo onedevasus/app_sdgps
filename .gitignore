@@ -57,7 +57,12 @@ backend/nul
 # Médias uploadés (fichiers utilisateur — hors code source)
 backend/media/
 
+# Sauvegardes automatiques (Docker, BDD, médias)
+_docker_backup/
+
 # Données de référence / travail (hors code source) — trop volumineuses pour le dépôt
+docs/exemples-ssdgps/
+docs/exemples-ssdgps/01-exemples-pieces/
 docs/exemples-ssdgps/04-EXEMPLES-SDGPS/
 docs/notes/*.xlsm
 docs/notes/test.md

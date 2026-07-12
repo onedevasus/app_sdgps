@@ -9,17 +9,18 @@ from django.core.exceptions import ValidationError
 
 from .catalog import get_piece_def, natures_applicable
 
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.pdf', '.csv', '.xlsx'}
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.pdf', '.csv', '.xlsx', '.html', '.htm'}
 
 # Extensions autorisées pour les images d'une pièce (galerie multi-images).
 ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.webp'}
 
 # Sources catalogue compatibles avec chaque valeur de Piece.SourceSaisie
+# ('ui' = généré automatiquement : page de garde 'ui' ET rapport de contrôle 'calcul').
 _SOURCE_SAISIE_COMPAT = {
     'image': {'image', 'image_csv_manuel', 'ui'},
     'import': {'csv_manuel', 'image_csv_manuel'},
     'manuel': {'csv_manuel', 'image_csv_manuel', 'manuel'},
-    'ui': {'ui'},
+    'ui': {'ui', 'calcul'},
 }
 
 
@@ -58,6 +59,31 @@ def validate_image_content(value):
         raise ValidationError("Le fichier fourni n'est pas une image valide.")
     finally:
         value.seek(0)
+
+
+def is_photo_points_type(type_piece) -> bool:
+    """PPA/PPN : type « photos par point » (chaque point porte un champ `fichier_image`)."""
+    try:
+        piece_def = get_piece_def(type_piece)
+    except KeyError:
+        return False
+    return any(c['name'] == 'fichier_image' for c in piece_def['champs'])
+
+
+def points_without_photo(type_piece, payload, point_refs) -> list:
+    """Renvoie les clés des points (id ou nom_point) n'ayant AUCUNE photo rattachée.
+    `point_refs` = valeurs `point_ref` des images de la pièce. Liste vide si le type n'est
+    pas concerné (non photos-points)."""
+    if not is_photo_points_type(type_piece):
+        return []
+    rows = (payload or {}).get('rows') or []
+    covered = {str(r).strip() for r in point_refs if str(r or '').strip()}
+    missing = []
+    for row in rows:
+        key = str(row.get('id') or row.get('nom_point') or '').strip()
+        if key and key not in covered and key not in missing:
+            missing.append(key)
+    return missing
 
 
 def validate_piece_coherence(type_piece, ssdgps, session, numero, source_saisie=None, exclude_pk=None):

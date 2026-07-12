@@ -31,11 +31,14 @@
     i { flex-shrink: 0; }
   }
 
+  /* Empilé verticalement : la zone de mappage EN PREMIER, puis le tableau d'aperçu.
+     (Évite aussi que le tableau large — ex. ROB, 12 colonnes — écrase la zone de mappage
+     à cause du min-width auto des éléments de grille.) */
   .mapper-panes {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
-    @media (max-width: 700px) { grid-template-columns: 1fr; }
+    min-width: 0;
   }
 
   .mapper-fields {
@@ -69,6 +72,7 @@
   }
 
   .mapper-preview {
+    min-width: 0;
     .preview-title {
       display: flex; align-items: center; gap: 7px;
       margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-color);
@@ -83,7 +87,8 @@
     }
 
     .preview-table {
-      width: 100%;
+      width: max-content;
+      min-width: 100%;
       border-collapse: collapse;
       font-size: 12.5px;
 

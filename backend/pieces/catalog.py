@@ -82,14 +82,59 @@ _RDI_CHAMPS = [
     ('delta_x_m', 'ΔX(m)', 'number'), ('delta_y_m', 'ΔY(m)', 'number'), ('delta_d_m', 'ΔD(m)', 'number'),
 ]
 
-# Aucun schéma tabulaire trouvé dans le classeur pour FTR/RC → formulaires manuels
-# minimalistes, à confirmer avec le métier avant que le générateur de rapport (Phase 6)
-# ne consomme leur payload.
+# Deuxième version « écarts » des pièces RDL / RDN : pour chaque point, écart entre les
+# coordonnées définitives (RDD, supposées vraies = « Fixe ») et les coordonnées calculées
+# de la pièce (« Calculé »). Colonnes texte (les coordonnées gardent leur format source).
+# Stocké dans payload['rows_ecarts'] ; cf. pieces/rc.py:compute_ecarts_vs_definitive.
+_ECARTS_CHAMPS = [
+    ('id', 'ID', 'text'),
+    ('nom_point_fixe', 'Nom(s) Point(s) Fixe(s)', 'text'),
+    ('nom_point_calcule', 'Nom Point Calculé', 'text'),
+    ('x_m_fixe', 'X Fixe (m)', 'text'), ('y_m_fixe', 'Y Fixe (m)', 'text'),
+    ('x_m_calcule', 'X Calculé (m)', 'text'), ('y_m_calcule', 'Y Calculé (m)', 'text'),
+    ('delta_x_m', 'ΔX(m)', 'text'), ('delta_y_m', 'ΔY(m)', 'text'), ('delta_d_m', 'ΔD(m)', 'text'),
+]
+
+# RDIA (Rapport des déterminations intermédiaires ASSEMBLÉ) : regroupe la RDL + les RDNₖ
+# d'un même SSDGPS/session en une seule pièce. Colonne « Détermination » (Libre / N°1 / N°2…)
+# juste après « ID ». Deux versions : brute assemblée et écarts assemblés (vs RDD), par bloc.
+_RDIA_BRUT_CHAMPS = [
+    ('id', 'ID', 'text'),
+    ('determination', 'Détermination', 'text'),
+    ('nom_point', 'Nom Point', 'text'),
+    ('x_m', 'X(m)', 'text'), ('sigma_x_m', 'σx(m)', 'text'),
+    ('y_m', 'Y(m)', 'text'), ('sigma_y_m', 'σy(m)', 'text'),
+]
+_RDIA_ECARTS_CHAMPS = [
+    ('id', 'ID', 'text'),
+    ('determination', 'Détermination', 'text'),
+    ('nom_point_fixe', 'Nom(s) Point(s) Fixe(s)', 'text'),
+    ('nom_point_calcule', 'Nom Point Calculé', 'text'),
+    ('x_m_fixe', 'X Fixe (m)', 'text'), ('y_m_fixe', 'Y Fixe (m)', 'text'),
+    ('x_m_calcule', 'X Calculé (m)', 'text'), ('y_m_calcule', 'Y Calculé (m)', 'text'),
+    ('delta_x_m', 'ΔX(m)', 'text'), ('delta_y_m', 'ΔY(m)', 'text'), ('delta_d_m', 'ΔD(m)', 'text'),
+]
+
+# Aucun schéma tabulaire trouvé dans le classeur pour FTR → formulaire manuel minimaliste,
+# à confirmer avec le métier avant que le générateur de rapport (Phase 6) ne consomme son payload.
 _FTR_CHAMPS = [
     ('recepteur', 'Récepteur (modèle)', 'text'), ('numero_serie', 'Numéro de série', 'text'),
     ('antenne', 'Antenne', 'text'), ('observations', 'Observations', 'textarea'),
 ]
-_RC_CHAMPS = [('contenu', 'Contenu du rapport de contrôle', 'textarea')]
+
+# RC (Rapport de contrôle) : tableau CALCULÉ automatiquement (cf. pieces/rc.py) en croisant
+# la « Liste des points anciens » (coordonnées fixes) et les « Rapports de la détermination
+# N°k » (coordonnées calculées). Colonnes de type texte : les coordonnées conservent le
+# format source (« 353 108.16 ») et les écarts valent « -- » pour le point fixe de la
+# détermination courante.
+_RC_CHAMPS = [
+    ('id', 'ID', 'text'),
+    ('nom_point_fixe', 'Nom Point Fixe', 'text'),
+    ('nom_point_calcule', 'Nom Point Calculé', 'text'),
+    ('x_m_fixe', 'X(m) Fixe', 'text'), ('y_m_fixe', 'Y(m) Fixe', 'text'),
+    ('x_m_calcule', 'X(m) Calculé', 'text'), ('y_m_calcule', 'Y(m) Calculé', 'text'),
+    ('delta_x_m', 'ΔX(m)', 'text'), ('delta_y_m', 'ΔY(m)', 'text'), ('delta_d_m', 'ΔD(m)', 'text'),
+]
 
 
 PIECE_CATALOG = {
@@ -109,7 +154,7 @@ PIECE_CATALOG = {
     'PPA':     {'nom': 'Photos des points anciens', 'niveau': 'ssdgps', 'source': 'image_csv_manuel',
                 'natures': ['PDC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
     'PPN':     {'nom': 'Photos des points nouveaux', 'niveau': 'ssdgps', 'source': 'image_csv_manuel',
-                'natures': ['DDC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
+                'natures': ['PDC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
     'FTR':     {'nom': 'Fiche Technique des Récepteurs', 'niveau': 'ssdgps', 'source': 'csv_manuel',
                 'natures': TOUTES, 'champs': _champ(_FTR_CHAMPS), 'repeatable': False},
     'ROB':     {'nom': 'Rapport des Observations Brutes', 'niveau': 'session', 'source': 'csv_manuel',
@@ -117,20 +162,28 @@ PIECE_CATALOG = {
     'RTLB':    {'nom': 'Rapport du traitement des lignes de base', 'niveau': 'session',
                 'source': 'csv_manuel', 'natures': TOUTES, 'champs': _champ(_RTLB_CHAMPS), 'repeatable': False},
     'RFB':     {'nom': 'Rapport des fermetures des Boucles', 'niveau': 'session', 'source': 'csv_manuel',
-                'natures': TOUTES, 'champs': _champ(_RFB_CHAMPS), 'repeatable': False},
+                'natures': TOUTES, 'champs': _champ(_RFB_CHAMPS), 'repeatable': False,
+                'html_import': True},
     'RDL':     {'nom': 'Rapport de la détermination libre', 'niveau': 'session', 'source': 'csv_manuel',
-                'natures': TOUTES, 'champs': _champ(_RDX_CHAMPS), 'repeatable': False},
+                'natures': TOUTES, 'champs': _champ(_RDX_CHAMPS), 'repeatable': False,
+                'html_import': True, 'ecarts': True, 'ecarts_champs': _champ(_ECARTS_CHAMPS)},
     'RDN':     {'nom': 'Rapport de la détermination N°k', 'niveau': 'session', 'source': 'csv_manuel',
                 'natures': ['PDC/GPS', 'DDC/GPS', 'PLC/GPS'], 'champs': _champ(_RDX_CHAMPS),
-                'repeatable': True},
+                'repeatable': True, 'html_import': True, 'ecarts': True,
+                'ecarts_champs': _champ(_ECARTS_CHAMPS)},
+    'RDIA':    {'nom': 'Rapport des déterminations intermédiaires', 'niveau': 'session',
+                'source': 'csv_manuel', 'natures': ['PDC/GPS', 'DDC/GPS', 'PLC/GPS'],
+                'champs': _champ(_RDIA_BRUT_CHAMPS), 'repeatable': False,
+                'assemble': True, 'ecarts': True, 'ecarts_champs': _champ(_RDIA_ECARTS_CHAMPS)},
     'RDI':     {'nom': 'Rapport des déterminations Intermédiaires', 'niveau': 'session',
                 'source': 'csv_manuel', 'natures': ['DLC/GPS'], 'champs': _champ(_RDI_CHAMPS),
                 'repeatable': False},
     'RDD':     {'nom': 'Rapport de la détermination définitive', 'niveau': 'session',
-                'source': 'csv_manuel', 'natures': ['DDC/GPS', 'DLC/GPS'], 'champs': _champ(_RDX_CHAMPS),
-                'repeatable': False},
-    'RC':      {'nom': 'Rapport de contrôle', 'niveau': 'ssdgps', 'source': 'manuel',
-                'natures': TOUTES, 'champs': _champ(_RC_CHAMPS), 'repeatable': False},
+                'source': 'csv_manuel', 'natures': ['PDC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_RDX_CHAMPS),
+                'repeatable': False, 'html_import': True},
+    'RC':      {'nom': 'Rapport de contrôle', 'niveau': 'ssdgps', 'source': 'calcul',
+                'natures': TOUTES, 'champs': _champ(_RC_CHAMPS), 'repeatable': False,
+                'computed': True},
 }
 
 PIECE_CHOICES = [(code, d['nom']) for code, d in PIECE_CATALOG.items()]
@@ -152,6 +205,9 @@ def serialize_catalog() -> list:
     """Représentation JSON du registre, consommée par GET /api/v1/pieces/catalog/."""
     return [
         {'code': code, 'nom': d['nom'], 'niveau': d['niveau'], 'source': d['source'],
-         'natures': d['natures'], 'champs': d['champs'], 'repeatable': d['repeatable']}
+         'natures': d['natures'], 'champs': d['champs'], 'repeatable': d['repeatable'],
+         'html_import': d.get('html_import', False), 'computed': d.get('computed', False),
+         'ecarts': d.get('ecarts', False), 'ecarts_champs': d.get('ecarts_champs', []),
+         'assemble': d.get('assemble', False)}
         for code, d in PIECE_CATALOG.items()
     ]

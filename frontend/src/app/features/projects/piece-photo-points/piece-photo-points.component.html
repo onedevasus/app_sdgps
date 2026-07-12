@@ -1,0 +1,122 @@
+<div class="photo-points">
+  <!-- Résumé -->
+  <div class="pp-summary">
+    <span class="pp-stat"><i class="fas fa-map-marker-alt"></i> {{ validRows.length }} point(s)</span>
+    <span class="pp-stat"><i class="fas fa-image"></i> {{ assignedCount }} photo(s) assignée(s)</span>
+    <span class="pp-stat" *ngIf="unassigned.length" [class.warn]="true"><i class="fas fa-inbox"></i> {{ unassigned.length }} à assigner</span>
+    <span class="pp-stat" *ngIf="pointsWithoutPhoto" [class.warn]="true"><i class="fas fa-exclamation-triangle"></i> {{ pointsWithoutPhoto }} point(s) sans photo</span>
+  </div>
+
+  <!-- Bac « à assigner » -->
+  <div class="pp-tray" *ngIf="editable || unassigned.length"
+       [class.drop-hint]="dragImageId!=null"
+       (dragover)="allowDrop($event)" (drop)="onDropUnassign($event)">
+    <div class="pp-tray-head">
+      <span><i class="fas fa-inbox"></i> Photos à assigner ({{ unassigned.length }})</span>
+      <label class="pp-upload" *ngIf="editable" [class.disabled]="busy">
+        <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden [disabled]="busy" (change)="onFilesUnassigned($event)">
+        <i class="fas" [ngClass]="busy ? 'fa-spinner fa-spin' : 'fa-plus'"></i> Déposer des photos
+      </label>
+    </div>
+
+    <!-- Barre de sélection / actions groupées -->
+    <div class="pp-bulkbar" *ngIf="editable && unassigned.length">
+      <label class="pp-selectall">
+        <input type="checkbox" [checked]="allUnassignedSelected" (change)="allUnassignedSelected ? clearSelection() : selectAllUnassigned()">
+        Tout sélectionner
+      </label>
+      <ng-container *ngIf="selectedIds.size">
+        <span class="pp-bulkcount">{{ selectedIds.size }} sélectionnée(s)</span>
+        <div class="pp-picker-wrap">
+          <button class="btn-affect" [disabled]="busy" (click)="openBulkPicker($event)">
+            <i class="fas fa-arrow-right-to-bracket"></i> Affecter à <i class="fas fa-caret-down"></i>
+          </button>
+          <ng-container *ngIf="bulkPickerOpen" [ngTemplateOutlet]="picker" [ngTemplateOutletContext]="{ pick: bulkPick }"></ng-container>
+        </div>
+        <button class="pp-linkbtn danger" [disabled]="busy" (click)="deleteSelected()"><i class="fas fa-trash-alt"></i> Supprimer</button>
+        <button class="pp-linkbtn" (click)="clearSelection()">Annuler</button>
+      </ng-container>
+    </div>
+
+    <div class="pp-thumbs" *ngIf="unassigned.length; else trayEmpty">
+      <div class="pp-thumb" *ngFor="let img of unassigned" [class.selected]="isSelected(img)"
+           [attr.draggable]="editable" (dragstart)="onDragStart(img)" (dragend)="onDragEnd()">
+        <input type="checkbox" class="pp-check" *ngIf="editable" [checked]="isSelected(img)" (click)="toggleSelect(img, $event)">
+        <img *ngIf="isDisplayable(img)" [src]="previewUrl(img)" alt="photo" (click)="openLightbox(img)">
+        <div class="pp-fallback" *ngIf="!isDisplayable(img)" (click)="openLightbox(img)"><i class="fas fa-file-image"></i><span>{{ img.format }}</span></div>
+        <div class="pp-thumb-actions" *ngIf="editable">
+          <div class="pp-picker-wrap">
+            <button class="pp-affect-btn" title="Affecter à un point" (click)="openPickerForImage(img.id, $event)"><i class="fas fa-arrow-right-to-bracket"></i></button>
+            <ng-container *ngIf="pickerForImage===img.id" [ngTemplateOutlet]="picker" [ngTemplateOutletContext]="{ pick: imagePick }"></ng-container>
+          </div>
+          <button class="pp-del" title="Supprimer" (click)="removePhoto(img, $event)"><i class="fas fa-trash-alt"></i></button>
+        </div>
+      </div>
+    </div>
+    <ng-template #trayEmpty>
+      <p class="pp-empty">{{ editable ? 'Déposez des photos ici, puis affectez-les à un point.' : 'Aucune photo en attente.' }}</p>
+    </ng-template>
+  </div>
+
+  <!-- Points -->
+  <div class="pp-points">
+    <div class="pp-points-head" *ngIf="validRows.length">
+      <span class="pp-points-title"><i class="fas fa-map-marker-alt"></i> Points</span>
+      <button class="pp-linkbtn" (click)="allCollapsed ? expandAll() : collapseAll()">
+        <i class="fas" [ngClass]="allCollapsed ? 'fa-angles-down' : 'fa-angles-up'"></i>
+        {{ allCollapsed ? 'Tout déplier' : 'Tout replier' }}
+      </button>
+    </div>
+
+    <div class="pp-point" *ngFor="let row of validRows; trackBy: trackRow"
+         [class.no-photo]="!countOf(row)" [class.collapsed]="isCollapsed(row)"
+         [class.drop-hint]="dragImageId!=null"
+         (dragover)="allowDrop($event)" (drop)="onDropOnPoint(row, $event)">
+      <div class="pp-point-head" (click)="toggleCollapse(row)">
+        <i class="fas pp-chev" [ngClass]="isCollapsed(row) ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+        <span class="pp-point-label"><i class="fas fa-map-marker-alt"></i> {{ pointLabel(row) }}</span>
+        <span class="pp-point-count" [class.zero]="!countOf(row)">{{ countOf(row) }} photo(s)</span>
+        <label class="pp-upload sm" *ngIf="editable" (click)="$event.stopPropagation()" [class.disabled]="busy">
+          <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden [disabled]="busy" (change)="onFilesForPoint($event, row)">
+          <i class="fas fa-plus"></i> Photos
+        </label>
+      </div>
+      <div class="pp-thumbs" *ngIf="!isCollapsed(row)">
+        <div class="pp-thumb" *ngFor="let img of photosOf(row)"
+             [attr.draggable]="editable" (dragstart)="onDragStart(img)" (dragend)="onDragEnd()">
+          <img *ngIf="isDisplayable(img)" [src]="previewUrl(img)" alt="photo" (click)="openLightbox(img)">
+          <div class="pp-fallback" *ngIf="!isDisplayable(img)" (click)="openLightbox(img)"><i class="fas fa-file-image"></i><span>{{ img.format }}</span></div>
+          <button class="pp-del" *ngIf="editable" title="Supprimer" (click)="removePhoto(img, $event)"><i class="fas fa-trash-alt"></i></button>
+        </div>
+        <p class="pp-empty inline" *ngIf="!countOf(row)">
+          <i class="fas fa-camera"></i> Aucune photo{{ editable ? ' — utilisez « ＋ Photos » ou affectez-en depuis le bac.' : '.' }}
+        </p>
+      </div>
+    </div>
+
+    <p class="pp-empty" *ngIf="!validRows.length">
+      <i class="fas fa-info-circle"></i> Importez d'abord des points (CSV/Excel) pour pouvoir leur associer des photos.
+    </p>
+  </div>
+</div>
+
+<!-- Sélecteur de point réutilisable (cherchable) -->
+<ng-template #picker let-pick="pick">
+  <div class="pp-picker" (click)="$event.stopPropagation()">
+    <input class="pp-picker-search" type="text" placeholder="Rechercher un point…" [(ngModel)]="pickerSearch">
+    <div class="pp-picker-list">
+      <button class="pp-picker-item" *ngFor="let r of filteredRows" (click)="pick(r)">
+        <i class="fas fa-map-marker-alt"></i>
+        <span class="pp-picker-label">{{ pointLabel(r) }}</span>
+        <span class="pp-picker-count">{{ countOf(r) }}</span>
+      </button>
+      <p class="pp-picker-empty" *ngIf="!filteredRows.length">Aucun point.</p>
+    </div>
+  </div>
+</ng-template>
+
+<!-- Lightbox -->
+<div class="pp-lightbox" *ngIf="lightboxUrl" (click)="closeLightbox()">
+  <button class="pp-lightbox-close" (click)="closeLightbox()"><i class="fas fa-times"></i></button>
+  <img [src]="lightboxUrl" alt="Photo agrandie" (click)="$event.stopPropagation()">
+</div>

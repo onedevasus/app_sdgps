@@ -58,6 +58,12 @@
               <textarea formControlName="commentaire" rows="2" placeholder="Note ou remarque libre…"></textarea>
             </div>
           </div>
+          <div class="pp-block-banner" *ngIf="isPhotoPoints && metaForm.value.statut === 'valide' && pointsWithoutPhoto.length">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span><strong>Validation impossible : {{ pointsWithoutPhoto.length }} point(s) sans photo</strong>
+              ({{ pointsWithoutPhoto.slice(0, 10).join(', ') }}{{ pointsWithoutPhoto.length > 10 ? '…' : '' }}).
+              Chaque point doit avoir au moins une photo.</span>
+          </div>
           <div class="section-actions">
             <button class="btn-confirm" [disabled]="savingMeta" (click)="saveMeta()">
               <i class="fas" [ngClass]="savingMeta ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer
@@ -70,8 +76,8 @@
       <section class="detail-section">
         <h4><i class="fas fa-database"></i> Données</h4>
 
-        <!-- Source : image (galerie multi-images) -->
-        <ng-container *ngIf="piece.source_saisie === 'image'">
+        <!-- Source : image (galerie multi-images plate — hors PPA/PPN) -->
+        <ng-container *ngIf="piece.source_saisie === 'image' && !isPhotoPoints">
           <app-piece-image-gallery
             [images]="piece.images || []"
             [editable]="mode==='edit'"
@@ -84,14 +90,27 @@
 
         <!-- Données tabulaires : saisie/édition manuelle + (types CSV) remplacement par fichier -->
         <ng-container *ngIf="isTabularData">
+          <!-- RDL/RDN : onglets entre données brutes et écarts / détermination définitive -->
+          <div class="data-view-tabs" *ngIf="supportsEcarts" role="tablist">
+            <button type="button" class="data-view-tab" role="tab" [attr.aria-selected]="dataView==='brut'"
+                    [class.active]="dataView==='brut'" (click)="dataView='brut'">
+              <i class="fas fa-table"></i> Données brutes
+            </button>
+            <button type="button" class="data-view-tab" role="tab" [attr.aria-selected]="dataView==='ecarts'"
+                    [class.active]="dataView==='ecarts'" (click)="dataView='ecarts'">
+              <i class="fas fa-not-equal"></i> Écarts / détermination définitive
+              <span class="tab-badge" *ngIf="hasEcarts">{{ ecartsRows.length }}</span>
+            </button>
+          </div>
+
           <!-- Vue : tableau en lecture seule -->
-          <div class="source-body" *ngIf="mode==='view'">
+          <div class="source-body" *ngIf="mode==='view' && dataView==='brut'">
             <div class="preview-table-wrapper" *ngIf="previewRows.length; else noData">
               <table class="preview-table">
-                <thead><tr><th *ngFor="let champ of catalogDef?.champs">{{ champ.label }}</th></tr></thead>
+                <thead><tr><th *ngFor="let champ of visibleChamps">{{ champ.label }}</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let row of previewRows">
-                    <td *ngFor="let champ of catalogDef?.champs">{{ row[champ.name] }}</td>
+                    <td *ngFor="let champ of visibleChamps">{{ row[champ.name] }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -99,23 +118,43 @@
             <ng-template #noData><p class="no-file">Aucune donnée saisie.</p></ng-template>
           </div>
 
-          <!-- Édition : grille manuelle (saisie/modification des lignes) -->
-          <div class="source-body" *ngIf="mode==='edit'">
-            <div class="manual-grid" *ngIf="manualForm" [formGroup]="manualForm">
-              <div formArrayName="rows">
-                <div class="manual-row" *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
-                  <div class="manual-field" *ngFor="let champ of catalogDef?.champs">
-                    <label>{{ champ.label }}</label>
-                    <input *ngIf="champ.type !== 'textarea'"
-                           [type]="champ.type === 'number' ? 'number' : (champ.type === 'date' ? 'date' : 'text')"
-                           [formControlName]="champ.name">
-                    <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="2"></textarea>
-                  </div>
-                  <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)"><i class="fas fa-trash-alt"></i></button>
-                </div>
+          <!-- Édition : tableau éditable (colonnes = champs, lignes modifiables) -->
+          <div class="source-body" *ngIf="mode==='edit' && dataView==='brut'">
+            <div class="data-grid" *ngIf="manualForm" [formGroup]="manualForm">
+              <div class="data-grid-scroll">
+                <table class="data-grid-table">
+                  <thead>
+                    <tr>
+                      <th class="col-num">#</th>
+                      <th *ngFor="let champ of visibleChamps">{{ champ.label }}</th>
+                      <th class="col-act"></th>
+                    </tr>
+                  </thead>
+                  <tbody formArrayName="rows">
+                    <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
+                      <td class="col-num">{{ i + 1 }}</td>
+                      <td *ngFor="let champ of visibleChamps" class="cell-input">
+                        <input *ngIf="champ.type !== 'textarea'" type="text"
+                               [formControlName]="champ.name" [placeholder]="champ.label">
+                        <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
+                      </td>
+                      <td class="col-act">
+                        <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </td>
+                    </tr>
+                    <tr *ngIf="!manualRows.length">
+                      <td class="empty-cell" [attr.colspan]="(visibleChamps.length || 0) + 2">Aucune ligne — ajoutez-en une.</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
-              <div class="section-actions">
+              <div class="data-grid-toolbar">
+                <div class="toolbar-left">
+                  <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
+                  <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
+                </div>
                 <button class="btn-confirm" [disabled]="savingManual" (click)="saveManual()">
                   <i class="fas" [ngClass]="savingManual ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer les données
                 </button>
@@ -125,9 +164,17 @@
             <!-- Remplacement des données par un fichier (types CSV/Excel) -->
             <div class="import-block" *ngIf="supportsImport">
               <div class="import-sep"><span>ou</span></div>
-              <button class="btn-secondary" *ngIf="!reimportOpen" (click)="openReimport()">
+              <button class="btn-secondary" *ngIf="!reimportOpen && !htmlReimportOpen" (click)="openReimport()">
                 <i class="fas fa-file-import"></i> Remplacer par un fichier CSV/Excel
               </button>
+              <button class="btn-secondary" *ngIf="supportsHtmlImport && !htmlReimportOpen && !reimportOpen" (click)="openHtmlReimport()">
+                <i class="fas fa-file-code"></i> Remplacer par un rapport HTML (TBC)
+              </button>
+              <button class="btn-secondary" *ngIf="supportsAssemble && !reimportOpen && !htmlReimportOpen" [disabled]="reassembling" (click)="reassemble()">
+                <i class="fas" [ngClass]="reassembling ? 'fa-spinner fa-spin' : 'fa-object-group'"></i> Réassembler depuis les déterminations
+              </button>
+
+              <!-- Ré-import depuis un rapport HTML TBC : fenêtre dédiée (modale) -->
               <div class="reimport-form" *ngIf="reimportOpen">
                 <input type="file" accept=".csv,.xlsx" (change)="onReimportFileSelected($event)">
                 <app-piece-column-mapper
@@ -145,10 +192,47 @@
               </div>
             </div>
           </div>
+
+          <!-- Écarts / détermination définitive : 2ᵉ version calculée (lecture seule) -->
+          <div class="source-body" *ngIf="dataView==='ecarts'">
+            <div class="ecarts-head">
+              <p class="no-file subtle" *ngIf="!hasEcarts">
+                <i class="fas fa-info-circle"></i> Version non encore calculée : elle compare, pour chaque point, les coordonnées de la détermination définitive (fixes, supposées vraies) à celles calculées dans cette pièce. Requiert les données brutes ci-contre et une pièce « détermination définitive » (RDD) renseignée.
+              </p>
+              <p class="ecarts-count" *ngIf="hasEcarts"><i class="fas fa-not-equal"></i> {{ ecartsRows.length }} point(s) — écarts par rapport à la détermination définitive.</p>
+              <button class="btn-secondary" [disabled]="computingEcarts" (click)="computeEcarts()">
+                <i class="fas" [ngClass]="computingEcarts ? 'fa-spinner fa-spin' : (hasEcarts ? 'fa-rotate-right' : 'fa-calculator')"></i>
+                {{ hasEcarts ? 'Recalculer les écarts' : 'Calculer les écarts' }}
+              </button>
+            </div>
+
+            <div class="preview-table-wrapper" *ngIf="hasEcarts">
+              <table class="preview-table">
+                <thead><tr><th *ngFor="let champ of ecartsChamps">{{ champ.label }}</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let row of ecartsRows">
+                    <td *ngFor="let champ of ecartsChamps">{{ row[champ.name] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </ng-container>
 
-        <!-- Source : générée automatiquement -->
-        <p class="no-file" *ngIf="piece.source_saisie === 'ui'">Cette pièce est générée automatiquement lors de l'assemblage du rapport ; aucune donnée à saisir ici.</p>
+        <!-- Source : générée automatiquement (page de garde ; pas les rapports calculés tabulaires) -->
+        <p class="no-file" *ngIf="piece.source_saisie === 'ui' && !isTabularData">Cette pièce est générée automatiquement lors de l'assemblage du rapport ; aucune donnée à saisir ici.</p>
+      </section>
+
+      <!-- PPA/PPN : photos rattachées aux points -->
+      <section class="detail-section" *ngIf="isPhotoPoints">
+        <h4><i class="fas fa-images"></i> Photos par point</h4>
+        <app-piece-photo-points
+          [pieceId]="piece.id"
+          [rows]="previewRows"
+          [images]="piece.images || []"
+          [editable]="mode==='edit'"
+          (updated)="onPhotoPointsUpdated($event)">
+        </app-piece-photo-points>
       </section>
     </div>
 
@@ -157,6 +241,70 @@
         <i class="fas fa-edit"></i> Modifier
       </button>
       <button class="btn-cancel" (click)="close()"><i class="fas fa-times"></i> Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale de confirmation : vider le tableau ========== -->
+<div class="modal-overlay confirm-overlay" *ngIf="showClearConfirm" (click)="cancelClearRows()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left">
+        <span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span>
+        <h3>Vider le tableau</h3>
+      </div>
+      <button class="close-btn" (click)="cancelClearRows()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Supprimer <strong>toutes les lignes</strong> du tableau de données ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Effectif seulement après « Enregistrer les données ». Quitter sans enregistrer annule l'opération.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cancelClearRows()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-danger" (click)="confirmClearRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : import d'un rapport HTML (TBC) pour remplacer les données ========== -->
+<div class="modal-overlay import-overlay" *ngIf="htmlReimportOpen" (click)="cancelHtmlReimport()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-file-code"></i></span>
+        <h3>Remplacer par un rapport HTML (TBC)</h3>
+      </div>
+      <button class="close-btn" (click)="cancelHtmlReimport()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Choisissez le dossier contenant le fichier HTML cadre et son dossier « _files » ; l'app suit le fichier cadre pour trouver le bon fichier de données.</p>
+
+      <label class="btn-secondary file-label">
+        <input type="file" webkitdirectory directory multiple hidden (change)="onHtmlReimportFolder($event)">
+        <i class="fas fa-folder-open"></i> Sélectionner le dossier du rapport TBC
+      </label>
+
+      <p class="tbc-status" *ngIf="htmlReimportPreviewing"><i class="fas fa-spinner fa-spin"></i> Analyse du rapport…</p>
+
+      <!-- Plusieurs rapports détectés → choisir -->
+      <div class="html-choice" *ngIf="htmlReimportCandidates.length > 1 && !htmlReimportRows && !htmlReimportPreviewing">
+        <p class="choice-title"><i class="fas fa-list"></i> {{ htmlReimportCandidates.length }} rapports trouvés — choisissez celui à importer :</p>
+        <button class="choice-item" *ngFor="let c of htmlReimportCandidates" (click)="previewHtmlReimport(c.file)">
+          <i class="fas fa-file-code"></i>
+          <span class="choice-label">{{ c.label }}</span>
+          <span class="choice-file">{{ c.source }}</span>
+        </button>
+      </div>
+
+      <p class="tbc-status success" *ngIf="htmlReimportRows && !htmlReimportPreviewing">
+        <i class="fas fa-check-circle"></i> {{ htmlReimportRows.length }} ligne(s) générées — elles remplaceront les données actuelles.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cancelHtmlReimport()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!htmlReimportRows || htmlReimporting" (click)="confirmHtmlReimport()">
+        <i class="fas" [ngClass]="htmlReimporting ? 'fa-spinner fa-spin' : 'fa-check'"></i> Confirmer le remplacement
+      </button>
     </div>
   </div>
 </div>

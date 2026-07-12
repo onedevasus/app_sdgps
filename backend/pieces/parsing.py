@@ -2,6 +2,7 @@
 import csv
 import io
 import os
+import re
 
 from django.conf import settings
 
@@ -67,6 +68,171 @@ def _parse_xlsx(file_obj):
         if any(c is not None for c in row):
             data_rows.append(['' if c is None else str(c) for c in row])
     return header, data_rows
+
+
+def parse_rfb_tbc_html(file_obj):
+    """
+    Rapport HTML « Résultats de fermeture de boucle GNSS » de Trimble Business Center →
+    lignes RFB (dicts clés = noms de champs du catalogue RFB). Génère les 13 colonnes.
+
+    - `nom_boucle` : dernière section « Boucle : <stations> » précédant le bloc.
+    - `id_boucle`  : lien PV du bloc de fermeture.
+    - valeurs numériques : depuis les libellés « Longueur/ΔHoriz/ΔVert/PPM/Δ3D/ΔX/ΔY/ΔZ = X ».
+    - `tolerance_m` : 0.1 si longueur ≤ 10 km, sinon L(km)/100.
+    - `tolerable`   : « oui » si Δ3D ≤ tolerance, sinon « non ».
+    Lève ValueError si le fichier ne contient pas de données (ex. page-cadre TBC).
+    """
+    file_obj.seek(0)
+    raw = file_obj.read()
+    html = None
+    for encoding in ('utf-8-sig', 'utf-8', 'latin-1'):
+        try:
+            html = raw.decode(encoding) if isinstance(raw, bytes) else raw
+            break
+        except UnicodeDecodeError:
+            continue
+    if html is None:
+        raise ValueError("Encodage du fichier HTML non reconnu.")
+
+    # Un bloc de fermeture : lien PV puis les 8 valeurs étiquetées, dans l'ordre.
+    block_re = re.compile(
+        r'>(PV[0-9]+(?:-PV[0-9]+)+)</a>'
+        r'.*?Longueur[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?ΔHoriz[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?ΔVert[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?PPM[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?Δ3D[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?ΔX[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?ΔY[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)'
+        r'.*?ΔZ[^0-9=]*=[^0-9.\-]*(-?[0-9.]+)',
+        re.DOTALL,
+    )
+    # Sections « Boucle : <stations> » sur le HTML BRUT (mêmes offsets que les blocs).
+    # `_GAP` absorbe balises / &nbsp; / espaces entre « Boucle », « : » et le nom.
+    _GAP = r'(?:</?[a-z][^>]*>|&nbsp;|\s)*'
+    nom_positions = [(m.start(), m.group(1)) for m in re.finditer(
+        r'Boucle' + _GAP + r':' + _GAP + r'([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)', html)]
+
+    def nom_for(pos):
+        current = ''
+        for start, nom in nom_positions:
+            if start <= pos:
+                current = nom
+            else:
+                break
+        return current
+
+    rows = []
+    for i, m in enumerate(block_re.finditer(html), start=1):
+        id_boucle, longueur, dh, dv, ppm, d3d, dx, dy, dz = m.groups()
+        try:
+            l_m = float(longueur)
+        except (TypeError, ValueError):
+            l_m = 0.0
+        l_km = l_m / 1000.0
+        tolerance = 0.1 if l_km <= 10 else l_km / 100.0
+        try:
+            tolerable = 'oui' if float(d3d) <= tolerance else 'non'
+        except (TypeError, ValueError):
+            tolerable = ''
+        rows.append({
+            'id': str(i),
+            'id_boucle': id_boucle,
+            'nom_boucle': nom_for(m.start()),
+            'longueur_3d_m': longueur,
+            'delta_x_m': dx,
+            'delta_y_m': dy,
+            'delta_z_m': dz,
+            'delta_h_m': dh,
+            'delta_v_m': dv,
+            'ppm': ppm,
+            'delta_3d_m': d3d,
+            'tolerance_m': f'{tolerance:.5f}'.rstrip('0').rstrip('.'),
+            'tolerable': tolerable,
+        })
+
+    if not rows:
+        if '<frameset' in html.lower():
+            raise ValueError(
+                "Ce fichier est une page-cadre TBC : il ne contient pas les données. "
+                "Uploadez le fichier de contenu du rapport (dossier « _files ») ou un rapport HTML autonome."
+            )
+        raise ValueError("Aucune fermeture de boucle détectée dans ce fichier HTML.")
+    return rows
+
+
+def _decode_html(file_obj):
+    file_obj.seek(0)
+    raw = file_obj.read()
+    for encoding in ('utf-8-sig', 'utf-8', 'latin-1'):
+        try:
+            return raw.decode(encoding) if isinstance(raw, bytes) else raw
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("Encodage du fichier HTML non reconnu.")
+
+
+def _no_data_error(html, label):
+    if '<frameset' in html.lower():
+        raise ValueError(
+            "Ce fichier est une page-cadre TBC : il ne contient pas les données. "
+            "Uploadez le fichier de contenu du rapport (dossier « _files ») ou un rapport HTML autonome."
+        )
+    raise ValueError(f"Aucune donnée « {label} » détectée dans ce fichier HTML.")
+
+
+def parse_rdl_tbc_html(file_obj):
+    """
+    Rapport HTML « Ajustement du réseau (libre) » de TBC → lignes RDL.
+    Source : table « Coordonnées ajustées (quadrillage) », en-têtes
+    « ID de point / Abscisse / Abscisse Erreur / Nord / Nord Erreur ».
+    Mapping : nom_point=ID de point, x_m=Abscisse, sigma_x_m=Abscisse Erreur,
+    y_m=Nord, sigma_y_m=Nord Erreur ; id séquentiel.
+    """
+    html = _decode_html(file_obj)
+
+    def strip(s):
+        return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', s)).replace('\xa0', ' ') \
+                 .replace('&nbsp;', ' ').strip()
+
+    rows_out = []
+    for tb in re.findall(r'<table[^>]*>.*?</table>', html, re.S):
+        heads = [strip(h) for h in re.findall(r'<th[^>]*>(.*?)</th>', tb, re.S)]
+        if not (any(h.startswith('Abscisse') and 'Erreur' not in h for h in heads)
+                and any(h.startswith('Abscisse') and 'Erreur' in h for h in heads)
+                and any(h.startswith('Nord') and 'Erreur' not in h for h in heads)):
+            continue
+        for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', tb, re.S):
+            cells = [strip(c) for c in re.findall(r'<td[^>]*>(.*?)</td>', tr, re.S)]
+            if len(cells) >= 5 and cells[0]:
+                # « ? » dans les colonnes d'erreur = point fixe/contraint → « FIXE ».
+                sx = 'FIXE' if cells[2] == '?' else cells[2]
+                sy = 'FIXE' if cells[4] == '?' else cells[4]
+                rows_out.append({
+                    'id': str(len(rows_out) + 1),
+                    'nom_point': cells[0],
+                    'x_m': cells[1],
+                    'sigma_x_m': sx,
+                    'y_m': cells[3],
+                    'sigma_y_m': sy,
+                })
+        if rows_out:
+            break
+
+    if not rows_out:
+        _no_data_error(html, "coordonnées ajustées")
+    return rows_out
+
+
+# Parseurs de rapports HTML TBC par type de pièce (cf. catalog `html_import`).
+# RDL/RDN/RDD partagent le même format « ajustement du réseau » (table des coordonnées
+# ajustées) et le même schéma de champs (_RDX_CHAMPS) → même parseur.
+TBC_HTML_PARSERS = {
+    'RFB': parse_rfb_tbc_html,
+    'RDL': parse_rdl_tbc_html,
+    'RDN': parse_rdl_tbc_html,
+    'RDD': parse_rdl_tbc_html,
+}
 
 
 def apply_mapping(columns, rows, mapping):

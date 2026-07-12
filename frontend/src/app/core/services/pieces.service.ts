@@ -83,13 +83,15 @@ export class PiecesService {
     });
   }
 
-  /** Ajoute plusieurs images à une pièce ; transmet le lastModified navigateur par fichier. */
-  addImages(pieceId: string, files: File[]): Observable<Piece> {
+  /** Ajoute plusieurs images à une pièce ; transmet le lastModified navigateur par fichier.
+   * `pointRef` (PPA/PPN) rattache tout le lot à un point. */
+  addImages(pieceId: string, files: File[], pointRef?: string): Observable<Piece> {
     const formData = new FormData();
     files.forEach(f => {
       formData.append('fichiers', f, f.name);
       formData.append('last_modified', String(f.lastModified));
     });
+    if (pointRef) formData.append('point_ref', pointRef);
     return this.http.post<Piece>(`${this.base}${pieceId}/images/`, formData);
   }
 
@@ -97,8 +99,117 @@ export class PiecesService {
     return this.http.delete<Piece>(`${this.base}${pieceId}/images/${imageId}/`);
   }
 
+  /** (Ré)assigne une photo à un point (PPA/PPN) ; pointRef vide = désassigner. */
+  assignImage(pieceId: string, imageId: number, pointRef: string): Observable<Piece> {
+    return this.http.post<Piece>(`${this.base}${pieceId}/images/${imageId}/assign/`, { point_ref: pointRef });
+  }
+
+  /** Affecte en masse plusieurs photos à un point (un seul appel). */
+  assignImagesBulk(pieceId: string, imageIds: number[], pointRef: string): Observable<Piece> {
+    return this.http.post<Piece>(`${this.base}${pieceId}/images/assign-bulk/`, { image_ids: imageIds, point_ref: pointRef });
+  }
+
   reorderImages(pieceId: string, orderedIds: number[]): Observable<Piece> {
     return this.http.post<Piece>(`${this.base}${pieceId}/images/reorder/`, { ordered_ids: orderedIds });
+  }
+
+  /** Aperçu : parse le rapport HTML TBC (RFB) côté serveur → lignes générées. */
+  previewHtmlImport(file: File, typePiece: string): Observable<{ rows: any[]; champs: any[]; total_rows: number }> {
+    const formData = new FormData();
+    formData.append('fichier', file, file.name);
+    formData.append('type_piece', typePiece);
+    return this.http.post<{ rows: any[]; champs: any[]; total_rows: number }>(`${this.base}import-html/`, formData);
+  }
+
+  /** Confirmation : crée la pièce RFB à partir du HTML (lignes éditées + fichier attaché). */
+  confirmHtmlImport(file: File, typePiece: string, parent: PieceParent, numero: number | undefined, rows: any[]): Observable<Piece> {
+    const formData = new FormData();
+    formData.append('fichier', file, file.name);
+    formData.append('type_piece', typePiece);
+    if (parent.ssdgps) formData.append('ssdgps', parent.ssdgps);
+    if (parent.session) formData.append('session', parent.session);
+    if (numero != null) formData.append('numero', String(numero));
+    formData.append('payload', JSON.stringify({ rows }));
+    return this.http.post<Piece>(`${this.base}import-html/`, formData);
+  }
+
+  /**
+   * Création EN MASSE de pièces répétables (RDN) à partir de plusieurs rapports HTML TBC.
+   * L'ordre des fichiers transmis fixe les numéros des déterminations (n° = rang).
+   */
+  bulkImportHtml(files: File[], typePiece: string, parent: PieceParent): Observable<{ created: Piece[]; count: number }> {
+    const formData = new FormData();
+    formData.append('type_piece', typePiece);
+    if (parent.ssdgps) formData.append('ssdgps', parent.ssdgps);
+    if (parent.session) formData.append('session', parent.session);
+    for (const f of files) formData.append('fichiers', f, f.name);
+    return this.http.post<{ created: Piece[]; count: number }>(`${this.base}import-html-bulk/`, formData);
+  }
+
+  /**
+   * Aperçu du « Rapport de contrôle » (RC) calculé depuis la LPA + les déterminations
+   * du SSDGPS (et de la session si précisée). Erreur 400 si une source manque.
+   */
+  previewComputeRc(parent: PieceParent): Observable<{ rows: any[]; champs: any[]; total_rows: number }> {
+    const formData = new FormData();
+    formData.append('type_piece', 'RC');
+    if (parent.ssdgps) formData.append('ssdgps', parent.ssdgps);
+    if (parent.session) formData.append('session', parent.session);
+    return this.http.post<{ rows: any[]; champs: any[]; total_rows: number }>(`${this.base}compute-rc/`, formData);
+  }
+
+  /** Création du RC (lignes calculées, éventuellement éditées avant enregistrement). */
+  confirmComputeRc(parent: PieceParent, rows: any[]): Observable<Piece> {
+    const formData = new FormData();
+    formData.append('type_piece', 'RC');
+    if (parent.ssdgps) formData.append('ssdgps', parent.ssdgps);
+    if (parent.session) formData.append('session', parent.session);
+    formData.append('commit', '1');
+    formData.append('payload', JSON.stringify({ rows }));
+    return this.http.post<Piece>(`${this.base}compute-rc/`, formData);
+  }
+
+  /**
+   * Calcule la 2ᵉ version « écarts » d'une pièce RDL/RDN (brute vs détermination
+   * définitive). Résultat persisté dans `payload.rows_ecarts`. Erreur 400 si la RDD
+   * ou les données brutes manquent.
+   */
+  computeEcarts(pieceId: string): Observable<Piece> {
+    return this.http.post<Piece>(`${this.base}${pieceId}/compute-ecarts/`, {});
+  }
+
+  /**
+   * Aperçu de l'assemblage RDIA (RDL + RDNₖ → une pièce). `sourceIds` (ordonnés) fixe
+   * l'ordre des blocs ; vide = toutes les déterminations du scope (RDL puis RDN).
+   */
+  previewAssembleRdi(parent: PieceParent, sourceIds: string[]):
+      Observable<{ rows: any[]; champs: any[]; total_rows: number; sources: any[] }> {
+    return this.http.post<{ rows: any[]; champs: any[]; total_rows: number; sources: any[] }>(
+      `${this.base}assemble-rdi/`,
+      { ssdgps: parent.ssdgps, session: parent.session || null, source_ids: sourceIds });
+  }
+
+  /** Crée la pièce RDIA assemblée (lignes éventuellement éditées avant enregistrement). */
+  confirmAssembleRdi(parent: PieceParent, sourceIds: string[], rows: any[]): Observable<Piece> {
+    return this.http.post<Piece>(`${this.base}assemble-rdi/`, {
+      ssdgps: parent.ssdgps, session: parent.session || null,
+      source_ids: sourceIds, commit: '1', payload: { rows },
+    });
+  }
+
+  /** Réassemble une pièce RDIA existante depuis les déterminations du dossier (écarts invalidés). */
+  reassembleRdi(pieceId: string): Observable<Piece> {
+    return this.http.post<Piece>(`${this.base}assemble-rdi/`, { piece_id: pieceId });
+  }
+
+  /** Ré-import HTML TBC : remplace les données (+ fichier) d'une pièce existante. */
+  reimportHtml(pieceId: string, file: File, typePiece: string, rows: any[]): Observable<Piece> {
+    const formData = new FormData();
+    formData.append('fichier', file, file.name);
+    formData.append('type_piece', typePiece);
+    formData.append('piece_id', pieceId);
+    formData.append('payload', JSON.stringify({ rows }));
+    return this.http.post<Piece>(`${this.base}import-html/`, formData);
   }
 
   previewImport(file: File, typePiece: string): Observable<PieceImportPreview> {

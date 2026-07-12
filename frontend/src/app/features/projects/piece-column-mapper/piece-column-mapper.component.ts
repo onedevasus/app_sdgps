@@ -36,24 +36,41 @@ export class PieceColumnMapperComponent implements OnChanges {
     return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
   }
 
-  private suggestColumn(champ: PieceChampDef): string {
-    if (!this.preview?.columns?.length) return IGNORE;
-    const targetLabel = this.normalize(champ.label);
-    const targetName = this.normalize(champ.name);
-    const found = this.preview.columns.find(col => {
-      const c = this.normalize(col);
-      return c === targetLabel || c === targetName || c.includes(targetName) || targetLabel.includes(c);
-    });
-    return found ?? IGNORE;
-  }
-
+  /**
+   * Auto-suggestion en DEUX passes, chaque colonne source réservée au plus une fois :
+   *  1. correspondance EXACTE (libellé ou nom normalisé) ;
+   *  2. correspondance APPROCHÉE (inclusion) sur les colonnes restantes.
+   * L'exact-d'abord + réservation évite qu'un champ récupère par inclusion la colonne
+   * d'un autre (ex. « Réf. antenne » ⊃ « Antenne » → sinon `ref_antenne` volait « Antenne »).
+   */
   private buildForm(): void {
     const group: Record<string, any> = {};
     this.originalSuggestions = {};
+    const cols = (this.preview?.columns || []).map(raw => ({ raw, norm: this.normalize(raw) }));
+    const used = new Set<string>();
+
+    const claim = (champ: PieceChampDef, predicate: (c: { raw: string; norm: string }) => boolean): boolean => {
+      const m = cols.find(c => !used.has(c.raw) && predicate(c));
+      if (m) { used.add(m.raw); this.originalSuggestions[champ.name] = m.raw; return true; }
+      return false;
+    };
+
+    // Passe 1 : exacte
+    const pending: PieceChampDef[] = [];
     for (const champ of this.champs) {
-      const suggestion = this.suggestColumn(champ);
-      group[champ.name] = [suggestion];
-      this.originalSuggestions[champ.name] = suggestion;
+      const tl = this.normalize(champ.label), tn = this.normalize(champ.name);
+      if (!claim(champ, c => c.norm === tl || c.norm === tn)) pending.push(champ);
+    }
+    // Passe 2 : approchée (inclusion) sur les colonnes non déjà prises
+    for (const champ of pending) {
+      const tl = this.normalize(champ.label), tn = this.normalize(champ.name);
+      if (!claim(champ, c => c.norm.includes(tn) || c.norm.includes(tl) || tl.includes(c.norm))) {
+        this.originalSuggestions[champ.name] = IGNORE;
+      }
+    }
+
+    for (const champ of this.champs) {
+      group[champ.name] = [this.originalSuggestions[champ.name] ?? IGNORE];
     }
     this.form = this.fb.group(group);
     this.form.valueChanges.subscribe(() => this.emitMapping());

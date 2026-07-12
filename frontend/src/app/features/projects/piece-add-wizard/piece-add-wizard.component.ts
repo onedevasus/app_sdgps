@@ -4,9 +4,10 @@ import { PiecesService } from '../../../core/services/pieces.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Piece, PieceImportPreview, PieceTypeDef } from '../../../core/models/piece.model';
 import { Ssdgps, Session } from '../../../core/models/project.model';
+import { findTbcReports, TbcReportCandidate } from '../tbc-report.util';
 
-type Step = 'type' | 'scope' | 'source';
-type Source = 'image' | 'csv' | 'manuel';
+type Step = 'type' | 'scope' | 'source' | 'photos';
+type Source = 'image' | 'csv' | 'manuel' | 'html' | 'compute' | 'assemble';
 
 /**
  * Assistant d'ajout d'une pièce, en modal : choix du type applicable, puis du
@@ -133,20 +134,60 @@ export class PieceAddWizardComponent implements OnInit {
   selectSource(kind: Source): void {
     this.selectedSource = kind;
     if (kind === 'manuel') this.initManualForm();
+    if (kind === 'html') this.openHtmlModal();
+    if (kind === 'compute') this.computeRc();
+    if (kind === 'assemble') this.openAssembleModal();
   }
 
-  /** Applique la position choisie (si différente de la fin) puis notifie la création. */
+  /** PPA/PPN : type « photos par point » (chaque point porte un champ `fichier_image`). */
+  get isPhotoPoints(): boolean {
+    return (this.selectedType?.champs || []).some(c => c.name === 'fichier_image');
+  }
+
+  // Pièce créée en attente de l'étape « photos par point » (PPA/PPN).
+  createdPiece: Piece | null = null;
+
+  /** Applique la position choisie puis, pour PPA/PPN, ouvre l'étape photos ;
+   * sinon notifie la création. */
   private finishCreate(p: Piece, successMessage: string): void {
     const target = this.insertAtEnd ? null : Math.max(1, Math.min(this.customPosition, this.maxPosition)) - 1;
-    if (target === null || target === p.ordre) {
+    const done = (piece: Piece) => {
       this.toast.success('Succès', successMessage);
-      this.created.emit(p);
+      if (this.isPhotoPoints) { this.createdPiece = piece; this.step = 'photos'; }
+      else { this.created.emit(piece); }
+    };
+    if (target === null || target === p.ordre) { done(p); return; }
+    this.piecesService.moveToPosition(p.id, target).subscribe({
+      next: (updated) => done(updated),
+      error: () => done(p),
+    });
+  }
+
+  /** Étape photos : synchronise la pièce, puis finalise. */
+  onPhotoStepUpdated(p: Piece): void { this.createdPiece = p; }
+
+  private pointKey(row: any): string { return String(row?.id ?? row?.nom_point ?? '').trim(); }
+  /** Points (PPA/PPN) sans aucune photo rattachée — bloquent la finalisation. */
+  get pointsSansPhoto(): string[] {
+    const p = this.createdPiece;
+    if (!p) return [];
+    const rows = p.payload?.rows || [];
+    const covered = new Set((p.images || []).map(i => i.point_ref).filter(k => !!k));
+    const missing: string[] = [];
+    for (const r of rows) {
+      const k = this.pointKey(r);
+      if (k && !covered.has(k) && !missing.includes(k)) missing.push(k);
+    }
+    return missing;
+  }
+  get canFinishPhotos(): boolean { return this.pointsSansPhoto.length === 0; }
+
+  finishPhotos(): void {
+    if (!this.canFinishPhotos) {
+      this.toast.error('Photos manquantes', `${this.pointsSansPhoto.length} point(s) sans photo. Chaque point doit avoir au moins une photo.`);
       return;
     }
-    this.piecesService.moveToPosition(p.id, target).subscribe({
-      next: (updated) => { this.toast.success('Succès', successMessage); this.created.emit(updated); },
-      error: () => { this.toast.success('Succès', successMessage); this.created.emit(p); },
-    });
+    if (this.createdPiece) this.created.emit(this.createdPiece);
   }
 
   // --- Upload d'images (multi) ---
@@ -231,18 +272,269 @@ export class PieceAddWizardComponent implements OnInit {
       });
   }
 
+  // --- Import HTML (RFB — rapport TBC) ---
+  htmlFile: File | null = null;
+  htmlPreviewing = false;
+  submittingHtml = false;
+  htmlCandidates: TbcReportCandidate[] = [];
+  htmlModalOpen = false;
+
+  /** Ouvre / ferme la fenêtre (modale) de sélection du rapport HTML TBC. */
+  openHtmlModal(): void { this.htmlModalOpen = true; }
+  closeHtmlModal(): void { this.htmlModalOpen = false; }
+
+  // --- Création EN MASSE (RDN — déterminations intermédiaires depuis plusieurs HTML TBC) ---
+  bulkModalOpen = false;
+  bulkPreviewing = false;
+  bulkSubmitting = false;
+  bulkCandidates: TbcReportCandidate[] = [];
+
+  /** Type répétable disposant de l'import HTML (RDN) → propose la création en masse. */
+  get supportsBulkHtml(): boolean {
+    return !!this.selectedType?.repeatable && !!this.selectedType?.html_import;
+  }
+
+  openBulkModal(): void { this.bulkCandidates = []; this.bulkModalOpen = true; }
+  closeBulkModal(): void { this.bulkModalOpen = false; }
+
+  /** Numéro de détermination qu'aura la pièce de rang `i` (déduit de l'ordre + existants). */
+  bulkNumeroFor(i: number): number { return (this.nextNumero() || 1) + i; }
+
+  /** Sélection du DOSSIER contenant PLUSIEURS rapports TBC → liste ordonnable. */
+  onBulkFolderSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length || !this.selectedType) return;
+    this.bulkPreviewing = true;
+    findTbcReports(files, this.selectedType.code).then(candidates => {
+      this.bulkPreviewing = false;
+      if (!candidates.length) {
+        this.toast.error('Données introuvables', 'Aucun rapport TBC compatible trouvé dans le dossier sélectionné.');
+        return;
+      }
+      // Les nouveaux rapports s'ajoutent à la suite (permet de cumuler plusieurs dossiers).
+      const known = new Set(this.bulkCandidates.map(c => c.file));
+      this.bulkCandidates = [...this.bulkCandidates, ...candidates.filter(c => !known.has(c.file))];
+    });
+  }
+
+  /** Réordonne un rapport (les numéros de détermination suivent l'ordre de la liste). */
+  moveBulk(i: number, dir: -1 | 1): void {
+    const j = i + dir;
+    if (j < 0 || j >= this.bulkCandidates.length) return;
+    const arr = this.bulkCandidates;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  removeBulk(i: number): void { this.bulkCandidates.splice(i, 1); }
+
+  submitBulk(): void {
+    if (!this.selectedType || !this.bulkCandidates.length || this.bulkSubmitting) return;
+    this.bulkSubmitting = true;
+    const files = this.bulkCandidates.map(c => c.file);
+    this.piecesService.bulkImportHtml(files, this.selectedType.code, this.parentRef()).subscribe({
+      next: (res) => {
+        this.bulkSubmitting = false;
+        this.bulkModalOpen = false;
+        this.toast.success('Création en masse', `${res.count} pièce(s) « ${this.selectedType!.code} » créée(s).`);
+        // `created` déclenche le retour à la liste (le payload n'est pas exploité côté page).
+        this.created.emit(res.created[res.created.length - 1]);
+      },
+      error: (e) => { this.bulkSubmitting = false; this.toast.error('Échec', this.errorMessage(e, 'Création en masse impossible')); },
+    });
+  }
+
+  // --- Calcul automatique (RC — Rapport de contrôle depuis LPA + déterminations) ---
+  computing = false;
+  computeError: string | null = null;
+  submittingCompute = false;
+
+  /** Génère l'aperçu du RC côté serveur → grille éditable (réutilise `manualForm`). */
+  computeRc(): void {
+    if (!this.selectedType) return;
+    this.computeError = null;
+    this.manualForm = null;
+    this.computing = true;
+    this.piecesService.previewComputeRc(this.parentRef()).subscribe({
+      next: (res) => {
+        this.computing = false;
+        const rows = res.rows?.length ? res.rows : [{}];
+        this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+        this.toast.success('Rapport de contrôle', `${res.total_rows} ligne(s) calculée(s).`);
+      },
+      error: (e) => {
+        this.computing = false;
+        this.computeError = this.errorMessage(e, 'Calcul du rapport de contrôle impossible');
+      },
+    });
+  }
+
+  submitCompute(): void {
+    if (!this.manualForm || !this.selectedType || this.submittingCompute) return;
+    this.submittingCompute = true;
+    this.piecesService.confirmComputeRc(this.parentRef(), this.manualRows.value).subscribe({
+      next: (p) => { this.submittingCompute = false; this.finishCreate(p, 'Rapport de contrôle généré'); },
+      error: (e) => { this.submittingCompute = false; this.toast.error('Échec', this.errorMessage(e, 'Création du rapport de contrôle impossible')); },
+    });
+  }
+
+  // --- Assemblage RDIA (RDL + RDNₖ → « Rapport des déterminations intermédiaires ») ---
+  assembleModalOpen = false;
+  assembling = false;
+  submittingAssemble = false;
+  assembleItems: { id: string; label: string; count: number; selected: boolean }[] = [];
+  private assembleSourceIds: string[] = [];
+
+  get supportsAssemble(): boolean { return !!this.selectedType?.assemble; }
+
+  /** Ouvre la modale d'assemblage : liste les RDL/RDNₖ du scope (RDL puis RDN par numéro). */
+  openAssembleModal(): void {
+    const inScope = (p: Piece) => !p.is_deleted && (p.session || null) === (this.selectedSessionId || null);
+    const rdl = this.existingPieces.filter(p => p.type_piece === 'RDL' && inScope(p))
+      .sort((a, b) => a.ordre - b.ordre);
+    const rdn = this.existingPieces.filter(p => p.type_piece === 'RDN' && inScope(p))
+      .sort((a, b) => (a.numero || 0) - (b.numero || 0));
+    this.assembleItems = [...rdl, ...rdn].map(p => ({
+      id: p.id,
+      label: p.type_piece === 'RDL' ? 'Libre' : `N°${p.numero}`,
+      count: (p.payload?.rows || []).length,
+      selected: true,
+    }));
+    this.assembleModalOpen = true;
+  }
+  closeAssembleModal(): void { this.assembleModalOpen = false; }
+  moveAssemble(i: number, dir: -1 | 1): void {
+    const j = i + dir;
+    if (j < 0 || j >= this.assembleItems.length) return;
+    const a = this.assembleItems;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  get assembleSelectedIds(): string[] { return this.assembleItems.filter(x => x.selected).map(x => x.id); }
+
+  /** Assemble les déterminations choisies (aperçu serveur) → grille éditable. */
+  runAssemble(): void {
+    const ids = this.assembleSelectedIds;
+    if (!ids.length || !this.selectedType || this.assembling) return;
+    this.assembling = true;
+    this.piecesService.previewAssembleRdi(this.parentRef(), ids).subscribe({
+      next: (res) => {
+        this.assembling = false;
+        this.assembleModalOpen = false;
+        this.assembleSourceIds = ids;
+        const rows = res.rows?.length ? res.rows : [{}];
+        this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+        this.toast.success('Assemblage', `${res.total_rows} ligne(s) assemblées.`);
+      },
+      error: (e) => { this.assembling = false; this.toast.error('Échec', this.errorMessage(e, 'Assemblage impossible')); },
+    });
+  }
+
+  submitAssemble(): void {
+    if (!this.manualForm || !this.selectedType || this.submittingAssemble) return;
+    this.submittingAssemble = true;
+    this.piecesService.confirmAssembleRdi(this.parentRef(), this.assembleSourceIds, this.manualRows.value).subscribe({
+      next: (p) => { this.submittingAssemble = false; this.finishCreate(p, 'Rapport des déterminations intermédiaires assemblé'); },
+      error: (e) => { this.submittingAssemble = false; this.toast.error('Échec', this.errorMessage(e, 'Création impossible')); },
+    });
+  }
+
+  /** Sélection du DOSSIER du rapport TBC (fichier HTML cadre + son dossier « _files »).
+   * La détection des rapports (cadre → body, rapports autonomes) est partagée avec la
+   * page de modification : cf. `tbc-report.util.ts`. */
+  onHtmlFolderSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length || !this.selectedType) return;
+    this.manualForm = null;
+    this.htmlFile = null;
+    this.htmlPreviewing = true;
+
+    findTbcReports(files, this.selectedType.code).then(candidates => {
+      if (!candidates.length) {
+        this.htmlPreviewing = false;
+        this.toast.error('Données introuvables', 'Aucun rapport TBC compatible avec cette pièce trouvé (fichier cadre ou dossier « _files » manquant ?).');
+        return;
+      }
+      if (candidates.length === 1) {
+        this.previewCandidate(candidates[0].file);
+        return;
+      }
+      // Plusieurs rapports → laisser choisir.
+      this.htmlPreviewing = false;
+      this.htmlCandidates = candidates;
+    });
+  }
+
+  /** Charge un rapport candidat : parse serveur → grille éditable.
+   * `htmlCandidates` est conservé pour permettre « Changer de rapport ». */
+  previewCandidate(file: File): void {
+    if (!this.selectedType) return;
+    this.htmlFile = file;
+    this.manualForm = null;
+    this.htmlPreviewing = true;
+    this.piecesService.previewHtmlImport(file, this.selectedType.code).subscribe({
+      next: (res) => {
+        this.htmlPreviewing = false;
+        this.htmlModalOpen = false;
+        const rows = res.rows?.length ? res.rows : [{}];
+        this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+        this.toast.success('Import HTML', `${res.total_rows} ligne(s) générée(s).`);
+      },
+      error: (e) => { this.htmlPreviewing = false; this.htmlFile = null; this.toast.error('Échec', this.errorMessage(e, 'Lecture du rapport HTML impossible')); },
+    });
+  }
+
+  /** Revenir à la liste des rapports détectés (multi-rapports). */
+  backToHtmlChoice(): void { this.manualForm = null; this.htmlFile = null; }
+
+  /** Extrait un message lisible d'une erreur HTTP DRF (`detail`, erreur par champ, ou chaîne). */
+  private errorMessage(e: any, fallback: string): string {
+    const err = e?.error;
+    if (typeof err === 'string') return err;
+    if (err?.detail) return typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+    if (err && typeof err === 'object') {
+      const first = Object.values(err)[0];
+      if (Array.isArray(first) && first.length) return String(first[0]);
+      if (typeof first === 'string') return first;
+    }
+    return fallback;
+  }
+
+  submitHtml(): void {
+    if (!this.htmlFile || !this.selectedType || !this.manualForm || this.submittingHtml) return;
+    this.submittingHtml = true;
+    this.piecesService.confirmHtmlImport(
+      this.htmlFile, this.selectedType.code, this.parentRef(), this.nextNumero(), this.manualRows.value,
+    ).subscribe({
+      next: (p) => { this.submittingHtml = false; this.finishCreate(p, 'Rapport HTML importé'); },
+      error: (e) => { this.submittingHtml = false; this.toast.error('Échec', this.errorMessage(e, 'Import HTML impossible')); },
+    });
+  }
+
   // --- Saisie manuelle ---
   private initManualForm(): void {
     this.manualForm = this.fb.group({ rows: this.fb.array([this.buildManualRow()]) });
   }
-  private buildManualRow(): FormGroup {
+  private buildManualRow(row: any = {}): FormGroup {
     const group: Record<string, any> = {};
-    (this.selectedType?.champs || []).forEach(c => { group[c.name] = ['']; });
+    (this.selectedType?.champs || []).forEach(c => { group[c.name] = [row[c.name] ?? '']; });
     return this.fb.group(group);
   }
   get manualRows(): FormArray { return this.manualForm!.get('rows') as FormArray; }
   addManualRow(): void { this.manualRows.push(this.buildManualRow()); }
   removeManualRow(i: number): void { if (this.manualRows.length > 1) this.manualRows.removeAt(i); }
+  /** Vider le tableau : ouvre la modale de confirmation (persisté seulement à la création). */
+  showClearConfirm = false;
+  clearManualRows(): void {
+    if (!this.manualForm || !this.manualRows.length) return;
+    this.showClearConfirm = true;
+  }
+  cancelClearRows(): void { this.showClearConfirm = false; }
+  confirmClearRows(): void {
+    if (this.manualForm) while (this.manualRows.length) this.manualRows.removeAt(0);
+    this.showClearConfirm = false;
+  }
 
   submitManual(): void {
     if (!this.manualForm || !this.selectedType || this.submittingManual) return;
@@ -262,6 +554,15 @@ export class PieceAddWizardComponent implements OnInit {
     this.importPreview = null;
     this.currentMapping = {};
     this.manualForm = null;
+    this.htmlFile = null;
+    this.htmlCandidates = [];
+    this.htmlModalOpen = false;
+    this.bulkModalOpen = false;
+    this.bulkCandidates = [];
+    this.computeError = null;
+    this.assembleModalOpen = false;
+    this.assembleItems = [];
+    this.assembleSourceIds = [];
     this.clearLocalImages();
   }
 

@@ -1,0 +1,164 @@
+.photo-points { display: flex; flex-direction: column; gap: 14px; }
+
+.pp-summary {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  .pp-stat {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px;
+    background: var(--primary-color); border: 1px solid var(--border-color); border-radius: 9999px;
+    font-size: 12px; color: var(--text-muted);
+    i { font-size: 11px; color: var(--accent-color); }
+    &.warn { border-color: rgba(230, 162, 60, 0.4); color: #e0952b; i { color: #e0952b; } }
+  }
+}
+
+/* Vignettes partagées (bac + points) */
+.pp-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.pp-thumb {
+  position: relative; width: 74px; height: 74px; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border-color); background: var(--secondary-color); flex-shrink: 0;
+  &[draggable="true"] { cursor: grab; }
+  img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+  .pp-fallback {
+    width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; color: var(--text-muted); font-size: 10px; cursor: zoom-in; i { font-size: 18px; }
+  }
+  .pp-del {
+    position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border: none; border-radius: 5px;
+    background: rgba(0, 0, 0, 0.55); color: #fff; cursor: pointer; font-size: 10px; opacity: 0; transition: opacity 0.12s;
+    &:hover { background: #e74c3c; }
+  }
+  &:hover .pp-del { opacity: 1; }
+}
+
+.pp-upload {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+  background: rgba(204, 88, 88, 0.1); border: 1px solid rgba(204, 88, 88, 0.3);
+  color: var(--accent-color); font-size: 12px; font-weight: 600; transition: all 0.15s;
+  &:hover:not(.disabled) { background: var(--accent-color); color: #fff; }
+  &.disabled { opacity: 0.6; cursor: not-allowed; }
+  &.sm { padding: 4px 10px; font-size: 11.5px; margin-left: auto; }
+}
+
+/* Bac à assigner */
+.pp-tray {
+  border: 1px dashed var(--border-color); border-radius: 10px; padding: 12px; background: var(--primary-color);
+  transition: all 0.15s;
+  &.drop-hint { border-color: var(--accent-color); background: rgba(204, 88, 88, 0.05); }
+  .pp-tray-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    span { font-size: 13px; font-weight: 600; color: var(--text-color); i { color: var(--accent-color); margin-right: 6px; } }
+  }
+}
+
+/* Points */
+.pp-points { display: flex; flex-direction: column; gap: 10px; }
+.pp-point {
+  border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; background: var(--secondary-color);
+  box-shadow: 0 1px 3px var(--shadow-color); transition: all 0.15s;
+  &.drop-hint { border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(204, 88, 88, 0.25); }
+  &.no-photo { border-left: 3px solid #e0952b; }
+  .pp-point-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    .pp-point-label { font-size: 13.5px; font-weight: 600; color: var(--text-color);
+      i { color: var(--accent-color); margin-right: 6px; } }
+    .pp-point-count { font-size: 11.5px; color: var(--text-muted); }
+  }
+}
+
+.pp-empty {
+  margin: 0; color: var(--text-muted); font-size: 12.5px; font-style: italic;
+  display: flex; align-items: center; gap: 7px;
+  &.inline { padding: 6px 0; }
+}
+
+/* Lightbox */
+.pp-lightbox {
+  position: fixed; inset: 0; z-index: 11000; background: rgba(0, 0, 0, 0.85);
+  display: flex; align-items: center; justify-content: center; cursor: zoom-out;
+  img { max-width: 92vw; max-height: 92vh; object-fit: contain; cursor: default; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+  .pp-lightbox-close {
+    position: absolute; top: 18px; right: 22px; width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: none; color: #fff; font-size: 18px; cursor: pointer;
+    &:hover { background: rgba(255,255,255,0.25); }
+  }
+}
+
+/* ---------- Boutons liens / actions ---------- */
+.pp-linkbtn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: none; border-radius: 6px;
+  background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 500; cursor: pointer;
+  &:hover:not(:disabled) { background: var(--hover-bg); color: var(--accent-color); }
+  &.danger:hover:not(:disabled) { color: #e74c3c; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.btn-affect {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+  background: var(--accent-color); border: none; color: #fff; font-size: 12px; font-weight: 600;
+  &:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(204, 88, 88, 0.4); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  .fa-caret-down { font-size: 11px; }
+}
+
+/* ---------- Barre de sélection du bac ---------- */
+.pp-bulkbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;
+  padding: 8px 10px; border-radius: 8px; background: var(--secondary-color); border: 1px solid var(--border-color);
+  .pp-selectall { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); cursor: pointer;
+    input { accent-color: var(--accent-color); cursor: pointer; } }
+  .pp-bulkcount { font-size: 12.5px; font-weight: 600; color: var(--accent-color); }
+}
+
+/* ---------- Sélection sur les vignettes du bac ---------- */
+.pp-thumb {
+  &.selected { outline: 2px solid var(--accent-color); outline-offset: 1px; }
+  .pp-check {
+    position: absolute; top: 4px; left: 4px; z-index: 3; width: 17px; height: 17px;
+    accent-color: var(--accent-color); cursor: pointer;
+  }
+  .pp-thumb-actions {
+    position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between;
+    padding: 3px; gap: 3px; background: rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity 0.12s;
+    .pp-affect-btn, .pp-del {
+      position: static; width: 24px; height: 22px; border: none; border-radius: 5px;
+      background: rgba(255, 255, 255, 0.15); color: #fff; cursor: pointer; font-size: 11px; opacity: 1;
+      &:hover { background: var(--accent-color); }
+    }
+    .pp-del:hover { background: #e74c3c; }
+  }
+  &:hover .pp-thumb-actions { opacity: 1; }
+}
+
+/* ---------- Sélecteur de point (menu déroulant cherchable) ---------- */
+.pp-picker-wrap { position: relative; display: inline-block; }
+.pp-picker {
+  position: absolute; z-index: 200; top: calc(100% + 4px); right: 0; width: 240px;
+  background: var(--primary-color); border: 1px solid var(--border-color); border-radius: 10px;
+  box-shadow: 0 8px 28px var(--shadow-color); padding: 6px; display: flex; flex-direction: column; gap: 6px;
+  .pp-picker-search {
+    width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid var(--border-color);
+    border-radius: 6px; background: var(--secondary-color); color: var(--text-color); font-size: 12.5px;
+    &:focus { outline: none; border-color: var(--accent-color); }
+  }
+  .pp-picker-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .pp-picker-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: none; border-radius: 6px;
+    background: transparent; color: var(--text-color); font-size: 12.5px; cursor: pointer; text-align: left;
+    i { color: var(--text-muted); font-size: 11px; }
+    &:hover { background: var(--hover-bg); i { color: var(--accent-color); } }
+    .pp-picker-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pp-picker-count { font-size: 11px; color: var(--text-muted); background: var(--secondary-color); padding: 1px 7px; border-radius: 9999px; }
+  }
+  .pp-picker-empty { margin: 6px; font-size: 12px; color: var(--text-muted); font-style: italic; }
+}
+
+/* ---------- En-tête liste des points + repli ---------- */
+.pp-points-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;
+  .pp-points-title { font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px;
+    i { color: var(--accent-color); margin-right: 6px; } }
+}
+.pp-point-head { cursor: pointer; user-select: none;
+  .pp-chev { color: var(--text-muted); font-size: 12px; width: 12px; margin-right: 4px; }
+  .pp-point-label { flex: 1; }
+  .pp-point-count.zero { color: #e0952b; }
+}
+.pp-point.collapsed { .pp-point-head { margin-bottom: 0; } }

@@ -8,7 +8,7 @@ export type PieceTypeCode =
   | 'ROB' | 'RTLB' | 'RFB' | 'RDL' | 'RDN' | 'RDI' | 'RDD' | 'RC';
 
 export type PieceNiveau = 'ssdgps' | 'session';
-export type PieceSource = 'ui' | 'image' | 'csv_manuel' | 'image_csv_manuel' | 'manuel';
+export type PieceSource = 'ui' | 'image' | 'csv_manuel' | 'image_csv_manuel' | 'manuel' | 'calcul';
 export type PieceSourceSaisie = 'manuel' | 'import' | 'image' | 'ui';
 export type PieceStatut = 'brouillon' | 'valide' | 'rejete';
 export type PieceChampType = 'text' | 'number' | 'date' | 'textarea';
@@ -28,6 +28,15 @@ export interface PieceTypeDef {
   natures: 'toutes' | string[];
   champs: PieceChampDef[];
   repeatable: boolean;
+  html_import?: boolean;
+  /** RC : tableau calculé automatiquement (depuis LPA + déterminations). */
+  computed?: boolean;
+  /** RDL/RDN/RDIA : 2ᵉ version « écarts » calculable (brute vs détermination définitive). */
+  ecarts?: boolean;
+  /** Colonnes de la version « écarts » (si `ecarts`). */
+  ecarts_champs?: PieceChampDef[];
+  /** RDIA : pièce assemblée depuis les déterminations RDL/RDNₖ du dossier. */
+  assemble?: boolean;
 }
 
 export interface PieceImage {
@@ -35,6 +44,7 @@ export interface PieceImage {
   fichier_url: string | null;
   apercu_url: string | null;
   ordre: number;
+  point_ref: string;
   format: string;
   taille_octets: number;
   largeur: number;

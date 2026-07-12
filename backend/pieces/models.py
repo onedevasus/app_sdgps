@@ -127,6 +127,9 @@ class PieceImage(models.Model):
         verbose_name="Aperçu PNG (formats non affichables, ex. TIFF)",
     )
     ordre = models.PositiveIntegerField(default=0, verbose_name="Ordre dans la galerie")
+    # Rattachement à un point (PPA/PPN) : id du point de payload.rows. Vide = galerie
+    # plate (RDC…) ou photo non encore assignée à un point.
+    point_ref = models.CharField(max_length=100, blank=True, verbose_name="Point rattaché")
 
     # Métadonnées techniques (figées à l'upload)
     format = models.CharField(max_length=10, blank=True, verbose_name="Format")

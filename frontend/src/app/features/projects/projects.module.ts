@@ -11,13 +11,14 @@ import { PieceDetailModalComponent } from './piece-detail-modal/piece-detail-mod
 import { PieceImageGalleryComponent } from './piece-image-gallery/piece-image-gallery.component';
 import { PieceAddPageComponent } from './piece-add-page/piece-add-page.component';
 import { PieceDetailPageComponent } from './piece-detail-page/piece-detail-page.component';
+import { PiecePhotoPointsComponent } from './piece-photo-points/piece-photo-points.component';
 
 @NgModule({
   declarations: [
     ProjectListComponent, ProjectExplorerComponent,
     PieceColumnMapperComponent, PieceManagementPageComponent, PieceAddWizardComponent,
     PieceDetailModalComponent, PieceImageGalleryComponent,
-    PieceAddPageComponent, PieceDetailPageComponent,
+    PieceAddPageComponent, PieceDetailPageComponent, PiecePhotoPointsComponent,
   ],
   imports: [CommonModule, FormsModule, ReactiveFormsModule, ProjectsRoutingModule],
 })

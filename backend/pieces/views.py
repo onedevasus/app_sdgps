@@ -22,7 +22,9 @@ from projects.views import user_org_ids
 from .catalog import serialize_catalog, get_piece_def
 from .imaging import extract_image_metadata, make_png_preview, NON_WEB_FORMATS
 from .models import Piece, PieceImage
-from .parsing import parse_uploaded_table, apply_mapping
+from .parsing import parse_uploaded_table, apply_mapping, TBC_HTML_PARSERS
+from .rc import (compute_rapport_controle, compute_ecarts_vs_definitive,
+                 compute_ecarts_assembled, assemble_determinations)
 from .serializers import PieceSerializer
 
 
@@ -179,6 +181,8 @@ class PieceViewSet(viewsets.ModelViewSet):
         if not files:
             return Response({'detail': 'Aucun fichier fourni (champ « fichiers »).'}, status=400)
         last_modified = request.data.getlist('last_modified')
+        # Rattachement optionnel à un point (PPA/PPN) : appliqué à tout le lot.
+        point_ref = (request.data.get('point_ref') or '').strip()
         max_ordre = piece.images.aggregate(m=Max('ordre'))['m']
         next_ordre = (max_ordre + 1) if max_ordre is not None else 0
         try:
@@ -186,7 +190,8 @@ class PieceViewSet(viewsets.ModelViewSet):
                 for idx, f in enumerate(files):
                     lm = last_modified[idx] if idx < len(last_modified) else None
                     meta = extract_image_metadata(f, lm)
-                    img = PieceImage(piece=piece, fichier=f, ordre=next_ordre + idx, **meta)
+                    img = PieceImage(piece=piece, fichier=f, ordre=next_ordre + idx,
+                                     point_ref=point_ref, **meta)
                     img.full_clean()
                     img.save()
                     # Aperçu PNG pour les formats non affichables nativement (TIFF).
@@ -217,6 +222,38 @@ class PieceViewSet(viewsets.ModelViewSet):
         piece.refresh_from_db()
         return Response(self.get_serializer(piece).data)
 
+    # id numérique explicite (même raison que delete_image).
+    @action(detail=True, methods=['post'], url_path=r'images/(?P<image_id>[0-9]+)/assign')
+    def assign_image(self, request, pk=None, image_id=None):
+        """POST {id}/images/{image_id}/assign  {point_ref} — (ré)assigne la photo à un
+        point (PPA/PPN) ; `point_ref` vide = désassigner (retour au bac « à assigner »)."""
+        piece = self._org_scoped_queryset().filter(pk=pk).first()
+        if piece is None:
+            return Response({'detail': 'Pièce non trouvée.'}, status=status.HTTP_404_NOT_FOUND)
+        img = piece.images.filter(pk=image_id).first()
+        if img is None:
+            return Response({'detail': 'Image non trouvée.'}, status=status.HTTP_404_NOT_FOUND)
+        img.point_ref = (request.data.get('point_ref') or '').strip()
+        img.save(update_fields=['point_ref'])
+        piece.refresh_from_db()
+        return Response(self.get_serializer(piece).data)
+
+    @action(detail=True, methods=['post'], url_path='images/assign-bulk')
+    def assign_images_bulk(self, request, pk=None):
+        """POST {id}/images/assign-bulk  {image_ids: [...], point_ref} — (ré)assigne en une
+        transaction plusieurs photos à un point (point_ref vide = désassigner)."""
+        piece = self._org_scoped_queryset().filter(pk=pk).first()
+        if piece is None:
+            return Response({'detail': 'Pièce non trouvée.'}, status=status.HTTP_404_NOT_FOUND)
+        image_ids = request.data.get('image_ids')
+        if not isinstance(image_ids, list) or not image_ids:
+            return Response({'detail': 'image_ids (liste) requis.'}, status=400)
+        point_ref = (request.data.get('point_ref') or '').strip()
+        with transaction.atomic():
+            piece.images.filter(pk__in=image_ids).update(point_ref=point_ref)
+        piece.refresh_from_db()
+        return Response(self.get_serializer(piece).data)
+
     @action(detail=True, methods=['post'], url_path='images/reorder')
     def reorder_images(self, request, pk=None):
         """POST {id}/images/reorder/  {ordered_ids: [...]} — réindexe l'ordre de la galerie."""
@@ -240,6 +277,418 @@ class PieceViewSet(viewsets.ModelViewSet):
                     im.save(update_fields=['ordre'])
         piece.refresh_from_db()
         return Response(self.get_serializer(piece).data)
+
+    @action(detail=False, methods=['post'], url_path='import-html', parser_classes=[parsers.MultiPartParser])
+    def import_html(self, request):
+        """
+        POST /api/v1/pieces/import-html/  (multipart) — RFB : rapport HTML TBC
+        « Résultats de fermeture de boucle GNSS » → table de données auto-générée.
+        Champs : fichier (.html requis), type_piece (requis).
+        - Sans `ssdgps` : APERÇU — parse et retourne les lignes, NE PERSISTE RIEN.
+        - Avec `ssdgps` : CONFIRMATION — crée la pièce (source « import »), payload =
+          lignes éditées (`payload` JSON) sinon re-parse, et attache le fichier HTML.
+        """
+        f = request.FILES.get('fichier')
+        type_piece = request.data.get('type_piece')
+        if not f or not type_piece:
+            return Response({'detail': 'fichier et type_piece sont requis.'}, status=400)
+        try:
+            piece_def = get_piece_def(type_piece)
+        except KeyError:
+            return Response({'detail': 'Type de pièce inconnu.'}, status=400)
+        parse_tbc_html = TBC_HTML_PARSERS.get(type_piece)
+        if parse_tbc_html is None:
+            return Response({'detail': f"Le type « {type_piece} » n'a pas d'import HTML TBC."}, status=400)
+
+        ssdgps_id = request.data.get('ssdgps')
+        piece_id = request.data.get('piece_id')
+
+        # --- Aperçu : parse requis ---
+        if not ssdgps_id and not piece_id:
+            try:
+                rows = parse_tbc_html(f)
+            except ValueError as e:
+                return Response({'detail': str(e)}, status=400)
+            return Response({
+                'rows': rows,
+                'champs': piece_def['champs'],
+                'total_rows': len(rows),
+            })
+
+        # --- Ré-import : remplace données + fichier d'une pièce existante, identité
+        # (ssdgps/session/numéro/type) inchangée — même principe que import_file. ---
+        if piece_id:
+            instance = self._org_scoped_queryset().filter(pk=piece_id, is_deleted=False).first()
+            if instance is None:
+                return Response({'detail': 'Pièce introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+            rows = None
+            payload_raw = request.data.get('payload')
+            if payload_raw:
+                try:
+                    edited = json.loads(payload_raw)
+                    if isinstance(edited, dict):
+                        edited = edited.get('rows')
+                    if isinstance(edited, list):
+                        rows = edited
+                except (json.JSONDecodeError, TypeError):
+                    rows = None
+            if rows is None:
+                try:
+                    rows = parse_tbc_html(f)
+                except ValueError as e:
+                    return Response({'detail': str(e)}, status=400)
+            f.seek(0)
+            update_data = {'payload': {'rows': rows}, 'source_saisie': 'import', 'fichier': f}
+            serializer = self.get_serializer(instance, data=update_data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(updated_by=request.user)
+            return Response(serializer.data)
+
+        # --- Confirmation : on privilégie les lignes éditées (payload). On NE re-parse
+        # le fichier QUE si aucun payload n'est fourni (sinon un fichier joint non conforme
+        # bloquerait la création alors que les données sont déjà là). ---
+        rows = None
+        payload_raw = request.data.get('payload')
+        if payload_raw:
+            try:
+                edited = json.loads(payload_raw)
+                if isinstance(edited, dict):
+                    edited = edited.get('rows')
+                if isinstance(edited, list):
+                    rows = edited
+            except (json.JSONDecodeError, TypeError):
+                rows = None
+        if rows is None:
+            try:
+                rows = parse_tbc_html(f)
+            except ValueError as e:
+                return Response({'detail': str(e)}, status=400)
+
+        f.seek(0)
+        data = {
+            'type_piece': type_piece,
+            'ssdgps': ssdgps_id,
+            'session': request.data.get('session') or None,
+            'numero': request.data.get('numero') or None,
+            'payload': {'rows': rows},
+            'source_saisie': 'import',
+            'fichier': f,
+        }
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        ssdgps = serializer.validated_data.get('ssdgps')
+        self._check_scope(ssdgps)
+        max_ordre = Piece.objects.filter(ssdgps=ssdgps, is_deleted=False).aggregate(m=Max('ordre'))['m']
+        serializer.save(created_by=request.user, ordre=(max_ordre + 1) if max_ordre is not None else 0)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='import-html-bulk',
+            parser_classes=[parsers.MultiPartParser])
+    def import_html_bulk(self, request):
+        """
+        POST /api/v1/pieces/import-html-bulk/  (multipart)
+        Création EN MASSE de pièces répétables (ex. RDN — déterminations intermédiaires)
+        à partir de PLUSIEURS rapports HTML TBC. Le numéro de chaque pièce est déduit de
+        l'ORDRE des fichiers reçus : n° = (max numéro existant du même parent) + rang.
+        Champs : type_piece (répétable + import HTML), ssdgps (requis),
+        session (optionnelle), fichiers (>= 1, dans l'ordre voulu).
+        Tout est créé dans une seule transaction : l'échec d'un fichier n'en crée aucun.
+        """
+        type_piece = request.data.get('type_piece')
+        files = request.FILES.getlist('fichiers')
+        if not type_piece or not files:
+            return Response({'detail': 'type_piece et au moins un fichier sont requis.'}, status=400)
+        try:
+            piece_def = get_piece_def(type_piece)
+        except KeyError:
+            return Response({'detail': 'Type de pièce inconnu.'}, status=400)
+        if not piece_def.get('repeatable'):
+            return Response(
+                {'detail': f"Le type « {type_piece} » n'est pas répétable : création en masse impossible."},
+                status=400)
+        parse_tbc_html = TBC_HTML_PARSERS.get(type_piece)
+        if parse_tbc_html is None:
+            return Response({'detail': f"Le type « {type_piece} » n'a pas d'import HTML TBC."}, status=400)
+        ssdgps_id = request.data.get('ssdgps')
+        if not ssdgps_id:
+            return Response({'detail': 'ssdgps est requis pour la création en masse.'}, status=400)
+        session_id = request.data.get('session') or None
+
+        # 1) Parse TOUS les fichiers d'abord — un échec n'entraîne aucune création.
+        parsed = []
+        for idx, f in enumerate(files):
+            try:
+                rows = parse_tbc_html(f)
+            except ValueError as e:
+                return Response({'detail': f"Fichier n°{idx + 1} « {f.name} » : {e}"}, status=400)
+            parsed.append((f, rows))
+
+        # 2) Création atomique ; numéro et ordre déduits du rang dans la liste.
+        created = []
+        with transaction.atomic():
+            max_num = Piece.objects.filter(
+                type_piece=type_piece, ssdgps_id=ssdgps_id, session_id=session_id, is_deleted=False,
+            ).aggregate(m=Max('numero'))['m'] or 0
+            max_ordre = Piece.objects.filter(
+                ssdgps_id=ssdgps_id, is_deleted=False).aggregate(m=Max('ordre'))['m']
+            next_ordre = (max_ordre + 1) if max_ordre is not None else 0
+            for i, (f, rows) in enumerate(parsed):
+                f.seek(0)
+                data = {
+                    'type_piece': type_piece,
+                    'ssdgps': ssdgps_id,
+                    'session': session_id,
+                    'numero': max_num + 1 + i,
+                    'payload': {'rows': rows},
+                    'source_saisie': 'import',
+                    'fichier': f,
+                }
+                serializer = self.get_serializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                if i == 0:
+                    self._check_scope(serializer.validated_data.get('ssdgps'))
+                serializer.save(created_by=request.user, ordre=next_ordre + i)
+                created.append(serializer.data)
+        return Response({'created': created, 'count': len(created)}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='compute-rc',
+            parser_classes=[parsers.MultiPartParser, parsers.FormParser])
+    def compute_rc(self, request):
+        """
+        POST /api/v1/pieces/compute-rc/
+        Génère le tableau de la pièce « Rapport de contrôle » (RC) en croisant la
+        « Liste des points anciens » (LPA) et les « Rapports de la détermination N°k »
+        (RDN) du même SSDGPS (et de la session, si précisée) — cf. pieces/rc.py.
+        Champs : ssdgps (requis) ; session (optionnelle) ; commit (« 1 » → crée la pièce,
+        sinon APERÇU sans persistance) ; payload (JSON des lignes éditées, au commit).
+        La pièce ne peut être générée que si les deux sources existent avec des données.
+        """
+        type_piece = request.data.get('type_piece') or 'RC'
+        ssdgps_id = request.data.get('ssdgps')
+        if not ssdgps_id:
+            return Response({'detail': 'ssdgps est requis.'}, status=400)
+        session_id = request.data.get('session') or None
+        commit = str(request.data.get('commit', '')).lower() in ('1', 'true', 'yes')
+
+        scope = self._org_scoped_queryset().filter(ssdgps_id=ssdgps_id, is_deleted=False)
+        lpa = scope.filter(type_piece='LPA').first()
+        rdn_qs = scope.filter(type_piece='RDN')
+        if session_id:
+            rdn_qs = rdn_qs.filter(session_id=session_id)
+        rdn_list = list(rdn_qs.order_by('numero', 'ordre'))
+
+        missing = []
+        if lpa is None or not (lpa.payload or {}).get('rows'):
+            missing.append("« Liste des points anciens » (LPA)")
+        if not rdn_list:
+            missing.append("« Rapport de la détermination N°k » (au moins une détermination intermédiaire)")
+        if missing:
+            return Response({'detail': (
+                'Sources manquantes : ' + ' et '.join(missing) + '. Ajoutez-les avec leurs '
+                'données avant de générer le rapport de contrôle.')}, status=400)
+
+        lpa_rows = (lpa.payload or {}).get('rows') or []
+        determinations = [{'numero': p.numero, 'rows': (p.payload or {}).get('rows') or []}
+                          for p in rdn_list]
+        rows = compute_rapport_controle(lpa_rows, determinations)
+        if not rows:
+            return Response({'detail': (
+                "Aucun point de contrôle commun entre la LPA et les déterminations : "
+                "vérifiez que les points anciens tenus fixes figurent bien dans la LPA.")},
+                status=400)
+
+        piece_def = get_piece_def(type_piece)
+        if not commit:
+            return Response({'rows': rows, 'champs': piece_def['champs'], 'total_rows': len(rows)})
+
+        # Commit : privilégier les lignes éditées transmises, sinon les lignes calculées.
+        payload_raw = request.data.get('payload')
+        if payload_raw:
+            try:
+                edited = json.loads(payload_raw)
+                if isinstance(edited, dict):
+                    edited = edited.get('rows')
+                if isinstance(edited, list) and edited:
+                    rows = edited
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        data = {
+            'type_piece': type_piece,
+            'ssdgps': ssdgps_id,
+            'session': session_id,
+            'payload': {'rows': rows},
+            'source_saisie': 'ui',
+        }
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        ssdgps = serializer.validated_data.get('ssdgps')
+        self._check_scope(ssdgps)
+        max_ordre = Piece.objects.filter(ssdgps=ssdgps, is_deleted=False).aggregate(m=Max('ordre'))['m']
+        serializer.save(created_by=request.user, ordre=(max_ordre + 1) if max_ordre is not None else 0)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='compute-ecarts')
+    def compute_ecarts(self, request, pk=None):
+        """
+        POST /api/v1/pieces/<id>/compute-ecarts/
+        Calcule la DEUXIÈME version « écarts » d'une pièce RDL/RDN : pour chaque point,
+        écart entre la coordonnée définitive (RDD) et la coordonnée calculée de la pièce.
+        Résultat stocké dans payload['rows_ecarts'] (la version brute payload['rows'] est
+        conservée). Requiert : données brutes de la pièce présentes + une pièce RDD (avec
+        données) dans le même SSDGPS (et la même session, si la pièce en a une).
+        """
+        piece = self.get_object()
+        piece_def = get_piece_def(piece.type_piece)
+        if not piece_def.get('ecarts'):
+            return Response(
+                {'detail': f"Le type « {piece.type_piece} » n'a pas de version « écarts »."}, status=400)
+
+        piece_rows = (piece.payload or {}).get('rows') or []
+        if not piece_rows:
+            return Response({'detail': (
+                'Les données brutes de cette pièce sont absentes : importez ou saisissez-les '
+                'avant de calculer les écarts.')}, status=400)
+
+        rdd_qs = self._org_scoped_queryset().filter(
+            type_piece='RDD', ssdgps_id=piece.ssdgps_id, is_deleted=False)
+        if piece.session_id:
+            rdd_qs = rdd_qs.filter(session_id=piece.session_id)
+        rdd = rdd_qs.first()
+        if rdd is None or not (rdd.payload or {}).get('rows'):
+            return Response({'detail': (
+                'Pièce « Rapport de la détermination définitive » (RDD) absente ou sans données : '
+                'ajoutez-la avec son tableau avant de calculer les écarts.')}, status=400)
+
+        rdd_rows = (rdd.payload or {}).get('rows') or []
+        if piece_def.get('assemble'):
+            rows_ecarts = compute_ecarts_assembled(piece_rows, rdd_rows)
+        else:
+            rows_ecarts = compute_ecarts_vs_definitive(piece_rows, rdd_rows)
+        if not rows_ecarts:
+            return Response({'detail': (
+                'Aucun point commun entre cette pièce et la détermination définitive.')}, status=400)
+
+        payload = dict(piece.payload or {})
+        payload['rows_ecarts'] = rows_ecarts
+        serializer = self.get_serializer(piece, data={'payload': payload}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=request.user)
+        return Response(serializer.data)
+
+    @staticmethod
+    def _det_label(piece):
+        """Étiquette de bloc d'une détermination : « Libre » (RDL) / « N°k » (RDN)."""
+        if piece.type_piece == 'RDL':
+            return 'Libre'
+        if piece.type_piece == 'RDN':
+            return f'N°{piece.numero}' if piece.numero else 'N°?'
+        return piece.type_piece
+
+    @action(detail=False, methods=['post'], url_path='assemble-rdi',
+            parser_classes=[parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser])
+    def assemble_rdi(self, request):
+        """
+        POST /api/v1/pieces/assemble-rdi/
+        Assemble la RDL + les RDNₖ d'un SSDGPS/session en une pièce « Rapport des
+        déterminations intermédiaires » (RDIA), avec une colonne « Détermination »
+        (Libre / N°1 / N°2…).
+        - `source_ids` (liste ordonnée d'IDs RDL/RDN) : ordre d'assemblage ; à défaut, toutes
+          les déterminations du scope (RDL puis RDN par numéro).
+        - Sans `commit`/`piece_id` : APERÇU. `commit=1` : crée la pièce. `piece_id` :
+          réassemble (met à jour) une pièce RDIA existante (et invalide ses écarts).
+        Champs : ssdgps (requis sauf si piece_id), session (optionnelle).
+        """
+        type_piece = 'RDIA'
+        piece_id = request.data.get('piece_id')
+        commit = str(request.data.get('commit', '')).lower() in ('1', 'true', 'yes')
+
+        if piece_id:
+            target = self._org_scoped_queryset().filter(pk=piece_id, is_deleted=False).first()
+            if target is None:
+                return Response({'detail': 'Pièce introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+            ssdgps_id = str(target.ssdgps_id)
+            session_id = str(target.session_id) if target.session_id else None
+        else:
+            ssdgps_id = request.data.get('ssdgps')
+            if not ssdgps_id:
+                return Response({'detail': 'ssdgps est requis.'}, status=400)
+            session_id = request.data.get('session') or None
+
+        # Ordre des sources : IDs fournis, sinon auto (RDL puis RDN par numéro).
+        raw_ids = request.data.get('source_ids')
+        ids = []
+        if raw_ids:
+            try:
+                ids = json.loads(raw_ids) if isinstance(raw_ids, str) else list(raw_ids)
+            except (json.JSONDecodeError, TypeError):
+                ids = []
+        ordered = []
+        if ids:
+            by_id = {str(p.id): p for p in self._org_scoped_queryset().filter(
+                pk__in=[str(i) for i in ids], ssdgps_id=ssdgps_id, is_deleted=False,
+                type_piece__in=['RDL', 'RDN'])}
+            ordered = [by_id[str(i)] for i in ids if str(i) in by_id]
+        if not ordered:
+            scope = self._org_scoped_queryset().filter(
+                ssdgps_id=ssdgps_id, is_deleted=False, type_piece__in=['RDL', 'RDN'])
+            if session_id:
+                scope = scope.filter(session_id=session_id)
+            ordered = (list(scope.filter(type_piece='RDL').order_by('ordre'))
+                       + list(scope.filter(type_piece='RDN').order_by('numero', 'ordre')))
+
+        if not ordered:
+            return Response({'detail': (
+                'Aucune détermination (RDL / RDNₖ) trouvée dans ce SSDGPS/session : '
+                'ajoutez-en avant d\'assembler.')}, status=400)
+
+        sources = [{'label': self._det_label(p), 'rows': (p.payload or {}).get('rows') or []}
+                   for p in ordered]
+        rows = assemble_determinations(sources)
+        if not rows:
+            return Response(
+                {'detail': 'Les déterminations sélectionnées ne contiennent aucune donnée.'}, status=400)
+
+        piece_def = get_piece_def(type_piece)
+        if not commit and not piece_id:
+            return Response({
+                'rows': rows, 'champs': piece_def['champs'], 'total_rows': len(rows),
+                'sources': [{'id': str(p.id), 'label': self._det_label(p),
+                             'count': len((p.payload or {}).get('rows') or [])} for p in ordered],
+            })
+
+        # Lignes éventuellement éditées après aperçu.
+        payload_raw = request.data.get('payload')
+        if payload_raw:
+            try:
+                edited = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+                if isinstance(edited, dict):
+                    edited = edited.get('rows')
+                if isinstance(edited, list) and edited:
+                    rows = edited
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if piece_id:
+            payload = dict(target.payload or {})
+            payload['rows'] = rows
+            payload.pop('rows_ecarts', None)  # écarts invalidés → à recalculer
+            serializer = self.get_serializer(target, data={'payload': payload}, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(updated_by=request.user)
+            return Response(serializer.data)
+
+        data = {
+            'type_piece': type_piece, 'ssdgps': ssdgps_id, 'session': session_id,
+            'payload': {'rows': rows}, 'source_saisie': 'import',
+        }
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        ssdgps = serializer.validated_data.get('ssdgps')
+        self._check_scope(ssdgps)
+        max_ordre = Piece.objects.filter(ssdgps=ssdgps, is_deleted=False).aggregate(m=Max('ordre'))['m']
+        serializer.save(created_by=request.user, ordre=(max_ordre + 1) if max_ordre is not None else 0)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'], url_path='import', parser_classes=[parsers.MultiPartParser])
     def import_file(self, request):
