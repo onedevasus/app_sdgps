@@ -14,6 +14,7 @@
   &.btn-secondary { background: var(--secondary-color); color: var(--text-color); border: 1px solid var(--border-color); &:hover { background: var(--hover-bg); border-color: var(--accent-color); } }
   &.btn-success { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: #fff; font-weight: 600; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.25); &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); } &:disabled { opacity: 0.6; cursor: not-allowed; } }
   &.btn-danger { background: rgba(231, 76, 60, 0.14); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); &:hover:not(:disabled) { background: #e74c3c; color: #fff; } &:disabled { opacity: 0.45; cursor: not-allowed; } }
+  &.btn-report { background: linear-gradient(135deg, #1f6feb 0%, #14396b 100%); color: #fff; font-weight: 600; box-shadow: 0 2px 8px rgba(31, 111, 235, 0.25); &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(31, 111, 235, 0.4); } &:disabled { opacity: 0.5; cursor: not-allowed; } }
   &.sm { padding: 7px 12px; font-size: 13px; }
 }
 .btn-count { background: rgba(0, 0, 0, 0.25); padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
@@ -365,4 +366,28 @@
   .context-menu-item-danger { i { color: #e74c3c; } }
   .context-menu-item-restore { i { color: #27ae60; } &:hover { background: #27ae60; } }
   .context-menu-divider { height: 1px; background: var(--border-color); margin: 4px 0; }
+}
+
+/* ---------- Modale rapport PDF : barre de progression ---------- */
+.report-status {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; color: var(--text-color);
+  i { font-size: 16px; color: var(--accent-color); &.report-done { color: #2ecc71; } }
+}
+.progress-track {
+  width: 100%; height: 12px; border-radius: 8px; overflow: hidden;
+  background: var(--hover-bg); border: 1px solid var(--border-color);
+}
+.progress-fill {
+  height: 100%; border-radius: 8px; transition: width 0.25s ease;
+  background: linear-gradient(135deg, #1f6feb, #14396b);
+  &.done { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+}
+.progress-label { margin-top: 8px; text-align: right; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.report-filename {
+  margin: 14px 0 0; font-size: 12.5px; color: var(--text-muted); word-break: break-all;
+  i { color: var(--accent-color); margin-right: 6px; }
+}
+.report-error {
+  display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: #e74c3c;
+  i { font-size: 16px; }
 }

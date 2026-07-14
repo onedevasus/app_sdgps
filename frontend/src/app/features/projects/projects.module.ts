@@ -4,6 +4,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ProjectsRoutingModule } from './projects-routing.module';
 import { ProjectListComponent } from './project-list/project-list.component';
 import { ProjectExplorerComponent } from './project-explorer/project-explorer.component';
+import { ProjectSsdgpsListComponent } from './project-ssdgps-list/project-ssdgps-list.component';
 import { PieceColumnMapperComponent } from './piece-column-mapper/piece-column-mapper.component';
 import { PieceManagementPageComponent } from './piece-management-page/piece-management-page.component';
 import { PieceAddWizardComponent } from './piece-add-wizard/piece-add-wizard.component';
@@ -15,7 +16,7 @@ import { PiecePhotoPointsComponent } from './piece-photo-points/piece-photo-poin
 
 @NgModule({
   declarations: [
-    ProjectListComponent, ProjectExplorerComponent,
+    ProjectListComponent, ProjectExplorerComponent, ProjectSsdgpsListComponent,
     PieceColumnMapperComponent, PieceManagementPageComponent, PieceAddWizardComponent,
     PieceDetailModalComponent, PieceImageGalleryComponent,
     PieceAddPageComponent, PieceDetailPageComponent, PiecePhotoPointsComponent,

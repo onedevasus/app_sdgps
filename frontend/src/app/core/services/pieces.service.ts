@@ -202,6 +202,18 @@ export class PiecesService {
     return this.http.post<Piece>(`${this.base}assemble-rdi/`, { piece_id: pieceId });
   }
 
+  /**
+   * Analyse en masse des fichiers de déterminations (CSV/Excel/HTML) → pour chacun, ses
+   * lignes (schéma RDL/RDN) + `has_fixe`. Ne persiste rien ; l'ordre/assemblage est fait
+   * ensuite côté client, puis créé/mis à jour via createManual / update.
+   */
+  parseDeterminations(files: File[]): Observable<{ determinations: Array<{ filename: string; count: number; has_fixe: boolean; fixes: string[]; rows: any[] }> }> {
+    const formData = new FormData();
+    for (const f of files) formData.append('fichiers', f, f.name);
+    return this.http.post<{ determinations: Array<{ filename: string; count: number; has_fixe: boolean; fixes: string[]; rows: any[] }> }>(
+      `${this.base}parse-determinations/`, formData);
+  }
+
   /** Ré-import HTML TBC : remplace les données (+ fichier) d'une pièce existante. */
   reimportHtml(pieceId: string, file: File, typePiece: string, rows: any[]): Observable<Piece> {
     const formData = new FormData();
@@ -274,5 +286,18 @@ export class PiecesService {
 
   setScope(id: string, sessionId: string | null): Observable<Piece> {
     return this.update(id, { session: sessionId } as Partial<Piece>);
+  }
+
+  /** Génère le rapport PDF du SSDGPS (page de garde + pièces valides). Le PDF est
+   * renvoyé encodé en base64 dans un JSON (`{filename, content_type, data}`) — et non en
+   * flux binaire — pour éviter qu'un gestionnaire de téléchargement externe (IDM…) ne
+   * capture la requête XHR. L'appelant reconstruit le Blob puis le télécharge.
+   * En vue session (multi-session), passer `sessionId` pour cibler cette session. */
+  downloadReport(ssdgpsId: string, sessionId?: string | null):
+      Observable<{ filename: string; content_type: string; data: string }> {
+    let params = new HttpParams().set('ssdgps', ssdgpsId);
+    if (sessionId) params = params.set('session', sessionId);
+    return this.http.get<{ filename: string; content_type: string; data: string }>(
+      `${this.base}report/`, { params });
   }
 }

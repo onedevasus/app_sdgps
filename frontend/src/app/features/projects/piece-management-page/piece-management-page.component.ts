@@ -160,6 +160,7 @@ export class PieceManagementPageComponent implements OnInit {
 
   ngOnDestroy(): void {
     if (this.boundHandleClickOutside) document.removeEventListener('click', this.boundHandleClickOutside);
+    this.stopReportTimer();
   }
 
   loadPieces(): void {
@@ -560,6 +561,89 @@ export class PieceManagementPageComponent implements OnInit {
     URL.revokeObjectURL(url);
     this.toast.success('Export', `${items.length} pièce(s) exportée(s)`);
   }
+
+  // ============================================
+  // Génération du rapport PDF (modale + barre de progression)
+  // ============================================
+  showReportModal = false;
+  reportGenerating = false;
+  reportProgress = 0;
+  reportError = '';
+  reportFilename = '';
+  private reportBlob: Blob | null = null;
+  private reportTimer: any = null;
+
+  /** Nombre de pièces valides incluables dans le rapport (portée session comprise). */
+  get validCount(): number {
+    return this.scopeBySession(this.activePieces).filter(p => p.statut === 'valide').length;
+  }
+
+  /** Ouvre la modale et lance la génération. Le backend produit le PDF en une seule
+   * requête (pas de progression serveur) : la barre est donc simulée — elle progresse
+   * jusqu'à ~90 % pendant l'attente, puis saute à 100 % à la réception du fichier. */
+  generateReport(): void {
+    if (this.reportGenerating) return;
+    this.showReportModal = true;
+    this.reportError = '';
+    this.reportBlob = null;
+    this.reportFilename = '';
+    this.reportProgress = 0;
+    this.reportGenerating = true;
+
+    this.reportTimer = setInterval(() => {
+      if (this.reportProgress < 90) {
+        this.reportProgress = Math.min(90, this.reportProgress + Math.max(1, Math.round((90 - this.reportProgress) / 12)));
+      }
+    }, 200);
+
+    this.piecesService.downloadReport(this.ssdgps.id, this.currentSessionId || undefined).subscribe({
+      next: (res) => {
+        this.stopReportTimer();
+        this.reportBlob = this.base64ToBlob(res.data, res.content_type || 'application/pdf');
+        this.reportFilename = res.filename || `RAPPORT_SDGPS_SDGPS-N${this.ssdgps.numero_ssdgps}.pdf`;
+        this.reportProgress = 100;
+        this.reportGenerating = false;
+      },
+      error: (err) => {
+        this.stopReportTimer();
+        this.reportGenerating = false;
+        this.reportProgress = 0;
+        this.reportError = err?.error?.detail || 'Erreur lors de la génération du rapport.';
+      },
+    });
+  }
+
+  /** Reconstruit un Blob (PDF) à partir de la chaîne base64 renvoyée par le serveur. */
+  private base64ToBlob(base64: string, type: string): Blob {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type });
+  }
+
+  private stopReportTimer(): void {
+    if (this.reportTimer) { clearInterval(this.reportTimer); this.reportTimer = null; }
+  }
+
+  /** Télécharge le PDF déjà généré (blob en mémoire) via le bouton de la modale. */
+  downloadReportFile(): void {
+    if (!this.reportBlob) return;
+    const url = URL.createObjectURL(this.reportBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = this.reportFilename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Ferme la modale (impossible tant que la génération est en cours). */
+  closeReportModal(): void {
+    if (this.reportGenerating) return;
+    this.stopReportTimer();
+    this.showReportModal = false;
+    this.reportBlob = null;
+  }
+
 
   // ============================================
   // Ajout de pièce

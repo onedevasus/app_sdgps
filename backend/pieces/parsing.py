@@ -235,6 +235,27 @@ TBC_HTML_PARSERS = {
 }
 
 
+def _norm_header(s):
+    return re.sub(r'\s+', '', str(s or '')).strip().lower()
+
+
+def auto_map_columns(columns, champs):
+    """
+    Mappe des colonnes de fichier vers les champs cibles par libellé normalisé (espaces
+    ignorés) : {nom_champ: nom_colonne}. Utilisé pour l'import auto des fichiers de
+    déterminations (schéma standard « Nom Point / X (m) / σx (m) / … »).
+    """
+    by_norm = {}
+    for c in columns:
+        by_norm.setdefault(_norm_header(c), c)
+    mapping = {}
+    for ch in champs:
+        key = _norm_header(ch.get('label'))
+        if key in by_norm:
+            mapping[ch['name']] = by_norm[key]
+    return mapping
+
+
 def apply_mapping(columns, rows, mapping):
     """
     mapping: {target_field: source_column_name}. Colonnes source absentes du mapping

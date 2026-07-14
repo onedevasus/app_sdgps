@@ -205,6 +205,19 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
     org_lookup = 'affaire__propriete__projet__organization_id'
     parent_query_param = ('affaire', 'affaire_id')
 
+    def get_queryset(self):
+        """En plus du filtre `affaire` hérité : filtres à plat optionnels par projet ou
+        propriété — permet de lister TOUS les SSDGPS d'un projet sans parcourir la
+        hiérarchie (Projet > Propriété > Affaire > SSDGPS)."""
+        qs = super().get_queryset()
+        projet = self.request.query_params.get('projet')
+        if projet:
+            qs = qs.filter(affaire__propriete__projet_id=projet)
+        propriete = self.request.query_params.get('propriete')
+        if propriete:
+            qs = qs.filter(affaire__propriete_id=propriete)
+        return qs
+
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['affaire'].propriete.projet.organization_id
 

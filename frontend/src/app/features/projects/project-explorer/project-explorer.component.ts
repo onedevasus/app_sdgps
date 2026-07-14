@@ -183,6 +183,11 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   isBulkRestore = false;
   restoring = false;
 
+  /** Vue à plat de tous les SSDGPS du projet (page dédiée `:id/ssdgps`). */
+  viewAllSsdgps(): void {
+    this.router.navigate(['ssdgps'], { relativeTo: this.route });
+  }
+
   // Pièces (Phase 6.5) — page dédiée par SSDGPS
   openPieces(item: any, ev: Event): void {
     ev.stopPropagation();

@@ -381,6 +381,12 @@
             padding: 2px 8px; border-radius: 6px;
             background: rgba(52, 152, 219, 0.15); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.28);
           }
+          .tag.tag-clickable {
+            cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(204, 88, 88, 0.14); color: var(--accent-color); border-color: rgba(204, 88, 88, 0.3);
+            transition: all 0.15s;
+            &:hover { background: rgba(204, 88, 88, 0.24); }
+          }
         }
       }
 

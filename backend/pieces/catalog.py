@@ -201,6 +201,38 @@ def natures_applicable(type_piece: str, nature_ssdgps: str) -> bool:
     return d['natures'] == TOUTES or nature_ssdgps in d['natures']
 
 
+def catalog_orientation(type_piece: str, nature_ssdgps: str = ''):
+    """Orientation « métier » d'un type de pièce, définie par la clé optionnelle
+    `orientation` du catalogue (cf. ORIENTATION_CATALOG). Option 1 de la fonctionnalité
+    d'orientation : n'est consultée par le générateur QUE si le flag
+    `report.USE_CATALOG_ORIENTATION` est activé. Renvoie 'portrait'/'paysage' ou None.
+
+    La valeur peut être une chaîne (orientation fixe) ou un dict indexé par nature du
+    SSDGPS (`{'PDC/GPS': 'portrait', 'DLC/GPS': 'paysage', '*': 'paysage'}`), la clé
+    '*' servant de défaut."""
+    o = ORIENTATION_CATALOG.get(type_piece)
+    if isinstance(o, dict):
+        return o.get(nature_ssdgps) or o.get('*')
+    return o
+
+
+# --- Option 1 (arrière-plan) : orientations « métier » par type de pièce -------
+# Table SÉPARÉE du registre principal, pré-remplie mais INERTE par défaut (le
+# générateur ne la lit que si report.USE_CATALOG_ORIENTATION est True). Sert de
+# repli configurable si le calcul automatique par largeur (Option 2) ne convient pas.
+# Valeur = 'portrait' | 'paysage' | { <nature>: <orientation>, '*': <défaut> }.
+ORIENTATION_CATALOG = {
+    'RTLB': 'paysage',   # 18 colonnes
+    'RFB':  'paysage',   # 13 colonnes
+    'ROB':  'paysage',   # 12 colonnes
+    'RDI':  'paysage',   # 10 colonnes
+    'RC':   'paysage',   # 10 colonnes
+    'RDIA': 'paysage',   # version « écarts » assemblée large
+    # Exemple de variation par nature du SSDGPS (laissé en modèle, à ajuster au besoin) :
+    # 'RDN': {'DLC/GPS': 'paysage', '*': 'portrait'},
+}
+
+
 def serialize_catalog() -> list:
     """Représentation JSON du registre, consommée par GET /api/v1/pieces/catalog/."""
     return [

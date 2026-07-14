@@ -73,6 +73,10 @@ export interface Piece {
   payload: { rows?: any[]; [key: string]: any };
   source_saisie: PieceSourceSaisie;
   statut: PieceStatut;
+  /** Orientation du contenu dans le rapport PDF : 'auto' = calculée automatiquement. */
+  orientation?: 'auto' | 'portrait' | 'paysage';
+  /** Orientation réellement appliquée (résout le mode 'auto'). Lecture seule. */
+  orientation_effective?: 'portrait' | 'paysage';
   commentaire?: string;
   organization_id?: string;
   created_at?: string;

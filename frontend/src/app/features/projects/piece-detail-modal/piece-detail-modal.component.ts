@@ -5,6 +5,8 @@ import { ToastService } from '../../../core/services/toast.service';
 import { Piece, PieceChampDef, PieceImportPreview, PieceTypeDef } from '../../../core/models/piece.model';
 import { Ssdgps, Session } from '../../../core/models/project.model';
 import { findTbcReports, TbcReportCandidate } from '../tbc-report.util';
+import { assembleDeterminationRows, sortDeterminationItems, relabelDeterminationItems,
+         fixesLabel, DeterminationFileItem, DetSortKey } from '../rdia.util';
 
 const STATUT_OPTIONS: { value: Piece['statut']; label: string }[] = [
   { value: 'brouillon', label: 'Brouillon' },
@@ -39,11 +41,19 @@ export class PieceDetailModalComponent implements OnInit {
   @Output() editRequested = new EventEmitter<void>();
 
   readonly statutOptions = STATUT_OPTIONS;
+  readonly orientationOptions = [
+    { value: 'auto', label: 'Automatique' },
+    { value: 'portrait', label: 'Portrait' },
+    { value: 'paysage', label: 'Paysage' },
+  ];
 
   /** Vue = lecture seule ; Édition = formulaires modifiables. Fixé à l'ouverture. */
   mode: 'view' | 'edit' = 'view';
 
   statutLabel(v: string): string { return this.statutOptions.find(o => o.value === v)?.label || v; }
+  orientationLabel(v?: string): string {
+    return this.orientationOptions.find(o => o.value === (v || 'auto'))?.label || v || '';
+  }
   statutBadgeClass(v: string): string {
     return { brouillon: 'badge-warning', valide: 'badge-success', rejete: 'badge-secondary' }[v] || 'badge-secondary';
   }
@@ -80,6 +90,7 @@ export class PieceDetailModalComponent implements OnInit {
     this.mode = this.initialMode;
     this.metaForm = this.fb.group({
       statut: [this.piece.statut],
+      orientation: [this.piece.orientation || 'auto'],
       commentaire: [this.piece.commentaire || ''],
     });
     this.ordreInput = this.piece.ordre + 1;
@@ -142,6 +153,107 @@ export class PieceDetailModalComponent implements OnInit {
         this.reassembling = false;
         this.toast.error('Échec', e?.error?.detail || 'Réassemblage impossible');
       },
+    });
+  }
+
+  // --- RDIA : import & assemblage de FICHIERS de déterminations ---
+  assembleFilesModalOpen = false;
+  assembleFilesParsing = false;
+  assemblingFiles = false;
+  assembleFileItems: DeterminationFileItem[] = [];
+  assembleSortKey: DetSortKey | null = 'fixe';
+  assembleSortDir: 1 | -1 = 1;
+  fixesLabel = fixesLabel;
+
+  openAssembleFilesModal(): void { this.resetAssembleFiles(); this.assembleFilesModalOpen = true; }
+  closeAssembleFilesModal(): void { this.assembleFilesModalOpen = false; }
+  /** Réinitialise l'import : vide la liste des fichiers de déterminations. */
+  resetAssembleFiles(): void { this.assembleFileItems = []; this.assembleSortKey = 'fixe'; this.assembleSortDir = 1; }
+
+  onAssembleCsvSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (files.length) this.parseAndAddDeterminations(files.map(f => ({ file: f, displayName: f.name })));
+  }
+  onAssembleHtmlFolder(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length) return;
+    this.assembleFilesParsing = true;
+    findTbcReports(files, 'RDN').then(candidates => {
+      if (!candidates.length) {
+        this.assembleFilesParsing = false;
+        this.toast.error('Données introuvables', 'Aucun rapport TBC compatible trouvé dans le dossier.');
+        return;
+      }
+      this.parseAndAddDeterminations(candidates.map(c => ({ file: c.file, displayName: c.source })));
+    });
+  }
+  private parseAndAddDeterminations(entries: { file: File; displayName: string }[]): void {
+    this.assembleFilesParsing = true;
+    this.piecesService.parseDeterminations(entries.map(e => e.file)).subscribe({
+      next: (res) => {
+        this.assembleFilesParsing = false;
+        res.determinations.forEach((d, i) => {
+          this.assembleFileItems.push({
+            filename: entries[i]?.displayName || d.filename,
+            lastModified: entries[i]?.file.lastModified || 0,
+            count: d.count, hasFixe: d.has_fixe, fixes: d.fixes || [], rows: d.rows, label: '',
+          });
+        });
+        this.applyAssembleOrder();
+      },
+      error: (e) => { this.assembleFilesParsing = false; this.toast.error('Échec', e?.error?.detail || 'Analyse des fichiers impossible'); },
+    });
+  }
+  private applyAssembleOrder(): void {
+    if (this.assembleSortKey) sortDeterminationItems(this.assembleFileItems, this.assembleSortKey, this.assembleSortDir);
+    relabelDeterminationItems(this.assembleFileItems);
+  }
+  sortAssembleFiles(key: DetSortKey): void {
+    if (this.assembleSortKey === key) this.assembleSortDir = this.assembleSortDir === 1 ? -1 : 1;
+    else { this.assembleSortKey = key; this.assembleSortDir = 1; }
+    this.applyAssembleOrder();
+  }
+  moveAssembleFile(i: number, dir: -1 | 1): void {
+    const j = i + dir;
+    if (j < 0 || j >= this.assembleFileItems.length) return;
+    const a = this.assembleFileItems;
+    [a[i], a[j]] = [a[j], a[i]];
+    this.assembleSortKey = null;
+    relabelDeterminationItems(a);
+  }
+  moveAssembleFileEnd(i: number, toStart: boolean): void {
+    const a = this.assembleFileItems;
+    if (i < 0 || i >= a.length) return;
+    const [it] = a.splice(i, 1);
+    if (toStart) a.unshift(it); else a.push(it);
+    this.assembleSortKey = null;
+    relabelDeterminationItems(a);
+  }
+  removeAssembleFile(i: number): void {
+    this.assembleFileItems.splice(i, 1);
+    relabelDeterminationItems(this.assembleFileItems);
+  }
+
+  /** Assemble les fichiers (client) et remplace les données brutes de la pièce (écarts invalidés). */
+  runAssembleFiles(): void {
+    if (!this.assembleFileItems.length || this.assemblingFiles) return;
+    this.assemblingFiles = true;
+    const rows = assembleDeterminationRows(this.assembleFileItems);
+    this.piecesService.update(this.piece.id, { payload: { rows } } as Partial<Piece>).subscribe({
+      next: (updated) => {
+        this.assemblingFiles = false;
+        this.assembleFilesModalOpen = false;
+        this.piece = updated;
+        this.dataView = 'brut';
+        if (this.mode === 'edit') this.initManualForm();
+        this.toast.success('Assemblé', `${rows.length} ligne(s) depuis ${this.assembleFileItems.length} détermination(s). Recalculez les écarts si besoin.`);
+        this.saved.emit(updated);
+      },
+      error: (e) => { this.assemblingFiles = false; this.toast.error('Échec', e?.error?.detail || 'Assemblage impossible'); },
     });
   }
 

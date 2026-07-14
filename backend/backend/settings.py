@@ -145,6 +145,9 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement seulement
+# Expose Content-Disposition pour que le front (autre origine) puisse lire le nom de
+# fichier proposé lors des téléchargements en AJAX (ex. rapport PDF SSDGPS).
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
 # REST Framework settings
 from datetime import timedelta

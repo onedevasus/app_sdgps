@@ -50,6 +50,11 @@ class Piece(BaseModel):
         VALIDE = 'valide', 'Validée'
         REJETE = 'rejete', 'Rejetée'
 
+    class Orientation(models.TextChoices):
+        AUTO = 'auto', 'Automatique'
+        PORTRAIT = 'portrait', 'Portrait'
+        PAYSAGE = 'paysage', 'Paysage'
+
     type_piece = models.CharField(max_length=10, choices=PIECE_CHOICES, verbose_name="Type de pièce")
     numero = models.PositiveSmallIntegerField(
         null=True, blank=True, verbose_name="Numéro (types répétables, ex. RDN)",
@@ -70,6 +75,12 @@ class Piece(BaseModel):
                                       verbose_name="Source de saisie")
     statut = models.CharField(max_length=10, choices=Statut.choices, default=Statut.BROUILLON,
                                verbose_name="Statut")
+    orientation = models.CharField(
+        max_length=10, choices=Orientation.choices, default=Orientation.AUTO,
+        verbose_name="Orientation (rapport PDF)",
+        help_text="AUTO : orientation calculée automatiquement selon la largeur des données ; "
+                  "sinon force le portrait ou le paysage pour le contenu de la pièce.",
+    )
     commentaire = models.TextField(blank=True, verbose_name="Commentaire")
 
     class Meta:

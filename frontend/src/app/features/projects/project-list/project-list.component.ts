@@ -569,6 +569,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
 
   open(projet: Projet): void { this.router.navigate([projet.id], { relativeTo: this.route }); }
 
+  /** Accès direct à la liste à plat de tous les SSDGPS du projet (sans parcourir la hiérarchie). */
+  openAllSsdgps(projet: Projet, ev?: Event): void {
+    ev?.stopPropagation();
+    this.router.navigate([projet.id, 'ssdgps'], { relativeTo: this.route });
+  }
+
   // ============================================
   // CRUD — Créer / Modifier
   // ============================================

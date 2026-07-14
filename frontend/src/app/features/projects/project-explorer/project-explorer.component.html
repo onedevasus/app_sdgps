@@ -47,6 +47,9 @@
           <i class="fas fa-table"></i>
         </button>
       </div>
+      <button class="btn btn-secondary" (click)="viewAllSsdgps()" title="Voir tous les SSDGPS du projet à plat">
+        <i class="fas fa-satellite-dish"></i> Tous les SSDGPS
+      </button>
       <button class="btn btn-success" *ngIf="!showDeleted" (click)="openCreate()"><i class="fas fa-plus-circle"></i> Ajouter</button>
     </div>
   </header>

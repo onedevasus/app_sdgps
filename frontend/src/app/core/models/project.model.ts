@@ -80,6 +80,13 @@ export interface Ssdgps {
   numero_ssdgps: number;
   type_ssdgps: TypeSsdgps;
   affaire: string;
+  // Contexte parent dénormalisé (renvoyé par le backend) — utile à la vue « tous les SSDGPS
+  // d'un projet » pour l'affichage et la navigation vers les pièces.
+  propriete?: string;
+  propriete_nom?: string;
+  propriete_id_titre?: string;
+  propriete_id_requisition?: string;
+  affaire_numero?: string;
   nbr_total_sessions?: number;
   nbr_total_pieces?: number;
   created_at?: string;
@@ -89,6 +96,11 @@ export interface Ssdgps {
   created_by_email?: string;
   updated_by_email?: string;
   deleted_by_email?: string;
+}
+
+/** Libellé d'une propriété : titre foncier si présent, sinon réquisition, sinon nom. */
+export function proprieteLabel(s: Pick<Ssdgps, 'propriete_id_titre' | 'propriete_id_requisition' | 'propriete_nom'>): string {
+  return s.propriete_id_titre || s.propriete_id_requisition || s.propriete_nom || '—';
 }
 
 export interface Session {

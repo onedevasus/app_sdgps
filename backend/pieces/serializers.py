@@ -41,6 +41,7 @@ class PieceSerializer(serializers.ModelSerializer):
     updated_by_email = serializers.EmailField(source='updated_by.email', read_only=True)
     deleted_by_email = serializers.EmailField(source='deleted_by.email', read_only=True)
     images = PieceImageSerializer(many=True, read_only=True)
+    orientation_effective = serializers.SerializerMethodField()
 
     class Meta:
         model = Piece
@@ -48,10 +49,18 @@ class PieceSerializer(serializers.ModelSerializer):
             'id', 'type_piece', 'type_piece_display', 'numero', 'ssdgps', 'session',
             'session_numero', 'niveau', 'portee', 'ordre',
             'fichier', 'fichier_url', 'images', 'payload', 'source_saisie', 'statut',
+            'orientation', 'orientation_effective',
             'commentaire', 'organization_id', 'created_at', 'updated_at', 'is_deleted',
             'deleted_at', 'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]
         read_only_fields = ['id', 'ordre', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
+
+    def get_orientation_effective(self, obj):
+        """Orientation réellement appliquée au contenu (résout le mode « auto »)."""
+        from .report import resolve_orientation
+        if not obj.ssdgps_id:
+            return 'portrait'
+        return resolve_orientation(obj, obj.ssdgps)
 
     def get_fichier_url(self, obj):
         request = self.context.get('request')

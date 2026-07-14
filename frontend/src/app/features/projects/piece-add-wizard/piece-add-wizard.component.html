@@ -80,6 +80,9 @@
           <button class="source-option" *ngIf="supportsAssemble" (click)="selectSource('assemble')">
             <i class="fas fa-object-group"></i><span>Assembler depuis les déterminations du dossier</span>
           </button>
+          <button class="source-option" *ngIf="supportsAssemble" (click)="selectSource('assemble-files')">
+            <i class="fas fa-file-import"></i><span>Importer & assembler des fichiers (CSV / Excel / HTML)</span>
+          </button>
         </div>
 
         <!-- Sous-formulaire : images (multi) -->
@@ -331,6 +334,58 @@
           </div>
         </div>
 
+        <!-- Sous-formulaire : import & assemblage de FICHIERS de déterminations -->
+        <div class="source-form" *ngIf="selectedSource==='assemble-files'">
+          <div class="html-empty" *ngIf="!manualForm && !assembleFilesParsing">
+            <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Importez les fichiers CSV/Excel/HTML des déterminations séparées, ordonnez-les, puis assemblez-les en un seul rapport (colonne « Détermination » : Libre / N°1 / N°2…).</p>
+            <button class="btn-secondary" (click)="openAssembleFilesModal()"><i class="fas fa-file-import"></i> Importer les fichiers des déterminations…</button>
+          </div>
+
+          <p class="step-intro" *ngIf="assembleFilesParsing"><i class="fas fa-spinner fa-spin"></i> Analyse des fichiers…</p>
+
+          <div class="html-loaded" *ngIf="manualForm && !assembleFilesParsing">
+            <p class="step-intro"><i class="fas fa-check-circle"></i> Table assemblée, vérifiez/complétez puis créez.</p>
+            <button class="btn-back sm" (click)="openAssembleFilesModal()"><i class="fas fa-file-import"></i> Modifier les fichiers</button>
+          </div>
+
+          <div class="data-grid" *ngIf="manualForm" [formGroup]="manualForm">
+            <div class="data-grid-scroll">
+              <table class="data-grid-table">
+                <thead>
+                  <tr>
+                    <th class="col-num">#</th>
+                    <th *ngFor="let champ of selectedType?.champs">{{ champ.label }}</th>
+                    <th class="col-act"></th>
+                  </tr>
+                </thead>
+                <tbody formArrayName="rows">
+                  <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
+                    <td class="col-num">{{ i + 1 }}</td>
+                    <td *ngFor="let champ of selectedType?.champs" class="cell-input">
+                      <input *ngIf="champ.type !== 'textarea'" type="text" [formControlName]="champ.name" [placeholder]="champ.label">
+                      <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
+                    </td>
+                    <td class="col-act">
+                      <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
+            <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
+          </div>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!manualForm || submittingAssembleFiles" (click)="submitAssembleFiles()">
+              <i class="fas" [ngClass]="submittingAssembleFiles ? 'fa-spinner fa-spin' : 'fa-check'"></i> Créer la pièce
+            </button>
+          </div>
+        </div>
+
         <button class="btn-back" *ngIf="!selectedSource" (click)="backToNiveau()">
           <i class="fas fa-arrow-left"></i> {{ isMulti ? 'Changer de session' : 'Changer de type' }}
         </button>
@@ -510,6 +565,80 @@
       <button class="btn-confirm" [disabled]="!assembleSelectedIds.length || assembling" (click)="runAssemble()">
         <i class="fas" [ngClass]="assembling ? 'fa-spinner fa-spin' : 'fa-object-group'"></i>
         Assembler {{ assembleSelectedIds.length }} détermination(s)
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : import & assemblage de FICHIERS de déterminations ========== -->
+<div class="modal-overlay import-overlay" *ngIf="assembleFilesModalOpen" (click)="closeAssembleFilesModal()">
+  <div class="modal-content assemble-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-file-import"></i></span>
+        <h3>Importer & assembler des déterminations</h3>
+      </div>
+      <button class="close-btn" (click)="closeAssembleFilesModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Ajoutez les fichiers des déterminations, ajustez leur <strong>étiquette</strong> (Libre / N°1 / N°2…) et leur <strong>ordre</strong> : ils formeront les blocs du tableau assemblé.</p>
+
+      <div class="assemble-add">
+        <label class="btn-secondary file-label">
+          <input type="file" accept=".csv,.xlsx" multiple hidden (change)="onAssembleCsvSelected($event)">
+          <i class="fas fa-file-csv"></i> Ajouter des fichiers CSV/Excel
+        </label>
+        <label class="btn-secondary file-label">
+          <input type="file" webkitdirectory directory multiple hidden (change)="onAssembleHtmlFolder($event)">
+          <i class="fas fa-folder-open"></i> Ajouter un dossier HTML (TBC)
+        </label>
+        <button class="btn-reset" *ngIf="assembleFileItems.length" (click)="resetAssembleFiles()"><i class="fas fa-rotate-left"></i> Réinitialiser</button>
+      </div>
+
+      <p class="tbc-status" *ngIf="assembleFilesParsing"><i class="fas fa-spinner fa-spin"></i> Analyse des fichiers…</p>
+
+      <div class="bulk-empty" *ngIf="!assembleFileItems.length && !assembleFilesParsing">
+        <i class="fas fa-file-import"></i>
+        <span>Aucune détermination pour l'instant. Ajoutez des fichiers CSV/Excel ou un dossier de rapports HTML TBC.</span>
+      </div>
+
+      <div class="det-sort" *ngIf="assembleFileItems.length > 1">
+        <span class="det-sort-label"><i class="fas fa-arrow-down-wide-short"></i> Trier :</span>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='name'" (click)="sortAssembleFiles('name')">
+          Nom de fichier <i class="fas" *ngIf="assembleSortKey==='name'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='modified'" (click)="sortAssembleFiles('modified')">
+          Date de modification <i class="fas" *ngIf="assembleSortKey==='modified'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='fixe'" (click)="sortAssembleFiles('fixe')">
+          Point(s) fixe(s) <i class="fas" *ngIf="assembleSortKey==='fixe'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+      </div>
+
+      <ol class="bulk-list" *ngIf="assembleFileItems.length">
+        <li class="bulk-item det-item" *ngFor="let it of assembleFileItems; let i = index">
+          <span class="det-label-badge" [class.libre]="!it.hasFixe">{{ it.label }}</span>
+          <div class="bulk-info">
+            <span class="bulk-label" [title]="it.filename">{{ it.filename }}</span>
+            <span class="det-meta">
+              <span class="det-fixe" [class.libre]="!it.hasFixe"><i class="fas" [ngClass]="it.hasFixe ? 'fa-thumbtack' : 'fa-unlock'"></i> {{ fixesLabel(it) }}</span>
+              <span class="det-count">{{ it.count }} point(s)</span>
+            </span>
+          </div>
+          <div class="bulk-actions">
+            <button class="icon-btn" title="Monter vers le début" [disabled]="i===0" (click)="moveAssembleFileEnd(i, true)"><i class="fas fa-angles-up"></i></button>
+            <button class="icon-btn" title="Monter" [disabled]="i===0" (click)="moveAssembleFile(i, -1)"><i class="fas fa-arrow-up"></i></button>
+            <button class="icon-btn" title="Descendre" [disabled]="i===assembleFileItems.length-1" (click)="moveAssembleFile(i, 1)"><i class="fas fa-arrow-down"></i></button>
+            <button class="icon-btn" title="Descendre vers la fin" [disabled]="i===assembleFileItems.length-1" (click)="moveAssembleFileEnd(i, false)"><i class="fas fa-angles-down"></i></button>
+            <button class="icon-btn danger" title="Retirer" (click)="removeAssembleFile(i)"><i class="fas fa-trash-alt"></i></button>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAssembleFilesModal()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!assembleFileItems.length || assembleFilesParsing" (click)="runAssembleFiles()">
+        <i class="fas fa-object-group"></i> Assembler {{ assembleFileItems.length }} détermination(s)
       </button>
     </div>
   </div>

@@ -5,9 +5,11 @@ import { ToastService } from '../../../core/services/toast.service';
 import { Piece, PieceImportPreview, PieceTypeDef } from '../../../core/models/piece.model';
 import { Ssdgps, Session } from '../../../core/models/project.model';
 import { findTbcReports, TbcReportCandidate } from '../tbc-report.util';
+import { assembleDeterminationRows, sortDeterminationItems, relabelDeterminationItems,
+         fixesLabel, DeterminationFileItem, DetSortKey } from '../rdia.util';
 
 type Step = 'type' | 'scope' | 'source' | 'photos';
-type Source = 'image' | 'csv' | 'manuel' | 'html' | 'compute' | 'assemble';
+type Source = 'image' | 'csv' | 'manuel' | 'html' | 'compute' | 'assemble' | 'assemble-files';
 
 /**
  * Assistant d'ajout d'une pièce, en modal : choix du type applicable, puis du
@@ -137,6 +139,7 @@ export class PieceAddWizardComponent implements OnInit {
     if (kind === 'html') this.openHtmlModal();
     if (kind === 'compute') this.computeRc();
     if (kind === 'assemble') this.openAssembleModal();
+    if (kind === 'assemble-files') this.openAssembleFilesModal();
   }
 
   /** PPA/PPN : type « photos par point » (chaque point porte un champ `fichier_image`). */
@@ -438,6 +441,119 @@ export class PieceAddWizardComponent implements OnInit {
     });
   }
 
+  // --- Assemblage RDIA depuis des FICHIERS de déterminations (CSV/Excel/HTML) ---
+  assembleFilesModalOpen = false;
+  assembleFilesParsing = false;
+  submittingAssembleFiles = false;
+  assembleFileItems: DeterminationFileItem[] = [];
+  /** Critère de tri actif ; `null` = ordre manuel (les étiquettes restent positionnelles). */
+  assembleSortKey: DetSortKey | null = 'fixe';
+  assembleSortDir: 1 | -1 = 1;
+  fixesLabel = fixesLabel;
+
+  openAssembleFilesModal(): void { this.assembleFilesModalOpen = true; }
+  closeAssembleFilesModal(): void { this.assembleFilesModalOpen = false; }
+  /** Réinitialise l'import : vide la liste des fichiers de déterminations. */
+  resetAssembleFiles(): void { this.assembleFileItems = []; this.assembleSortKey = 'fixe'; this.assembleSortDir = 1; }
+
+  /** Fichiers CSV/Excel sélectionnés → analyse serveur → ajout à la liste ordonnable. */
+  onAssembleCsvSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (files.length) this.parseAndAddDeterminations(files.map(f => ({ file: f, displayName: f.name })));
+  }
+  /** Dossier de rapports HTML TBC → résolution cadre→body (findTbcReports) → analyse serveur.
+   * Nom affiché = fichier HTML CADRE (frameset), pas le titre du rapport. */
+  onAssembleHtmlFolder(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length) return;
+    this.assembleFilesParsing = true;
+    findTbcReports(files, 'RDN').then(candidates => {
+      if (!candidates.length) {
+        this.assembleFilesParsing = false;
+        this.toast.error('Données introuvables', 'Aucun rapport TBC compatible trouvé dans le dossier.');
+        return;
+      }
+      this.parseAndAddDeterminations(candidates.map(c => ({ file: c.file, displayName: c.source })));
+    });
+  }
+
+  private parseAndAddDeterminations(entries: { file: File; displayName: string }[]): void {
+    this.assembleFilesParsing = true;
+    this.piecesService.parseDeterminations(entries.map(e => e.file)).subscribe({
+      next: (res) => {
+        this.assembleFilesParsing = false;
+        res.determinations.forEach((d, i) => {
+          this.assembleFileItems.push({
+            filename: entries[i]?.displayName || d.filename,
+            lastModified: entries[i]?.file.lastModified || 0,
+            count: d.count, hasFixe: d.has_fixe, fixes: d.fixes || [], rows: d.rows, label: '',
+          });
+        });
+        this.applyAssembleOrder();
+        this.toast.success('Analyse', `${res.determinations.length} détermination(s) ajoutée(s).`);
+      },
+      error: (e) => { this.assembleFilesParsing = false; this.toast.error('Échec', this.errorMessage(e, 'Analyse des fichiers impossible')); },
+    });
+  }
+
+  /** Applique le tri actif (si défini) puis (re)fige les étiquettes selon la position. */
+  private applyAssembleOrder(): void {
+    if (this.assembleSortKey) sortDeterminationItems(this.assembleFileItems, this.assembleSortKey, this.assembleSortDir);
+    relabelDeterminationItems(this.assembleFileItems);
+  }
+
+  /** Tri des fichiers par critère (bascule le sens si déjà actif). */
+  sortAssembleFiles(key: DetSortKey): void {
+    if (this.assembleSortKey === key) this.assembleSortDir = this.assembleSortDir === 1 ? -1 : 1;
+    else { this.assembleSortKey = key; this.assembleSortDir = 1; }
+    this.applyAssembleOrder();
+  }
+  moveAssembleFile(i: number, dir: -1 | 1): void {
+    const j = i + dir;
+    if (j < 0 || j >= this.assembleFileItems.length) return;
+    const a = this.assembleFileItems;
+    [a[i], a[j]] = [a[j], a[i]];
+    this.assembleSortKey = null;              // ordre manuel
+    relabelDeterminationItems(a);             // étiquettes positionnelles figées
+  }
+  moveAssembleFileEnd(i: number, toStart: boolean): void {
+    const a = this.assembleFileItems;
+    if (i < 0 || i >= a.length) return;
+    const [it] = a.splice(i, 1);
+    if (toStart) a.unshift(it); else a.push(it);
+    this.assembleSortKey = null;
+    relabelDeterminationItems(a);
+  }
+  removeAssembleFile(i: number): void {
+    this.assembleFileItems.splice(i, 1);
+    relabelDeterminationItems(this.assembleFileItems);
+  }
+
+  /** Assemble les fichiers (client) → grille éditable. */
+  runAssembleFiles(): void {
+    if (!this.assembleFileItems.length || !this.selectedType) return;
+    const rows = assembleDeterminationRows(this.assembleFileItems);
+    this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+    this.assembleFilesModalOpen = false;
+    this.toast.success('Assemblage', `${rows.length} ligne(s) assemblées.`);
+  }
+
+  submitAssembleFiles(): void {
+    if (!this.manualForm || !this.selectedType || this.submittingAssembleFiles) return;
+    this.submittingAssembleFiles = true;
+    this.piecesService.createManual({
+      type_piece: this.selectedType.code, parent: this.parentRef(),
+      numero: this.nextNumero(), data: { rows: this.manualRows.value },
+    }).subscribe({
+      next: (p) => { this.submittingAssembleFiles = false; this.finishCreate(p, 'Rapport des déterminations intermédiaires assemblé'); },
+      error: (e) => { this.submittingAssembleFiles = false; this.toast.error('Échec', this.errorMessage(e, 'Création impossible')); },
+    });
+  }
+
   /** Sélection du DOSSIER du rapport TBC (fichier HTML cadre + son dossier « _files »).
    * La détection des rapports (cadre → body, rapports autonomes) est partagée avec la
    * page de modification : cf. `tbc-report.util.ts`. */
@@ -563,6 +679,8 @@ export class PieceAddWizardComponent implements OnInit {
     this.assembleModalOpen = false;
     this.assembleItems = [];
     this.assembleSourceIds = [];
+    this.assembleFilesModalOpen = false;
+    this.assembleFileItems = [];
     this.clearLocalImages();
   }
 

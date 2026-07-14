@@ -11,18 +11,22 @@ import json
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Q
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status, parsers
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from projects.models import Session, Ssdgps
 from projects.views import user_org_ids
 from .catalog import serialize_catalog, get_piece_def
+from .report import EXCLUDED_TYPES, render_report_pdf, report_filename
 from .imaging import extract_image_metadata, make_png_preview, NON_WEB_FORMATS
 from .models import Piece, PieceImage
-from .parsing import parse_uploaded_table, apply_mapping, TBC_HTML_PARSERS
+from .parsing import (parse_uploaded_table, apply_mapping, auto_map_columns,
+                      parse_rdl_tbc_html, TBC_HTML_PARSERS)
 from .rc import (compute_rapport_controle, compute_ecarts_vs_definitive,
                  compute_ecarts_assembled, assemble_determinations)
 from .serializers import PieceSerializer
@@ -576,6 +580,55 @@ class PieceViewSet(viewsets.ModelViewSet):
         serializer.save(updated_by=request.user)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'], url_path='parse-determinations',
+            parser_classes=[parsers.MultiPartParser])
+    def parse_determinations(self, request):
+        """
+        POST /api/v1/pieces/parse-determinations/  (multipart, fichiers multiples)
+        Analyse plusieurs fichiers de déterminations (CSV/Excel/HTML TBC) et renvoie, pour
+        chacun, ses lignes au schéma RDL/RDN (nom_point, x_m, σx, y_m, σy) + un indicateur
+        `has_fixe` (présence d'un point fixe → RDN, sinon détermination libre). Ne persiste
+        rien : l'assemblage/ordre se fait ensuite côté client. CSV/Excel : mappage auto des
+        colonnes par libellé (« Nom Point / X (m) / σx (m) … »).
+        """
+        files = request.FILES.getlist('fichiers')
+        if not files:
+            return Response({'detail': 'Au moins un fichier est requis.'}, status=400)
+        rdx_champs = get_piece_def('RDL')['champs']
+        out = []
+        for f in files:
+            name = f.name
+            lower = name.lower()
+            try:
+                if lower.endswith('.html') or lower.endswith('.htm'):
+                    parsed = parse_rdl_tbc_html(f)
+                    rows = [{'nom_point': r.get('nom_point', ''), 'x_m': r.get('x_m', ''),
+                             'sigma_x_m': r.get('sigma_x_m', ''), 'y_m': r.get('y_m', ''),
+                             'sigma_y_m': r.get('sigma_y_m', '')} for r in parsed]
+                else:
+                    columns, data = parse_uploaded_table(f)
+                    mapping = auto_map_columns(columns, rdx_champs)
+                    mapped = apply_mapping(columns, data, mapping)
+                    rows = [{'nom_point': r.get('nom_point') or '', 'x_m': r.get('x_m') or '',
+                             'sigma_x_m': r.get('sigma_x_m') or '', 'y_m': r.get('y_m') or '',
+                             'sigma_y_m': r.get('sigma_y_m') or ''}
+                            for r in mapped if (r.get('nom_point') or '').strip()]
+            except ValueError as e:
+                return Response({'detail': f"« {name} » : {e}"}, status=400)
+            if not rows:
+                return Response({'detail': (
+                    f"« {name} » : aucune donnée exploitable (colonnes non reconnues ?).")}, status=400)
+            fixes = []
+            for r in rows:
+                if (str(r.get('sigma_x_m', '')).strip().upper() == 'FIXE'
+                        or str(r.get('sigma_y_m', '')).strip().upper() == 'FIXE'):
+                    pt = str(r.get('nom_point', '')).strip()
+                    if pt and pt not in fixes:
+                        fixes.append(pt)
+            out.append({'filename': name, 'count': len(rows),
+                        'has_fixe': bool(fixes), 'fixes': fixes, 'rows': rows})
+        return Response({'determinations': out})
+
     @staticmethod
     def _det_label(piece):
         """Étiquette de bloc d'une détermination : « Libre » (RDL) / « N°k » (RDN)."""
@@ -689,6 +742,74 @@ class PieceViewSet(viewsets.ModelViewSet):
         max_ordre = Piece.objects.filter(ssdgps=ssdgps, is_deleted=False).aggregate(m=Max('ordre'))['m']
         serializer.save(created_by=request.user, ordre=(max_ordre + 1) if max_ordre is not None else 0)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='report')
+    def report(self, request):
+        """
+        GET /api/v1/pieces/report/?ssdgps=<uuid>[&session=<uuid>]
+        Génère le rapport PDF du SSDGPS : page de garde (liste des pièces valides) +
+        contenu de chaque pièce valide (tableaux / images / photos), dans l'ordre du
+        rapport (`ordre`). En vue « session » (multi-session), inclut les pièces de
+        cette session PLUS les pièces communes (session nulle). Seules les pièces
+        `statut == 'valide'` non supprimées sont retenues.
+        """
+        ssdgps_id = request.query_params.get('ssdgps')
+        if not ssdgps_id:
+            return Response({'detail': 'Le paramètre ssdgps est requis.'}, status=400)
+
+        # Portée organisationnelle : vérifie l'appartenance de l'organisation du SSDGPS
+        # aux droits de l'utilisateur (les admins système / super-admins ne sont pas filtrés).
+        ssdgps = Ssdgps.objects.select_related(
+            'affaire__propriete__projet__organization').filter(pk=ssdgps_id).first()
+        if ssdgps is None:
+            return Response({'detail': 'SSDGPS introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+        ids = user_org_ids(request.user)
+        if ids is not None and ssdgps.affaire.propriete.projet.organization_id not in ids:
+            raise PermissionDenied("Ce SSDGPS n'appartient pas à votre organisation.")
+
+        session_id = request.query_params.get('session') or None
+        session = None
+        if session_id:
+            session = Session.objects.filter(pk=session_id, ssdgps_id=ssdgps_id).first()
+            if session is None:
+                return Response({'detail': 'Session introuvable pour ce SSDGPS.'}, status=400)
+
+        qs = self._scope(self.queryset.filter(
+            ssdgps_id=ssdgps_id, is_deleted=False, statut=Piece.Statut.VALIDE,
+        )).exclude(type_piece__in=EXCLUDED_TYPES)
+        if session_id:
+            qs = qs.filter(Q(session_id=session_id) | Q(session__isnull=True))
+        pieces = list(qs.order_by('ordre', 'type_piece', 'numero'))
+
+        if not pieces:
+            return Response(
+                {'detail': 'Aucune pièce valide à inclure dans le rapport.'}, status=400)
+
+        try:
+            pdf_bytes = render_report_pdf(ssdgps, session, pieces)
+        except RuntimeError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+        filename = report_filename(ssdgps, session)
+
+        # Réponse JSON base64 (par défaut pour le front) : le PDF est transporté encodé
+        # dans un JSON, puis reconstruit en Blob côté client. On évite ainsi qu'un
+        # gestionnaire de téléchargement externe (ex. Internet Download Manager) n'intercepte
+        # la requête XHR d'un flux « application/pdf » — ce qui la faisait échouer / rejouer
+        # sans en-tête Authorization. Le paramètre `format=raw` sert l'ancien flux binaire
+        # (accès direct navigateur / autres clients).
+        if request.query_params.get('format', 'base64') != 'raw':
+            import base64
+            return Response({
+                'filename': filename,
+                'content_type': 'application/pdf',
+                'data': base64.b64encode(pdf_bytes).decode('ascii'),
+            })
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        response['X-Content-Type-Options'] = 'nosniff'
+        return response
 
     @action(detail=False, methods=['post'], url_path='import', parser_classes=[parsers.MultiPartParser])
     def import_file(self, request):

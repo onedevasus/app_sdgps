@@ -95,6 +95,13 @@ class AffaireSerializer(serializers.ModelSerializer):
 class SsdgpsSerializer(serializers.ModelSerializer):
     nbr_total_sessions = serializers.IntegerField(read_only=True)
     nbr_total_pieces = serializers.IntegerField(read_only=True)
+    # Contexte parent dénormalisé (via select_related, sans requête supplémentaire) : sert à
+    # la vue « tous les SSDGPS d'un projet » (affichage + navigation vers les pièces).
+    propriete = serializers.UUIDField(source='affaire.propriete.id', read_only=True)
+    propriete_nom = serializers.CharField(source='affaire.propriete.nom_propriete', read_only=True)
+    propriete_id_titre = serializers.CharField(source='affaire.propriete.id_titre', read_only=True)
+    propriete_id_requisition = serializers.CharField(source='affaire.propriete.id_requisition', read_only=True)
+    affaire_numero = serializers.CharField(source='affaire.numero_sd_affaire', read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     updated_by_email = serializers.EmailField(source='updated_by.email', read_only=True)
     deleted_by_email = serializers.EmailField(source='deleted_by.email', read_only=True)
@@ -103,6 +110,8 @@ class SsdgpsSerializer(serializers.ModelSerializer):
         model = Ssdgps
         fields = [
             'id', 'nature_ssdgps', 'numero_ssdgps', 'type_ssdgps', 'affaire',
+            'propriete', 'propriete_nom', 'propriete_id_titre', 'propriete_id_requisition',
+            'affaire_numero',
             'nbr_total_sessions', 'nbr_total_pieces', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
             'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]
