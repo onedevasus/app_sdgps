@@ -28,7 +28,8 @@ from .models import Piece, PieceImage
 from .parsing import (parse_uploaded_table, apply_mapping, auto_map_columns,
                       parse_rdl_tbc_html, TBC_HTML_PARSERS)
 from .rc import (compute_rapport_controle, compute_ecarts_vs_definitive,
-                 compute_ecarts_assembled, assemble_determinations)
+                 compute_ecarts_assembled, assemble_determinations,
+                 determinations_from_rdia)
 from .serializers import PieceSerializer
 
 
@@ -461,11 +462,22 @@ class PieceViewSet(viewsets.ModelViewSet):
         """
         POST /api/v1/pieces/compute-rc/
         Génère le tableau de la pièce « Rapport de contrôle » (RC) en croisant la
-        « Liste des points anciens » (LPA) et les « Rapports de la détermination N°k »
-        (RDN) du même SSDGPS (et de la session, si précisée) — cf. pieces/rc.py.
-        Champs : ssdgps (requis) ; session (optionnelle) ; commit (« 1 » → crée la pièce,
-        sinon APERÇU sans persistance) ; payload (JSON des lignes éditées, au commit).
-        La pièce ne peut être générée que si les deux sources existent avec des données.
+        « Liste des points anciens » (LPA, coordonnées fixes) avec, au choix, les
+        « Rapports de la détermination N°k » (RDN) OU le « Rapport des déterminations
+        intermédiaires assemblé » (RDIA) du même SSDGPS (et de la session, si précisée) —
+        cf. pieces/rc.py.
+
+        Sources de déterminations (coordonnées calculées) :
+        - `rdn`  : une ou plusieurs pièces RDN (comportement historique) ;
+        - `rdia` : les blocs `determination` d'une pièce RDIA assemblée.
+        La source est choisie via le champ `source` ; par défaut on privilégie les RDN
+        s'ils existent, sinon on se rabat sur la RDIA. Quand LES DEUX sont disponibles, le
+        client peut proposer le choix (la réponse d'aperçu expose `available_sources`).
+
+        Champs : ssdgps (requis) ; session (optionnelle) ; source (`rdn`/`rdia`, optionnelle) ;
+        commit (« 1 » → crée la pièce, sinon APERÇU sans persistance) ; payload (JSON des
+        lignes éditées, au commit). La pièce ne peut être générée que si la LPA et au moins
+        une source de déterminations existent avec des données.
         """
         type_piece = request.data.get('type_piece') or 'RC'
         ssdgps_id = request.data.get('ssdgps')
@@ -477,23 +489,43 @@ class PieceViewSet(viewsets.ModelViewSet):
         scope = self._org_scoped_queryset().filter(ssdgps_id=ssdgps_id, is_deleted=False)
         lpa = scope.filter(type_piece='LPA').first()
         rdn_qs = scope.filter(type_piece='RDN')
+        rdia_qs = scope.filter(type_piece='RDIA')
         if session_id:
             rdn_qs = rdn_qs.filter(session_id=session_id)
+            rdia_qs = rdia_qs.filter(session_id=session_id)
         rdn_list = list(rdn_qs.order_by('numero', 'ordre'))
+        rdia = rdia_qs.order_by('ordre').first()
+        rdia_rows = (rdia.payload or {}).get('rows') if rdia else None
+
+        # Sources de déterminations disponibles, dans l'ordre de préférence (RDN puis RDIA).
+        available = []
+        if rdn_list:
+            available.append('rdn')
+        if rdia_rows:
+            available.append('rdia')
 
         missing = []
         if lpa is None or not (lpa.payload or {}).get('rows'):
             missing.append("« Liste des points anciens » (LPA)")
-        if not rdn_list:
-            missing.append("« Rapport de la détermination N°k » (au moins une détermination intermédiaire)")
+        if not available:
+            missing.append("« Rapport de la détermination N°k » (RDN) ou « Rapport des "
+                           "déterminations intermédiaires assemblé » (RDIA)")
         if missing:
             return Response({'detail': (
                 'Sources manquantes : ' + ' et '.join(missing) + '. Ajoutez-les avec leurs '
                 'données avant de générer le rapport de contrôle.')}, status=400)
 
+        # Choix de la source : champ `source` s'il est valide/disponible, sinon la préférée.
+        source = str(request.data.get('source') or '').strip().lower()
+        if source not in available:
+            source = available[0]
+
         lpa_rows = (lpa.payload or {}).get('rows') or []
-        determinations = [{'numero': p.numero, 'rows': (p.payload or {}).get('rows') or []}
-                          for p in rdn_list]
+        if source == 'rdia':
+            determinations = determinations_from_rdia(rdia_rows)
+        else:
+            determinations = [{'numero': p.numero, 'rows': (p.payload or {}).get('rows') or []}
+                              for p in rdn_list]
         rows = compute_rapport_controle(lpa_rows, determinations)
         if not rows:
             return Response({'detail': (
@@ -503,7 +535,8 @@ class PieceViewSet(viewsets.ModelViewSet):
 
         piece_def = get_piece_def(type_piece)
         if not commit:
-            return Response({'rows': rows, 'champs': piece_def['champs'], 'total_rows': len(rows)})
+            return Response({'rows': rows, 'champs': piece_def['champs'], 'total_rows': len(rows),
+                             'source': source, 'available_sources': available})
 
         # Commit : privilégier les lignes éditées transmises, sinon les lignes calculées.
         payload_raw = request.data.get('payload')

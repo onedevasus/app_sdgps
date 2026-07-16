@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
-import { PiecesService } from '../../../core/services/pieces.service';
+import { PiecesService, RcSource } from '../../../core/services/pieces.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Piece, PieceImportPreview, PieceTypeDef } from '../../../core/models/piece.model';
 import { Ssdgps, Session } from '../../../core/models/project.model';
@@ -351,16 +351,30 @@ export class PieceAddWizardComponent implements OnInit {
   computing = false;
   computeError: string | null = null;
   submittingCompute = false;
+  /** Source de coordonnées calculées réellement utilisée (`rdn` ou `rdia`). */
+  rcSource: RcSource | null = null;
+  /** Sources disponibles renvoyées par le serveur : si >1, on propose le choix. */
+  rcAvailableSources: RcSource[] = [];
 
-  /** Génère l'aperçu du RC côté serveur → grille éditable (réutilise `manualForm`). */
-  computeRc(): void {
+  rcSourceLabel(src: RcSource): string {
+    return src === 'rdia'
+      ? 'Rapport des déterminations intermédiaires assemblé (RDIA)'
+      : 'Rapports de la détermination N°k (RDN)';
+  }
+
+  /** Génère l'aperçu du RC côté serveur → grille éditable (réutilise `manualForm`).
+   * `source` force la source des coordonnées calculées ; sinon le serveur applique son
+   * défaut (RDN préférée) et renvoie la source utilisée + celles disponibles. */
+  computeRc(source?: RcSource): void {
     if (!this.selectedType) return;
     this.computeError = null;
     this.manualForm = null;
     this.computing = true;
-    this.piecesService.previewComputeRc(this.parentRef()).subscribe({
+    this.piecesService.previewComputeRc(this.parentRef(), source).subscribe({
       next: (res) => {
         this.computing = false;
+        this.rcSource = res.source;
+        this.rcAvailableSources = res.available_sources || [];
         const rows = res.rows?.length ? res.rows : [{}];
         this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
         this.toast.success('Rapport de contrôle', `${res.total_rows} ligne(s) calculée(s).`);
@@ -372,10 +386,16 @@ export class PieceAddWizardComponent implements OnInit {
     });
   }
 
+  /** Recalcule l'aperçu à partir de l'autre source (choix utilisateur quand les deux existent). */
+  switchRcSource(source: RcSource): void {
+    if (this.computing || source === this.rcSource) return;
+    this.computeRc(source);
+  }
+
   submitCompute(): void {
     if (!this.manualForm || !this.selectedType || this.submittingCompute) return;
     this.submittingCompute = true;
-    this.piecesService.confirmComputeRc(this.parentRef(), this.manualRows.value).subscribe({
+    this.piecesService.confirmComputeRc(this.parentRef(), this.manualRows.value, this.rcSource || undefined).subscribe({
       next: (p) => { this.submittingCompute = false; this.finishCreate(p, 'Rapport de contrôle généré'); },
       error: (e) => { this.submittingCompute = false; this.toast.error('Échec', this.errorMessage(e, 'Création du rapport de contrôle impossible')); },
     });
@@ -676,6 +696,8 @@ export class PieceAddWizardComponent implements OnInit {
     this.bulkModalOpen = false;
     this.bulkCandidates = [];
     this.computeError = null;
+    this.rcSource = null;
+    this.rcAvailableSources = [];
     this.assembleModalOpen = false;
     this.assembleItems = [];
     this.assembleSourceIds = [];

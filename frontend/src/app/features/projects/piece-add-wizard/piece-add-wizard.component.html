@@ -238,7 +238,18 @@
 
         <!-- Sous-formulaire : calcul automatique (RC — depuis LPA + déterminations) -->
         <div class="source-form" *ngIf="selectedSource==='compute'">
-          <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Le tableau est calculé automatiquement en croisant la « Liste des points anciens » (coordonnées fixes) et les « Rapports de la détermination N°k » (coordonnées calculées). Vérifiez/ajustez puis créez.</p>
+          <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Le tableau est calculé automatiquement en croisant la « Liste des points anciens » (coordonnées fixes) avec les coordonnées calculées, prises soit dans les « Rapports de la détermination N°k » (RDN), soit dans le « Rapport des déterminations intermédiaires assemblé » (RDIA). Vérifiez/ajustez puis créez.</p>
+
+          <!-- Choix de la source des coordonnées calculées (seulement si RDN ET RDIA disponibles). -->
+          <div class="rc-source-choice" *ngIf="!computing && rcAvailableSources.length > 1">
+            <span class="rc-source-label"><i class="fas fa-layer-group"></i> Source des coordonnées calculées :</span>
+            <div class="rc-source-options">
+              <label *ngFor="let src of rcAvailableSources" class="rc-source-option" [class.active]="rcSource === src">
+                <input type="radio" name="rcSource" [checked]="rcSource === src" (change)="switchRcSource(src)">
+                <span>{{ rcSourceLabel(src) }}</span>
+              </label>
+            </div>
+          </div>
 
           <p class="step-intro" *ngIf="computing"><i class="fas fa-spinner fa-spin"></i> Calcul du rapport de contrôle…</p>
 

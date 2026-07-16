@@ -159,10 +159,39 @@ def compute_ecarts_assembled(brut_rows, rdd_rows):
     return out
 
 
+def determinations_from_rdia(rdia_rows):
+    """
+    Reconstruit une liste de déterminations (au même format que les RDN) à partir des lignes
+    BRUTES assemblées d'une pièce RDIA (schéma _RDIA_BRUT_CHAMPS : colonne `determination`).
+
+    Chaque bloc `determination` (« Libre », « N°1 », « N°2 »…) devient une détermination
+    {'numero': <label>, 'rows': [...]} dont les lignes portent les clés attendues par
+    `compute_rapport_controle` / `_fixed_point` (`nom_point`, `x_m`, `y_m`, `sigma_x_m`,
+    `sigma_y_m`). L'ordre d'apparition des blocs est préservé. Le bloc « Libre » (RDL, sans
+    point fixe) est conservé mais sera naturellement ignoré au calcul (aucun point tenu fixe).
+    """
+    groups = []  # [(label, [rows])] dans l'ordre d'apparition
+    pos = {}
+    for r in rdia_rows or []:
+        label = str(r.get('determination', '')).strip()
+        if label not in pos:
+            pos[label] = len(groups)
+            groups.append((label, []))
+        groups[pos[label]][1].append({
+            'nom_point': r.get('nom_point', ''),
+            'x_m': r.get('x_m', ''),
+            'y_m': r.get('y_m', ''),
+            'sigma_x_m': r.get('sigma_x_m', ''),
+            'sigma_y_m': r.get('sigma_y_m', ''),
+        })
+    return [{'numero': label, 'rows': rows} for label, rows in groups]
+
+
 def compute_rapport_controle(lpa_rows, determinations):
     """
     lpa_rows : list[dict] du LPA (clés `nom_point`, `x_m`, `y_m`).
-    determinations : list[dict] {'numero', 'rows'} des RDN, triées par numéro.
+    determinations : list[dict] {'numero', 'rows'} des RDN (triées par numéro) OU issues d'une
+    pièce RDIA via `determinations_from_rdia`.
     Retourne list[dict] au schéma RC (_RC_CHAMPS de catalog.py).
     """
     lpa = {}

@@ -10,6 +10,11 @@ interface PieceParent {
   session?: string;
 }
 
+/** Source des coordonnées calculées pour le « Rapport de contrôle » (RC) :
+ * `rdn` = Rapports de la détermination N°k ; `rdia` = Rapport des déterminations
+ * intermédiaires assemblé. */
+export type RcSource = 'rdn' | 'rdia';
+
 /** Service CRUD + import des pièces (Phase 6.5). Calqué sur ProjectsService. */
 @Injectable({ providedIn: 'root' })
 export class PiecesService {
@@ -148,22 +153,30 @@ export class PiecesService {
 
   /**
    * Aperçu du « Rapport de contrôle » (RC) calculé depuis la LPA + les déterminations
-   * du SSDGPS (et de la session si précisée). Erreur 400 si une source manque.
+   * du SSDGPS (et de la session si précisée). La source des coordonnées calculées peut être
+   * `rdn` (Rapports de la détermination N°k) ou `rdia` (Rapport des déterminations
+   * intermédiaires assemblé) ; laisser vide pour la source par défaut (RDN préférée).
+   * La réponse expose `source` (source réellement utilisée) et `available_sources` (celles
+   * disponibles → si >1, le client peut proposer le choix). Erreur 400 si une source manque.
    */
-  previewComputeRc(parent: PieceParent): Observable<{ rows: any[]; champs: any[]; total_rows: number }> {
+  previewComputeRc(parent: PieceParent, source?: RcSource):
+      Observable<{ rows: any[]; champs: any[]; total_rows: number; source: RcSource; available_sources: RcSource[] }> {
     const formData = new FormData();
     formData.append('type_piece', 'RC');
     if (parent.ssdgps) formData.append('ssdgps', parent.ssdgps);
     if (parent.session) formData.append('session', parent.session);
-    return this.http.post<{ rows: any[]; champs: any[]; total_rows: number }>(`${this.base}compute-rc/`, formData);
+    if (source) formData.append('source', source);
+    return this.http.post<{ rows: any[]; champs: any[]; total_rows: number; source: RcSource; available_sources: RcSource[] }>(
+      `${this.base}compute-rc/`, formData);
   }
 
   /** Création du RC (lignes calculées, éventuellement éditées avant enregistrement). */
-  confirmComputeRc(parent: PieceParent, rows: any[]): Observable<Piece> {
+  confirmComputeRc(parent: PieceParent, rows: any[], source?: RcSource): Observable<Piece> {
     const formData = new FormData();
     formData.append('type_piece', 'RC');
     if (parent.ssdgps) formData.append('ssdgps', parent.ssdgps);
     if (parent.session) formData.append('session', parent.session);
+    if (source) formData.append('source', source);
     formData.append('commit', '1');
     formData.append('payload', JSON.stringify({ rows }));
     return this.http.post<Piece>(`${this.base}compute-rc/`, formData);
