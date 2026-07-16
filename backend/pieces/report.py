@@ -238,9 +238,25 @@ def flat_blocks(tables):
         for cells in tbl['flat']:
             rows.append({'zebra': 'z%d' % (rid % 2), 'rid': rid, 'cells': cells})
             rid += 1
+        # Le saut de page entre versions est porté par le conteneur `.version-wrap`
+        # (cf. _group_versions / template), pas par le bloc lui-même.
         blocks.append({'title': tbl['title'], 'columns': tbl['columns'], 'merged': False,
-                       'break_before': False, 'groups': [{'rows': rows}]})
+                       'break_before': False, 'groups': [{'rows': rows}],
+                       'vidx': tbl.get('vidx', 0), 'mention': tbl.get('mention', '')})
     return blocks
+
+
+def _group_versions(blocks):
+    """Regroupe les blocs par version (`vidx`) en préservant l'ordre. Chaque version est
+    rendue dans un conteneur `.version-wrap` (saut de page avant les versions suivantes) →
+    l'en-tête « running » de chaque version est associé aux BONNES pages (pas de débordement
+    de la mention « écarts » sur la dernière page de la version brute)."""
+    from itertools import groupby
+    versions = []
+    for _vidx, grp in groupby(blocks, key=lambda b: b.get('vidx', 0)):
+        grp = list(grp)
+        versions.append({'mention': grp[0].get('mention', ''), 'blocks': grp})
+    return versions
 
 
 def paged_blocks(tables, row_pages):
@@ -251,8 +267,14 @@ def paged_blocks(tables, row_pages):
     Le zébrage des lignes suit l'index global ; les cellules fusionnées alternent leur
     teinte par groupe (`mz0`/`mz1`)."""
     from itertools import groupby
-    blocks, rid, prev_page, gcount = [], 0, None, 0
+    blocks, rid, gcount = [], 0, 0
     for tbl in tables:
+        vidx = tbl.get('vidx', 0)
+        mention = tbl.get('mention', '')
+        # `prev_page` est réinitialisé par version : le saut de page ENTRE versions est géré
+        # par le conteneur `.version-wrap`, pas par le `break_before` du bloc (sinon double
+        # saut). À l'intérieur d'une version, on saute bien à chaque changement de page.
+        prev_page = None
         merge = [f for f in tbl['merge'] if f in {c['name'] for c in tbl['columns']}]
         trows = []
         for cells in tbl['flat']:
@@ -290,50 +312,97 @@ def paged_blocks(tables, row_pages):
                 'columns': tbl['columns'], 'merged': bool(merge),
                 'break_before': prev_page is not None and page != prev_page,
                 'groups': groups,
+                'vidx': vidx, 'mention': mention,
             })
             prev_page, first_seg = page, False
     return blocks
 
 
-def _piece_content(piece):
+def _piece_content(piece, landscape=False):
     """Modèle de rendu du contenu d'une pièce : tableaux (liste `tables` « à plat », la
-    pagination/fusion est décidée ensuite par `flat_blocks`/`paged_blocks`), images, photos."""
+    pagination/fusion est décidée ensuite par `flat_blocks`/`paged_blocks`), images, photos.
+
+    `landscape` (orientation effective du contenu) sert à dimensionner les photos
+    complémentaires des points PPA/PPN : elles se partagent la hauteur utile de la page."""
     piece_def = get_piece_def(piece.type_piece)
     payload = piece.payload or {}
     content = {'tables': [], 'images': [], 'photos': [], 'kind': 'empty'}
 
     if piece.type_piece in PHOTO_TYPES:
+        # Modèle métier : UNE entrée par POINT (pas par photo). La 1re photo du point
+        # s'affiche en page pleine avec l'encadré de métadonnées (nom, date, projection,
+        # système, coordonnées) ; CHAQUE photo suivante occupe SA PROPRE page entière (autant
+        # de pages complémentaires que de photos complémentaires). Chaque photo porte un badge
+        # `n/N` (uniquement si le point a plus d'une photo). `content['photos']` est donc une
+        # liste d'entrées-point.
         content['kind'] = 'photos'
+        # Hauteur utile (mm) d'une photo complémentaire = hauteur de contenu (A4 − marges
+        # 43 mm haut / 10 mm bas) moins l'en-tête « Photos complémentaires » (~14 mm). Chaque
+        # photo étant seule sur sa page, elle occupe toute cette hauteur.
+        extra_region_mm = 143 if landscape else 230
         rows = payload.get('rows') or []
         images = list(piece.images.all())
-        by_ref = {}
+
+        # `PieceImage.point_ref` = l'ID de la ligne du point (cf. models.py). On rattache
+        # CHAQUE image à UNE seule ligne : par ID d'abord (sémantique officielle), puis, en
+        # repli, par nom du point. Indispensable : le nom d'un point peut coïncider avec l'ID
+        # d'un autre (ex. point id=1 nommé « 8 » vs point id=8) — matcher par nom en même
+        # temps que par ID volerait la photo du second au premier.
+        by_id, by_nom = {}, {}
+        for i, row in enumerate(rows):
+            rid = str(row.get('id', '')).strip()
+            nom = str(row.get('nom_point', '')).strip()
+            if rid:
+                by_id.setdefault(rid, i)
+            if nom:
+                by_nom.setdefault(nom, i)
+        row_pics = {i: [] for i in range(len(rows))}
+        orphans = []
         for img in images:
-            by_ref.setdefault((img.point_ref or '').strip(), []).append(img)
-        used = set()
-        meta_fields = [c for c in piece_def['champs'] if c['name'] not in ('id', 'fichier_image')]
-        for row in rows:
-            keys = [str(row.get('id', '')).strip(), str(row.get('nom_point', '')).strip()]
-            pics = []
-            for key in keys:
-                if key and key in by_ref and key not in used:
-                    pics.extend(by_ref[key])
-                    used.add(key)
-            uris = [u for u in (_file_uri(i) for i in pics) if u]
-            content['photos'].append({
-                'nom_point': row.get('nom_point', '') or row.get('id', ''),
-                'meta': [(c['label'], row.get(c['name'], '')) for c in meta_fields],
-                'images': uris,
-            })
-        # Photos non rattachées à un point identifié.
-        orphan = []
-        for ref, pics in by_ref.items():
-            if ref in used:
-                continue
-            orphan.extend(pics)
-        orphan_uris = [u for u in (_file_uri(i) for i in orphan) if u]
-        if orphan_uris:
-            content['photos'].append({'nom_point': 'Photos non rattachées', 'meta': [],
-                                      'images': orphan_uris})
+            ref = (img.point_ref or '').strip()
+            idx = by_id.get(ref, by_nom.get(ref))
+            (row_pics[idx] if idx is not None else orphans).append(img)
+
+        def _entry(nom_point, uris, **meta):
+            """Entrée-point : métadonnées + photo principale (page pleine) + photos
+            complémentaires (une page entière chacune). `main_label` (badge de la photo
+            principale) et `extra[n].label` = « n/N » si le point a plus d'une photo (sinon
+            vide : pas de « 1/1 » parasite). `extra_h` = hauteur (mm) de chaque photo
+            complémentaire (elle occupe toute la hauteur utile de sa page)."""
+            total = len(uris)
+            numbered = total > 1
+            return {
+                'nom_point': nom_point,
+                'date_visite': meta.get('date_visite', ''),
+                'projection': meta.get('projection', ''),
+                'systeme': meta.get('systeme', ''),
+                'x_m': meta.get('x_m', ''),
+                'y_m': meta.get('y_m', ''),
+                'total': total,
+                'main': uris[0] if uris else None,
+                'main_label': ('1/%d' % total) if numbered else '',
+                'extra': [{'uri': u, 'label': '%d/%d' % (n, total)}
+                          for n, u in enumerate(uris[1:], start=2)],
+                'extra_h': extra_region_mm,
+            }
+
+        for i, row in enumerate(rows):
+            uris = [u for u in (_file_uri(img) for img in row_pics[i]) if u]
+            content['photos'].append(_entry(
+                row.get('nom_point', '') or row.get('id', ''), uris,
+                date_visite=row.get('date_visite', ''),
+                projection=row.get('systeme_projection', ''),
+                systeme=row.get('zone_projection', ''),
+                x_m=_format_meters(row.get('x_m', ''), 2),
+                y_m=_format_meters(row.get('y_m', ''), 2)))
+
+        # Photos dont le point_ref ne correspond à aucun point : une page chacune (pas de
+        # regroupement possible sans point cible, donc pas de numérotation).
+        for img in orphans:
+            u = _file_uri(img)
+            if u:
+                content['photos'].append(
+                    _entry((img.point_ref or '').strip() or '—', [u]))
         return content
 
     if piece.type_piece in IMAGE_TYPES:
@@ -346,20 +415,48 @@ def _piece_content(piece):
     # ensuite (flat_blocks / paged_blocks) — la mise en pages fusionnée nécessite une
     # passe de sonde pour connaître les sauts de page réels (cf. render_report_pdf).
     rows = payload.get('rows') or []
-    if rows and piece_def.get('champs'):
-        content['kind'] = 'table'
-        columns, flat = _table_cells(piece_def['champs'], rows)
-        content['tables'].append({'title': '', 'columns': columns, 'flat': flat,
-                                  'merge': _merge_fields(piece.type_piece, 'brut')})
     rows_ecarts = payload.get('rows_ecarts') or []
+
+    brut = None
+    if rows and piece_def.get('champs'):
+        columns, flat = _table_cells(piece_def['champs'], rows)
+        brut = {'title': '', 'columns': columns, 'flat': flat,
+                'merge': _merge_fields(piece.type_piece, 'brut')}
+    ecarts = None
     if rows_ecarts and piece_def.get('ecarts_champs'):
-        content['kind'] = 'table'
         columns, flat = _table_cells(piece_def['ecarts_champs'], rows_ecarts)
-        content['tables'].append({'title': 'Écarts par rapport à la détermination définitive',
-                                  'columns': columns, 'flat': flat,
-                                  'merge': _merge_fields(piece.type_piece, 'ecarts')})
-    for tbl in content['tables']:
-        tbl['merged'] = bool(tbl['merge'])
+        ecarts = {'title': 'Écarts par rapport à la détermination définitive',
+                  'columns': columns, 'flat': flat,
+                  'merge': _merge_fields(piece.type_piece, 'ecarts')}
+
+    # Choix de la/des version(s) à afficher (types RDL/RDN/RDIA). Repli sur ce qui existe
+    # si le choix ne correspond à aucune donnée disponible.
+    choix = piece.versions_rapport
+    sel = []
+    if choix in ('brut', 'both') and brut:
+        sel.append(('brut', brut))
+    if choix in ('ecarts', 'both') and ecarts:
+        sel.append(('ecarts', ecarts))
+    if not sel:
+        if brut:
+            sel.append(('brut', brut))
+        elif ecarts:
+            sel.append(('ecarts', ecarts))
+
+    # Mention entre parenthèses dans l'en-tête de contenu, UNIQUEMENT si les deux versions
+    # sont affichées (pour distinguer les pages de chaque version).
+    both = len(sel) == 2
+    mentions = {'brut': 'Version brute des données',
+                'ecarts': 'version des écarts par rapport à la détermination définitive'}
+    for vidx, (vkey, tbl) in enumerate(sel):
+        # En mode « les deux », la mention dans l'en-tête suffit : on retire le titre-légende
+        # « Écarts par rapport à la détermination définitive » affiché au-dessus du tableau.
+        content['tables'].append({**tbl, 'title': '' if both else tbl['title'],
+                                  'merged': bool(tbl['merge']), 'vidx': vidx,
+                                  'mention': mentions[vkey] if both else ''})
+    if content['tables']:
+        content['kind'] = 'table'
+        content['first_mention'] = content['tables'][0]['mention']
     return content
 
 
@@ -374,8 +471,16 @@ def build_report_context(ssdgps, session, pieces):
     if affaire.date_bornage:
         nature_affaire = f"{nature_affaire} du {_fmt_date(affaire.date_bornage)}".strip()
 
+    # Organismes de l'en-tête : UNIQUEMENT ceux choisis sur la propriété (obligatoires).
+    # Aucun repli sur un libellé codé en dur ni sur l'organisation du projet.
+    n1, n2 = propriete.organisme_niveau1, propriete.organisme_niveau2
+    organisme_niveau1 = n1.nom if n1 else ''
+    organisme_niveau2 = n2.nom if n2 else ''
+
     header = {
         'organization': (organization.name if organization else '').upper(),
+        'organisme_niveau1': (organisme_niveau1 or '').upper(),
+        'organisme_niveau2': (organisme_niveau2 or '').upper(),
         'propriete': propriete.nom_propriete or '',
         'requisition': propriete.id_requisition or '',
         'titre': propriete.id_titre or '',
@@ -396,12 +501,13 @@ def build_report_context(ssdgps, session, pieces):
             'nombre': 1,
             'observations': (piece.commentaire or '').strip(),
         })
+        landscape = resolve_orientation(piece, ssdgps) == 'paysage'
         rendered.append({
             'index': index,
             'title': designation.upper(),
             'code': piece.type_piece,
-            'content': _piece_content(piece),
-            'content_landscape': resolve_orientation(piece, ssdgps) == 'paysage',
+            'content': _piece_content(piece, landscape),
+            'content_landscape': landscape,
         })
 
     return {
@@ -469,14 +575,18 @@ def render_report_pdf(ssdgps, session, pieces):
         la passe finale où la fusion est recalculée par page réelle → pages bien remplies."""
         content = piece['content']
         tables = content.get('tables') or []
+
+        def _wrap(blocks):
+            return {**content, 'blocks': blocks, 'versions': _group_versions(blocks)}
+
         if content.get('kind') == 'table' and any(t['merged'] for t in tables):
             probe = _render('piece', foot_prefix,
-                            {'piece': {**piece, 'content': {**content, 'blocks': flat_blocks(tables)}}})
+                            {'piece': {**piece, 'content': _wrap(flat_blocks(tables))}})
             blocks = paged_blocks(tables, _probe_row_pages(probe))
         else:
             blocks = flat_blocks(tables)
         return _render('piece', foot_prefix,
-                       {'piece': {**piece, 'content': {**content, 'blocks': blocks}}})
+                       {'piece': {**piece, 'content': _wrap(blocks)}})
 
     # (1) Page de garde du SDGPS — pied sans « PIÈCE N° ».
     documents = [_render('cover', foot_base,

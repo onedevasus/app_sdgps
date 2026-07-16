@@ -77,6 +77,8 @@ export interface Piece {
   orientation?: 'auto' | 'portrait' | 'paysage';
   /** Orientation réellement appliquée (résout le mode 'auto'). Lecture seule. */
   orientation_effective?: 'portrait' | 'paysage';
+  /** RDL/RDN/RDIA : version(s) affichée(s) dans le rapport PDF (brute / écarts / les deux). */
+  versions_rapport?: 'brut' | 'ecarts' | 'both';
   commentaire?: string;
   organization_id?: string;
   created_at?: string;

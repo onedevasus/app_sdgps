@@ -1,7 +1,8 @@
 <div class="gallery">
   <!-- Barre d'action -->
   <div class="gallery-toolbar">
-    <label class="btn-upload" *ngIf="editable" [class.disabled]="busy">
+    <label class="btn-upload" *ngIf="editable" [class.disabled]="busy"
+           title="Ces images sont affichées en pleine page portrait (A4) dans le rapport PDF. Une orientation portrait proche du A4 (rapport ≈ 3:4) évite les bandes blanches ; résolution conseillée ≥ 1240×1754 px (150 dpi).">
       <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden
              [disabled]="busy" (change)="onFilesSelected($event)">
       <i class="fas" [ngClass]="busy ? 'fa-spinner fa-spin' : 'fa-plus'"></i> Ajouter des images
@@ -16,6 +17,12 @@
       </button>
     </div>
   </div>
+
+  <p class="upload-hint" *ngIf="editable">
+    <i class="fas fa-info-circle"></i>
+    <span>Pour un rendu optimal dans le rapport PDF : images en <strong>format portrait</strong>
+      (type A4, rapport largeur/hauteur ≈ 3:4), résolution conseillée <strong>≥ 1240×1754 px</strong>.</span>
+  </p>
 
   <p class="gallery-empty" *ngIf="!images.length">
     <i class="fas fa-images"></i> Aucune image.

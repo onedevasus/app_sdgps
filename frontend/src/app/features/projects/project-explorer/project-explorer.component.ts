@@ -3,7 +3,9 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService } from '../../../core/services/projects.service';
+import { OrganismeService } from '../../../core/services/organisme.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { OrganismeNiveau1, OrganismeNiveau2 } from '../../../core/models/organisme.model';
 import {
   Projet, Propriete, Affaire, Ssdgps, Session,
   PROCEDURE_OPTIONS, PROCEDURE_NATURES, PROCEDURES_SANS_DATE_BORNAGE,
@@ -219,6 +221,12 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   availableNatures: { value: NatureAffaire; label: string }[] = [];
   dateBornageRequired = true;
 
+  // Formulaire Propriété : organismes (le 2e niveau dépend du 1er choisi)
+  organismeN1Options: OrganismeNiveau1[] = [];
+  organismeN2All: OrganismeNiveau2[] = [];
+  availableN2: OrganismeNiveau2[] = [];
+  private organismesLoaded = false;
+
   // Menu contextuel des lignes/cellules
   showContextMenu = false;
   contextMenuPosition = { x: 0, y: 0 };
@@ -232,6 +240,7 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
   constructor(
     private service: ProjectsService,
+    private organismeService: OrganismeService,
     private route: ActivatedRoute,
     private router: Router,
     private toast: ToastService,
@@ -746,7 +755,11 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
           nom_propriete: [item?.nom_propriete || '', Validators.required],
           id_requisition: [item?.id_requisition || ''],
           id_titre: [item?.id_titre || ''],
+          organisme_niveau1: [item?.organisme_niveau1 || '', Validators.required],
+          organisme_niveau2: [item?.organisme_niveau2 || '', Validators.required],
         });
+        this.loadOrganismeOptions();
+        this.form.get('organisme_niveau1')!.valueChanges.subscribe(v => this.onOrganismeN1Change(v));
         break;
       case 'affaire':
         this.form = this.fb.group({
@@ -772,6 +785,35 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
         });
         break;
     }
+  }
+
+  /** Charge (une fois) les organismes N1/N2 puis recalcule la liste N2 disponible. */
+  private loadOrganismeOptions(): void {
+    if (this.organismesLoaded) { this.recomputeAvailableN2(); return; }
+    forkJoin({
+      n1: this.organismeService.getNiveau1(),
+      n2: this.organismeService.getNiveau2(),
+    }).subscribe({
+      next: ({ n1, n2 }) => {
+        this.organismeN1Options = n1;
+        this.organismeN2All = n2;
+        this.organismesLoaded = true;
+        this.recomputeAvailableN2();
+      },
+      error: () => { this.organismeN1Options = []; this.organismeN2All = []; },
+    });
+  }
+
+  /** Select dépendant : au changement du 1er niveau, filtre le 2e et le réinitialise si invalide. */
+  onOrganismeN1Change(n1Id: string): void {
+    this.recomputeAvailableN2(n1Id);
+    const n2Ctrl = this.form.get('organisme_niveau2');
+    if (n2Ctrl && !this.availableN2.some(o => o.id === n2Ctrl.value)) n2Ctrl.setValue('');
+  }
+
+  private recomputeAvailableN2(n1Id?: string): void {
+    const id = n1Id ?? this.form?.get('organisme_niveau1')?.value ?? '';
+    this.availableN2 = this.organismeN2All.filter(o => o.niveau1 === id);
   }
 
   /** Met à jour les natures disponibles + l'obligation de date selon la procédure. */

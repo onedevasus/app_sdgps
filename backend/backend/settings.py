@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'organizations',  # ← AJOUT: Gestion des organisations
+    'organismes',  # ← AJOUT: Registre organismes premier/deuxième niveau (rapport)
     'projects',  # ← AJOUT: Domaine métier (Projet→Propriété→Affaire→SSDGPS→Session)
     'pieces',  # ← AJOUT: Pièces SSDGPS/Session (Phase 6.5)
 ]

@@ -33,6 +33,10 @@ export interface Propriete {
   id_requisition?: string;
   id_titre?: string;
   projet: string;
+  organisme_niveau1?: string;        // UUID organisme de premier niveau (requis à l'écriture)
+  organisme_niveau2?: string;        // UUID organisme de deuxième niveau (requis à l'écriture)
+  organisme_niveau1_nom?: string;    // libellé (lecture)
+  organisme_niveau2_nom?: string;    // libellé (lecture)
   nbr_total_affaires?: number;
   nbr_total_ssdgps?: number;
   nbr_total_sessions?: number;

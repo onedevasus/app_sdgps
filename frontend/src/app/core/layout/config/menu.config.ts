@@ -68,6 +68,35 @@ export const ADMIN_MENU: MenuItem[] = [
     ]
   },
   {
+    id: 'organismes',
+    title: 'Organismes',
+    icon: 'fas fa-sitemap',
+    route: '/admin/organismes',
+    type: 'submenu',
+    description: 'Organismes premier & deuxième niveau (en-tête des rapports)',
+    roles: SUPER_OR_SYSTEME,
+    children: [
+      {
+        id: 'organismes-niveau1',
+        title: 'Premier niveau',
+        icon: 'fas fa-landmark',
+        route: '/admin/organismes/niveau1',
+        type: 'link',
+        description: 'Organismes centraux (ex. ANCFCC)',
+        roles: SUPER_OR_SYSTEME,
+      },
+      {
+        id: 'organismes-niveau2',
+        title: 'Deuxième niveau',
+        icon: 'fas fa-building',
+        route: '/admin/organismes/niveau2',
+        type: 'link',
+        description: 'Entités décentralisées rattachées',
+        roles: SUPER_OR_SYSTEME,
+      }
+    ]
+  },
+  {
     id: 'projets',
     title: 'Projets',
     icon: 'fas fa-project-diagram',

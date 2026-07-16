@@ -87,10 +87,16 @@
 
         <!-- Sous-formulaire : images (multi) -->
         <div class="source-form" *ngIf="selectedSource==='image'">
-          <label class="btn-secondary file-label">
+          <label class="btn-secondary file-label"
+                 title="Ces images sont affichées en pleine page portrait (A4) dans le rapport PDF. Une orientation portrait proche du A4 (rapport ≈ 3:4) évite les bandes blanches ; résolution conseillée ≥ 1240×1754 px (150 dpi).">
             <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden (change)="onImagesSelected($event)">
             <i class="fas fa-plus"></i> Sélectionner des images (png/jpg/jpeg/tiff/webp)
           </label>
+          <p class="upload-hint">
+            <i class="fas fa-info-circle"></i>
+            <span>Pour un rendu optimal dans le rapport PDF : images en <strong>format portrait</strong>
+              (type A4, rapport ≈ 3:4), résolution conseillée <strong>≥ 1240×1754 px</strong>.</span>
+          </p>
 
           <div class="image-picker" *ngIf="selectedImages.length">
             <div class="image-picker-item" *ngFor="let f of selectedImages; let i = index">

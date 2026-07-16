@@ -162,3 +162,13 @@
   .pp-point-count.zero { color: #e0952b; }
 }
 .pp-point.collapsed { .pp-point-head { margin-bottom: 0; } }
+
+/* Info-bulle / conseil sur le format recommandé des photos pour le rapport PDF */
+.upload-hint {
+  display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0;
+  padding: 8px 12px; border-radius: 8px;
+  background: var(--hover-bg); border: 1px solid var(--border-color);
+  color: var(--text-muted); font-size: 12.5px; line-height: 1.45;
+  i { color: var(--accent-color); margin-top: 2px; flex-shrink: 0; }
+  strong { color: var(--text-color); font-weight: 600; }
+}

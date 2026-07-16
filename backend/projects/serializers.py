@@ -1,6 +1,7 @@
 """Sérialiseurs DRF du domaine métier, avec validations conditionnelles."""
 from rest_framework import serializers
 
+from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 from .models import Projet, Propriete, Affaire, Ssdgps, Session
 from .validators import validate_affaire_coherence
 
@@ -41,6 +42,13 @@ class ProprieteSerializer(serializers.ModelSerializer):
     nbr_total_affaires = serializers.IntegerField(read_only=True)
     nbr_total_ssdgps = serializers.IntegerField(read_only=True)
     nbr_total_sessions = serializers.IntegerField(read_only=True)
+    # Organismes : requis à l'écriture (le modèle les autorise null pour la migration).
+    organisme_niveau1 = serializers.PrimaryKeyRelatedField(
+        queryset=OrganismeNiveau1.objects.filter(is_deleted=False), required=True)
+    organisme_niveau2 = serializers.PrimaryKeyRelatedField(
+        queryset=OrganismeNiveau2.objects.filter(is_deleted=False), required=True)
+    organisme_niveau1_nom = serializers.CharField(source='organisme_niveau1.nom', read_only=True)
+    organisme_niveau2_nom = serializers.CharField(source='organisme_niveau2.nom', read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     updated_by_email = serializers.EmailField(source='updated_by.email', read_only=True)
     deleted_by_email = serializers.EmailField(source='deleted_by.email', read_only=True)
@@ -49,6 +57,8 @@ class ProprieteSerializer(serializers.ModelSerializer):
         model = Propriete
         fields = [
             'id', 'nom_propriete', 'id_requisition', 'id_titre', 'projet',
+            'organisme_niveau1', 'organisme_niveau2',
+            'organisme_niveau1_nom', 'organisme_niveau2_nom',
             'nbr_total_affaires', 'nbr_total_ssdgps', 'nbr_total_sessions',
             'created_at', 'updated_at', 'is_deleted', 'deleted_at',
             'created_by_email', 'updated_by_email', 'deleted_by_email',
@@ -62,6 +72,15 @@ class ProprieteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Renseignez au moins la réquisition ou le titre foncier."
             )
+        # Cohérence : le 2e niveau doit être rattaché au 1er niveau choisi.
+        n1 = attrs.get('organisme_niveau1', getattr(self.instance, 'organisme_niveau1', None))
+        n2 = attrs.get('organisme_niveau2', getattr(self.instance, 'organisme_niveau2', None))
+        if n1 and n2 and n2.niveau1_id != n1.id:
+            raise serializers.ValidationError({
+                'organisme_niveau2':
+                    "L'organisme de deuxième niveau doit dépendre de l'organisme de "
+                    "premier niveau choisi."
+            })
         return attrs
 
 

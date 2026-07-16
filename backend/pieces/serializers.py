@@ -49,7 +49,7 @@ class PieceSerializer(serializers.ModelSerializer):
             'id', 'type_piece', 'type_piece_display', 'numero', 'ssdgps', 'session',
             'session_numero', 'niveau', 'portee', 'ordre',
             'fichier', 'fichier_url', 'images', 'payload', 'source_saisie', 'statut',
-            'orientation', 'orientation_effective',
+            'orientation', 'orientation_effective', 'versions_rapport',
             'commentaire', 'organization_id', 'created_at', 'updated_at', 'is_deleted',
             'deleted_at', 'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]

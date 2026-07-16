@@ -7,6 +7,7 @@ import { OrganizationListComponent } from './features/dashboard/organization-lis
 import { UserListComponent } from './features/admin/users/user-list/user-list.component';
 import { UserDetailComponent } from './features/admin/users/user-detail/user-detail.component';
 import { RolesPermissionsComponent } from './features/admin/users/roles-permissions/roles-permissions.component';
+import { OrganismeListComponent } from './features/admin/organismes/organisme-list/organisme-list.component';
 
 // Composant placeholder temporaire (à remplacer par vos vrais composants)
 @Component({
@@ -88,6 +89,16 @@ const routes: Routes = [
         path: 'organisations/ajouter',
         component: PlaceholderComponent,
         data: { title: 'Ajouter une Organisation' }
+      },
+      {
+        path: 'organismes/niveau1',
+        component: OrganismeListComponent,
+        data: { title: 'Organismes — premier niveau', niveau: 1 }
+      },
+      {
+        path: 'organismes/niveau2',
+        component: OrganismeListComponent,
+        data: { title: 'Organismes — deuxième niveau', niveau: 2 }
       },
       {
         path: 'utilisateurs',

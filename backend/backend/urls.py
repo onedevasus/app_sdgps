@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('api/v1/platform-admin/', include('platform_admin.urls')),
     path('api/v1/organizations/', include('organizations.urls')),  # ← AJOUT: Gestion organisations
+    path('api/v1/', include('organismes.urls')),  # ← AJOUT: Organismes premier/deuxième niveau
     path('api/v1/users/', include('accounts.users_urls')),  # ← AJOUT: Gestion utilisateurs
     path('api/v1/', include('projects.urls')),  # ← AJOUT: Domaine métier (projets, propriétés, affaires, ssdgps, sessions)
     path('api/v1/', include('pieces.urls')),  # ← AJOUT: Pièces SSDGPS/Session (Phase 6.5)

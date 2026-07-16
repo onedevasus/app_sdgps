@@ -55,6 +55,11 @@ class Piece(BaseModel):
         PORTRAIT = 'portrait', 'Portrait'
         PAYSAGE = 'paysage', 'Paysage'
 
+    class VersionsRapport(models.TextChoices):
+        BRUT = 'brut', 'Version brute'
+        ECARTS = 'ecarts', 'Version des écarts'
+        BOTH = 'both', 'Les deux versions'
+
     type_piece = models.CharField(max_length=10, choices=PIECE_CHOICES, verbose_name="Type de pièce")
     numero = models.PositiveSmallIntegerField(
         null=True, blank=True, verbose_name="Numéro (types répétables, ex. RDN)",
@@ -80,6 +85,12 @@ class Piece(BaseModel):
         verbose_name="Orientation (rapport PDF)",
         help_text="AUTO : orientation calculée automatiquement selon la largeur des données ; "
                   "sinon force le portrait ou le paysage pour le contenu de la pièce.",
+    )
+    versions_rapport = models.CharField(
+        max_length=10, choices=VersionsRapport.choices, default=VersionsRapport.BOTH,
+        verbose_name="Versions affichées (RDL/RDN/RDIA)",
+        help_text="Rapports de détermination : afficher la version brute des données, la "
+                  "version des écarts par rapport à la détermination définitive, ou les deux.",
     )
     commentaire = models.TextField(blank=True, verbose_name="Commentaire")
 

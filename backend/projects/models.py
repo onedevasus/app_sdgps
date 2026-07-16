@@ -10,6 +10,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from accounts.models import Organization
+from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 from .validators import (
     REQUISITION_RE, TITRE_RE,
     validate_affaire_coherence,
@@ -102,6 +103,17 @@ class Propriete(BaseModel):
     projet = models.ForeignKey(
         Projet, on_delete=models.CASCADE, related_name='proprietes',
         verbose_name="Projet",
+    )
+    # Organismes affichés dans l'en-tête du rapport. `null=True` en base (migration propre
+    # sur les propriétés existantes) mais REQUIS au niveau de l'API/formulaire (cf.
+    # ProprieteSerializer). Le rapport applique un repli pour les propriétés legacy (null).
+    organisme_niveau1 = models.ForeignKey(
+        OrganismeNiveau1, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='proprietes', verbose_name="Organisme de premier niveau",
+    )
+    organisme_niveau2 = models.ForeignKey(
+        OrganismeNiveau2, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='proprietes', verbose_name="Organisme de deuxième niveau",
     )
 
     class Meta:

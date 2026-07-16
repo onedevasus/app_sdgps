@@ -7,13 +7,21 @@
     <span class="pp-stat" *ngIf="pointsWithoutPhoto" [class.warn]="true"><i class="fas fa-exclamation-triangle"></i> {{ pointsWithoutPhoto }} point(s) sans photo</span>
   </div>
 
+  <p class="upload-hint" *ngIf="editable">
+    <i class="fas fa-info-circle"></i>
+    <span>Pour un rendu optimal dans le rapport PDF : photos <strong>carrées</strong> (rapport 1:1),
+      résolution conseillée <strong>≥ 1200×1200 px</strong>. Chaque photo occupe une cellule carrée
+      pleine page — un format carré évite bandes blanches et recadrage.</span>
+  </p>
+
   <!-- Bac « à assigner » -->
   <div class="pp-tray" *ngIf="editable || unassigned.length"
        [class.drop-hint]="dragImageId!=null"
        (dragover)="allowDrop($event)" (drop)="onDropUnassign($event)">
     <div class="pp-tray-head">
       <span><i class="fas fa-inbox"></i> Photos à assigner ({{ unassigned.length }})</span>
-      <label class="pp-upload" *ngIf="editable" [class.disabled]="busy">
+      <label class="pp-upload" *ngIf="editable" [class.disabled]="busy"
+             title="Rendu optimal dans le rapport PDF : photos carrées (rapport 1:1), résolution ≥ 1200×1200 px. Chaque photo remplit une cellule carrée pleine page.">
         <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden [disabled]="busy" (change)="onFilesUnassigned($event)">
         <i class="fas" [ngClass]="busy ? 'fa-spinner fa-spin' : 'fa-plus'"></i> Déposer des photos
       </label>
@@ -76,7 +84,8 @@
         <i class="fas pp-chev" [ngClass]="isCollapsed(row) ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
         <span class="pp-point-label"><i class="fas fa-map-marker-alt"></i> {{ pointLabel(row) }}</span>
         <span class="pp-point-count" [class.zero]="!countOf(row)">{{ countOf(row) }} photo(s)</span>
-        <label class="pp-upload sm" *ngIf="editable" (click)="$event.stopPropagation()" [class.disabled]="busy">
+        <label class="pp-upload sm" *ngIf="editable" (click)="$event.stopPropagation()" [class.disabled]="busy"
+               title="Rendu optimal dans le rapport PDF : photos carrées (rapport 1:1), résolution ≥ 1200×1200 px. Chaque photo remplit une cellule carrée pleine page.">
           <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden [disabled]="busy" (change)="onFilesForPoint($event, row)">
           <i class="fas fa-plus"></i> Photos
         </label>

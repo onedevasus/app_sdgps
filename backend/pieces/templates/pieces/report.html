@@ -36,18 +36,36 @@
     @top-center { content: element(chead); vertical-align: top; padding-top: 5mm; }
     @bottom-center { width: {% if piece.content_landscape %}287mm{% else %}200mm{% endif %}; }
   }
+  @page contenu2 {
+    /* Pages de la SECONDE version (« écarts »). Nommée à part avec son PROPRE en-tête
+       « running » (chead2) : une page de la version brute (@page contenu) ne peut donc
+       jamais afficher la mention « écarts » — même si WeasyPrint enregistrait par erreur
+       l'en-tête écarts sur la dernière page brute lors du saut de page forcé, cette page
+       reste une page `contenu` qui ne tire QUE `element(chead)`. Isolation stricte. */
+    size: A4{% if piece.content_landscape %} landscape{% endif %};
+    margin: 43mm 5mm 10mm 5mm;
+    @top-center { content: element(chead2); vertical-align: top; padding-top: 5mm; }
+    @bottom-center { width: {% if piece.content_landscape %}287mm{% else %}200mm{% endif %}; }
+  }
 
   * { box-sizing: border-box; }
   html { font-family: "URW Bookman", "Bookman Old Style", "Bookman", "Times New Roman", serif; }
   body { color: #000; font-size: 10pt; margin: 0; }
   table { border-collapse: collapse; }
 
-  /* ---------- En-tête haut (garde / séparateur) : agence | cercle ---------- */
+  /* ---------- En-tête haut (garde / séparateur) : agence | cercle ----------
+     Deux blocs de MÊME largeur (celle du cercle), poussés aux deux bords de la page :
+     le bloc « organismes » (niveau 1 + niveau 2) à gauche, le cercle à droite. Une
+     cellule centrale vide absorbe l'espace restant → symétrie gauche/droite. */
   .top-head { width: 100%; }
   .top-head td { vertical-align: top; }
+  /* Bloc « organismes » = le double de la largeur du cercle ; cellule centrale vide
+     entre les deux → chaque bloc reste collé à son bord (symétrie gauche/droite). */
+  .top-head td.th-org { width: 300px; }
+  .top-head td.th-circle { width: 150px; }
   .agency-block { text-align: center; }
   .agency-block .agency { font-weight: bold; font-size: 11pt; line-height: 1.25; }
-  .agency-block .divider { border-top: 1.3pt solid #000; width: 62%; margin: 6px auto 6px; }
+  .agency-block .divider { border-top: 1.3pt solid #000; width: 100%; margin: 6px auto; }
   .agency-block .service { font-weight: bold; font-size: 11pt; line-height: 1.25; }
 
   /* Cercle scindé « SDGPS N°n / PIÈCE N°k » */
@@ -83,14 +101,19 @@
 
   .signature { margin-top: 20px; text-align: right; font-weight: bold; font-size: 11pt; }
 
-  /* ---------- Séparateur de pièce ---------- */
-  .sep-title { text-align: center; font-weight: bold; font-size: 15pt; margin: 78px 0 30px; }
+  /* ---------- Séparateur de pièce ----------
+     Grand espace vertical au-dessus du titre pour le rapprocher du centre de la page
+     (uniquement sur la page de garde de pièce ; ce bloc n'existe pas sur la garde SDGPS). */
+  .sep-title { text-align: center; font-weight: bold; font-size: 15pt; margin: 95mm 0 30px; }
 
   /* ---------- Page de contenu : encadré d'en-tête 3 colonnes ----------
      Placé en « élément courant » (running) et rappelé dans la marge haute de CHAQUE
      page de contenu (@page contenu → @top-center), pour que l'en-tête se répète sur
      toutes les pages de la pièce et non seulement la première. */
-  .content-head { position: running(chead); width: {% if piece.content_landscape %}287mm{% else %}200mm{% endif %}; border: 1.2pt solid #000; }
+  /* La cellule `position: running(<slot>)` est posée en style inline par
+     `_content_head.html` (slot `chead` pour la version brute, `chead2` pour les écarts) :
+     chaque version alimente son propre en-tête de marge → pas de fuite entre versions. */
+  .content-head { width: {% if piece.content_landscape %}287mm{% else %}200mm{% endif %}; border: 1.2pt solid #000; }
   .content-head .ch-left, .content-head .ch-mid, .content-head .ch-right {
     vertical-align: top; padding: 6px 8px;
   }
@@ -129,6 +152,9 @@
   /* Chunk de tableau fusionné forcé sur une nouvelle page (la fusion est recalculée
      par page — `break-inside: avoid` sur les groupes de lignes n'est pas fiable). */
   .tbl-block.pb { page-break-before: always; }
+  /* Conteneur d'une version (brute / écarts) : saut de page avant les versions suivantes.
+     Garantit que l'en-tête « running » de la version démarre bien sur une nouvelle page. */
+  .version-wrap.pb { page-break-before: always; }
   .table-caption { font-weight: bold; font-size: 9pt; margin: 10px 0 5px; text-decoration: underline; }
 
   /* ---------- Images / photos ----------
@@ -139,12 +165,58 @@
   .gallery .img-wrap:last-child { page-break-after: auto; }
   .gallery img { max-width: 100%; max-height: {% if piece.content_landscape %}150mm{% else %}246mm{% endif %}; border: 0.8pt solid #000; }
 
-  .photo-point { page-break-inside: avoid; margin-bottom: 14px; border: 0.8pt solid #000; }
-  .photo-point .ph-head { background: #191919; color: #fff; font-weight: bold; font-size: 9pt; padding: 4px 8px; text-align: center; }
-  .photo-point .ph-meta { font-size: 8pt; padding: 5px 8px; }
-  .photo-point .ph-meta span { display: inline-block; margin-right: 16px; font-weight: bold; }
-  .photo-point .ph-imgs { text-align: center; padding: 6px; }
-  .photo-point .ph-imgs img { max-width: 46%; max-height: 95mm; margin: 4px; border: 0.8pt solid #000; vertical-align: top; }
+  /* Photos de points (PPA/PPN) : une page par point. La photo est incluse dans une cellule
+     (dernière ligne, pleine largeur) du même tableau que les métadonnées. Le tableau occupe
+     tout l'espace horizontal (100 %) ET vertical (hauteur utile de la page) disponible ; la
+     ligne photo absorbe la hauteur restante et l'image la remplit en conservant ses proportions. */
+  .photo-page { page-break-inside: avoid; }
+  .photo-page.pb { page-break-before: always; }
+  table.photo-head { width: 100%; border-collapse: collapse; font-size: 11pt; }
+  table.photo-head td {
+    border: 0.9pt solid #000; padding: 5px 12px; font-weight: bold; vertical-align: middle;
+    width: 50%;
+  }
+  table.photo-head .ph-title { text-align: center; font-size: 12.5pt; letter-spacing: 0.3px; }
+  table.photo-head .ph-center { text-align: center; }
+  table.photo-head .ph-val { color: #1f6feb; }
+  /* Cellule photo : hauteur explicite (≈ celle de l'image) pour que le tableau remplisse la
+     page tout en laissant une marge ≤ 0,25 cm de chaque côté de l'image. Marge = petit
+     padding + écart de centrage (l'image et la cellule sont quasi carrées → écart minime).
+     L'image remplit la cellule sans déformation (max en mm : les % de hauteur d'image ne
+     sont pas résolus par WeasyPrint dans une cellule de tableau). */
+  table.photo-head td.ph-photo {
+    height: {% if piece.content_landscape %}116mm{% else %}200mm{% endif %};
+    padding: 1mm; text-align: center; vertical-align: middle;
+  }
+  /* `width: 100%` (et non `max-width`) : agrandit l'image jusqu'à remplir la largeur de la
+     cellule (sinon elle reste à sa taille native et laisse de grandes marges). `height: auto`
+     préserve les proportions ; `max-height` borne pour ne jamais déborder. */
+  table.photo-head td.ph-photo img {
+    width: 100%; height: auto;
+    max-height: {% if piece.content_landscape %}112mm{% else %}196mm{% endif %};
+  }
+
+  /* Photos complémentaires d'un point (2e photo et suivantes) : CHACUNE occupe sa propre
+     page entière (autant de pages que de photos complémentaires), sous un en-tête allégé.
+     La cellule prend toute la hauteur utile (`pt.extra_h`, calculée côté serveur) et l'image
+     la remplit en conservant ses proportions (même logique que la photo principale). Le
+     numéro n/N est un badge en surimpression pour ne pas rogner la photo. */
+  .photo-suite { page-break-before: always; }
+  .photo-suite .suite-head {
+    font-weight: bold; font-size: 12pt; text-align: center;
+    border: 0.9pt solid #000; padding: 5px 12px; margin-bottom: 4px;
+  }
+  table.photo-extra { width: 100%; border-collapse: collapse; }
+  table.photo-extra td.pe-photo {
+    border: 0.9pt solid #000; padding: 1mm; text-align: center; vertical-align: middle;
+  }
+  .pe-wrap { position: relative; display: block; }
+  .pe-wrap img { width: 100%; height: auto; }
+  .pe-badge {
+    position: absolute; top: 2mm; left: 2mm;
+    background: #fff; color: #1f6feb; border: 0.8pt solid #1f6feb; border-radius: 2mm;
+    font-size: 9pt; font-weight: bold; padding: 0.5mm 2mm;
+  }
 
   .empty-note { font-style: italic; font-size: 9pt; }
 
@@ -165,14 +237,15 @@
 <section class="page-garde">
   <table class="top-head">
     <tr>
-      <td>
+      <td class="th-org">
         <div class="agency-block">
-          <div class="agency">AGENCE NATIONALE DE LA CONSERVATION FONCIÈRE DU CADASTRE ET DE LA CARTOGRAPHIE</div>
+          <div class="agency">{{ header.organisme_niveau1 }}</div>
           <div class="divider"></div>
-          {% if header.organization %}<div class="service">{{ header.organization }}</div>{% endif %}
+          {% if header.organisme_niveau2 %}<div class="service">{{ header.organisme_niveau2 }}</div>{% endif %}
         </div>
       </td>
-      <td style="width:150px">
+      <td></td>
+      <td class="th-circle">
         <div class="circle">
           <div class="c-half c-top">SDGPS N°{{ header.numero_ssdgps }}</div>
           <div class="c-half c-bot">{% if header.session_numero %}SESSION N°{{ header.session_numero }}{% endif %}</div>
@@ -219,14 +292,15 @@
 <section class="piece-sep">
   <table class="top-head">
     <tr>
-      <td>
+      <td class="th-org">
         <div class="agency-block">
-          <div class="agency">AGENCE NATIONALE DE LA CONSERVATION FONCIÈRE DU CADASTRE ET DE LA CARTOGRAPHIE</div>
+          <div class="agency">{{ header.organisme_niveau1 }}</div>
           <div class="divider"></div>
-          {% if header.organization %}<div class="service">{{ header.organization }}</div>{% endif %}
+          {% if header.organisme_niveau2 %}<div class="service">{{ header.organisme_niveau2 }}</div>{% endif %}
         </div>
       </td>
-      <td style="width:150px">
+      <td></td>
+      <td class="th-circle">
         <div class="circle">
           <div class="c-half c-top">SDGPS N°{{ header.numero_ssdgps }}</div>
           <div class="c-half c-bot">PIÈCE N°{{ piece.index }}</div>
@@ -248,34 +322,19 @@
 
 {# ===================== CONTENU DE PIÈCE ===================== #}
 <section class="piece-content">
-  <table class="content-head">
-    <tr>
-      <td class="ch-left">
-        <div class="agency">AGENCE NATIONALE DE LA CONSERVATION FONCIÈRE DU CADASTRE ET DE LA CARTOGRAPHIE</div>
-        <div class="divider"></div>
-        {% if header.organization %}<div class="service">{{ header.organization }}</div>{% endif %}
-      </td>
-      <td class="ch-mid">
-        <div class="ptitle">PIÈCE N°{{ piece.index }} : {{ piece.title }}</div>
-        <table class="info">
-          <tr><td class="lbl">Propriété Dite</td><td class="sep">:</td><td class="val"><span class="guill">«&nbsp;{{ header.propriete }}&nbsp;»</span></td></tr>
-          <tr><td class="lbl">Réquisition</td><td class="sep">:</td><td class="val">{{ header.requisition }}</td></tr>
-          <tr><td class="lbl">Titre</td><td class="sep">:</td><td class="val">{{ header.titre }}</td></tr>
-          <tr><td class="lbl">Nature Affaire</td><td class="sep">:</td><td class="val">{{ header.nature_affaire }}</td></tr>
-          <tr><td class="lbl">Nature SDGPS</td><td class="sep">:</td><td class="val"><span class="guill">«&nbsp;{{ header.nature_ssdgps }}&nbsp;»</span></td></tr>
-        </table>
-      </td>
-      <td class="ch-right">
-        <div class="circle">
-          <div class="c-half c-top">SDGPS N°{{ header.numero_ssdgps }}</div>
-          <div class="c-half c-bot">PIÈCE N°{{ piece.index }}</div>
-        </div>
-      </td>
-    </tr>
-  </table>
+  {% if piece.content.kind != 'table' %}{% include 'pieces/_content_head.html' with mention='' %}{% endif %}
 
   {% if piece.content.kind == 'table' %}
-    {% for blk in piece.content.blocks %}
+    {# Une version = un conteneur `.version-wrap` avec son propre en-tête « running » et un
+       saut de page avant les versions suivantes → la mention correcte est associée à
+       chaque page de la version (pas de débordement sur la dernière page de la précédente). #}
+    {% for ver in piece.content.versions %}
+    {# Version brute → @page contenu + slot chead ; version « écarts » → @page contenu2 +
+       slot chead2. La bascule de `page` (+ page-break-before) démarre les écarts sur une
+       nouvelle page nommée qui tire son PROPRE en-tête → aucune fuite de mention. #}
+    <div class="version-wrap{% if not forloop.first %} pb{% endif %}"{% if not forloop.first %} style="page: contenu2"{% endif %}>
+      {% include 'pieces/_content_head.html' with mention=ver.mention slot=forloop.first|yesno:'chead,chead2' %}
+      {% for blk in ver.blocks %}
       <div class="tbl-block{% if blk.break_before %} pb{% endif %}">
         {% if blk.title %}<div class="table-caption">{{ blk.title }}</div>{% endif %}
         <table class="data">
@@ -287,6 +346,8 @@
           {% endfor %}
         </table>
       </div>
+      {% endfor %}
+    </div>
     {% endfor %}
 
   {% elif piece.content.kind == 'images' %}
@@ -296,12 +357,44 @@
 
   {% elif piece.content.kind == 'photos' %}
     {% for pt in piece.content.photos %}
-      <div class="photo-point">
-        <div class="ph-head">PHOTO DU POINT : {{ pt.nom_point }}</div>
-        {% if pt.meta %}<div class="ph-meta">{% for label, value in pt.meta %}{% if value %}<span>{{ label }} : {{ value }}</span>{% endif %}{% endfor %}</div>{% endif %}
-        {% if pt.images %}<div class="ph-imgs">{% for uri in pt.images %}<img src="{{ uri }}">{% endfor %}</div>
-        {% else %}<div class="ph-meta empty-note">Aucune photo pour ce point.</div>{% endif %}
-      </div>
+      <section class="photo-page{% if not forloop.first %} pb{% endif %}">
+        <table class="photo-head">
+          <tr><td colspan="2" class="ph-title">PHOTO DU POINT : <span class="ph-val">{{ pt.nom_point }}</span></td></tr>
+          <tr>
+            <td>Nom du point : <span class="ph-val">{{ pt.nom_point }}</span></td>
+            <td>Date de visite : <span class="ph-val">{{ pt.date_visite }}</span></td>
+          </tr>
+          <tr>
+            <td>Projection : <span class="ph-val">{{ pt.projection }}</span></td>
+            <td>Système : <span class="ph-val">{{ pt.systeme }}</span></td>
+          </tr>
+          <tr><td colspan="2" class="ph-center">Coordonnées approximatives :</td></tr>
+          <tr>
+            <td>X(m) = <span class="ph-val">{{ pt.x_m }}</span></td>
+            <td>Y(m) = <span class="ph-val">{{ pt.y_m }}</span></td>
+          </tr>
+          <tr class="ph-photo-row">
+            <td colspan="2" class="ph-photo">
+              {% if pt.main %}<div class="pe-wrap"><img src="{{ pt.main }}">{% if pt.main_label %}<span class="pe-badge">{{ pt.main_label }}</span>{% endif %}</div>{% else %}<span class="empty-note">Aucune photo pour ce point.</span>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </section>
+      {% for img in pt.extra %}
+      <section class="photo-suite pb">
+        <div class="suite-head">POINT <span class="ph-val">{{ pt.nom_point }}</span> — Photos complémentaires</div>
+        <table class="photo-extra">
+          <tr>
+            <td class="pe-photo" style="height:{{ pt.extra_h }}mm">
+              <div class="pe-wrap">
+                <img src="{{ img.uri }}" style="max-height:calc({{ pt.extra_h }}mm - 6mm)">
+                <span class="pe-badge">{{ img.label }}</span>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </section>
+      {% endfor %}
     {% empty %}<p class="empty-note">Aucune photo dans cette pièce.</p>{% endfor %}
 
   {% else %}

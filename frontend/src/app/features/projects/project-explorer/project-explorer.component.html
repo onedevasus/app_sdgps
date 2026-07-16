@@ -533,6 +533,23 @@
             </div>
           </div>
           <p class="form-hint"><i class="fas fa-info-circle"></i> Renseignez au moins la réquisition ou le titre.</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Organisme de premier niveau <span class="req">*</span></label>
+              <select formControlName="organisme_niveau1">
+                <option value="">Sélectionner…</option>
+                <option *ngFor="let o of organismeN1Options" [value]="o.id">{{ o.sigle || o.nom }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Organisme de deuxième niveau <span class="req">*</span></label>
+              <select formControlName="organisme_niveau2">
+                <option value="">{{ form.value.organisme_niveau1 ? (availableN2.length ? 'Sélectionner…' : 'Aucun organisme rattaché') : 'Choisissez d\'abord le premier niveau' }}</option>
+                <option *ngFor="let o of availableN2" [value]="o.id">{{ o.nom }}</option>
+              </select>
+            </div>
+          </div>
         </ng-container>
 
         <!-- Affaire (dynamique) -->

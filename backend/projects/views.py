@@ -152,7 +152,8 @@ class ProjetViewSet(BaseOrgScopedViewSet):
 
 
 class ProprieteViewSet(BaseOrgScopedViewSet):
-    queryset = Propriete.objects.select_related('projet')
+    queryset = Propriete.objects.select_related(
+        'projet', 'organisme_niveau1', 'organisme_niveau2')
     serializer_class = ProprieteSerializer
     org_lookup = 'projet__organization_id'
     parent_query_param = ('projet', 'projet_id')

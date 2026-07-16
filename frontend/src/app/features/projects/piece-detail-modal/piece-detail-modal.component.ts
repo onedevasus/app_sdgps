@@ -46,6 +46,11 @@ export class PieceDetailModalComponent implements OnInit {
     { value: 'portrait', label: 'Portrait' },
     { value: 'paysage', label: 'Paysage' },
   ];
+  readonly versionsRapportOptions = [
+    { value: 'both', label: 'Les deux versions' },
+    { value: 'brut', label: 'Version brute des données' },
+    { value: 'ecarts', label: 'Version des écarts (vs détermination définitive)' },
+  ];
 
   /** Vue = lecture seule ; Édition = formulaires modifiables. Fixé à l'ouverture. */
   mode: 'view' | 'edit' = 'view';
@@ -53,6 +58,9 @@ export class PieceDetailModalComponent implements OnInit {
   statutLabel(v: string): string { return this.statutOptions.find(o => o.value === v)?.label || v; }
   orientationLabel(v?: string): string {
     return this.orientationOptions.find(o => o.value === (v || 'auto'))?.label || v || '';
+  }
+  versionsRapportLabel(v?: string): string {
+    return this.versionsRapportOptions.find(o => o.value === (v || 'both'))?.label || v || '';
   }
   statutBadgeClass(v: string): string {
     return { brouillon: 'badge-warning', valide: 'badge-success', rejete: 'badge-secondary' }[v] || 'badge-secondary';
@@ -91,6 +99,7 @@ export class PieceDetailModalComponent implements OnInit {
     this.metaForm = this.fb.group({
       statut: [this.piece.statut],
       orientation: [this.piece.orientation || 'auto'],
+      versions_rapport: [this.piece.versions_rapport || 'both'],
       commentaire: [this.piece.commentaire || ''],
     });
     this.ordreInput = this.piece.ordre + 1;
