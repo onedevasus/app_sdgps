@@ -325,13 +325,11 @@
   {% if piece.content.kind != 'table' %}{% include 'pieces/_content_head.html' with mention='' %}{% endif %}
 
   {% if piece.content.kind == 'table' %}
-    {# Une version = un conteneur `.version-wrap` avec son propre en-tête « running » et un
-       saut de page avant les versions suivantes → la mention correcte est associée à
-       chaque page de la version (pas de débordement sur la dernière page de la précédente). #}
+    {% comment %}Une version = un conteneur `.version-wrap` avec son propre en-tête « running »
+    et un saut de page avant les versions suivantes. Version brute → @page contenu + slot
+    chead ; version « écarts » → @page contenu2 + slot chead2 : chaque version tire son PROPRE
+    en-tête → mention correcte sur chaque page, aucune fuite entre versions.{% endcomment %}
     {% for ver in piece.content.versions %}
-    {# Version brute → @page contenu + slot chead ; version « écarts » → @page contenu2 +
-       slot chead2. La bascule de `page` (+ page-break-before) démarre les écarts sur une
-       nouvelle page nommée qui tire son PROPRE en-tête → aucune fuite de mention. #}
     <div class="version-wrap{% if not forloop.first %} pb{% endif %}"{% if not forloop.first %} style="page: contenu2"{% endif %}>
       {% include 'pieces/_content_head.html' with mention=ver.mention slot=forloop.first|yesno:'chead,chead2' %}
       {% for blk in ver.blocks %}
