@@ -98,6 +98,10 @@
   table.pieces-list tr.total td { font-weight: bold; text-align: center; }
   table.pieces-list tr.total td.desig { border-right: none; }
   table.pieces-list tr.total td.ordre { border-right: none; }
+  /* Liens internes (N° Ordre / Désignation) vers la page-séparateur de la pièce : cliquables
+     mais visuellement identiques au reste du tableau (noir, gras, sans soulignement). Le lien
+     occupe toute la cellule pour agrandir la zone cliquable. */
+  table.pieces-list a.plink { color: inherit; text-decoration: none; display: block; }
 
   .signature { margin-top: 20px; text-align: right; font-weight: bold; font-size: 11pt; }
 
@@ -269,8 +273,8 @@
     <tbody>
       {% for row in cover_rows %}
       <tr>
-        <td class="ordre">{{ row.ordre|stringformat:"02d" }}</td>
-        <td class="desig">{{ row.designation }}</td>
+        <td class="ordre"><a class="plink" href="#piece-{{ row.ordre }}">{{ row.ordre|stringformat:"02d" }}</a></td>
+        <td class="desig"><a class="plink" href="#piece-{{ row.ordre }}">{{ row.designation }}</a></td>
         <td class="nombre">{{ row.nombre }}</td>
         <td class="obs">{% if row.observations %}{{ row.observations }}{% else %}..... ..... ..... .....{% endif %}</td>
       </tr>
@@ -289,7 +293,9 @@
 
 {% if mode == 'piece' %}
 {# ===================== SÉPARATEUR DE PIÈCE (page de garde de la pièce) ===================== #}
-<section class="piece-sep">
+{% comment %}`id="piece-N"` = cible des liens internes de la page de garde (colonnes
+N° Ordre / Désignation) → clic = saut vers cette page-séparateur.{% endcomment %}
+<section class="piece-sep" id="piece-{{ piece.index }}">
   <table class="top-head">
     <tr>
       <td class="th-org">
