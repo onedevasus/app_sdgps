@@ -16,6 +16,7 @@ génération effective). Seules les pièces `statut == 'valide'` et non supprim�
 sont incluses, dans l'ordre `ordre` du rapport.
 """
 import re
+from datetime import datetime
 from pathlib import Path
 
 from django.template.loader import render_to_string
@@ -100,9 +101,11 @@ def _slug(value) -> str:
 
 def report_filename(ssdgps, session=None) -> str:
     """Nom du fichier PDF du rapport, au format :
-    ``RAPPORT_SDGPS_<titre|réquisition>_SD<n>_SDGPS-N<i>_<nature>[_SESSION-N<j>].pdf``.
+    ``RAPPORT_SDGPS_<titre|réquisition>_SD<n>_SDGPS-N<i>_<nature>[_SESSION-N<j>]_<horodatage>.pdf``.
     Le titre foncier prime sur la réquisition ; le suffixe SESSION n'est ajouté que
-    pour un rapport ciblant une session précise."""
+    pour un rapport ciblant une session précise. L'horodatage de génération
+    (`_AAAA-MM-JJ-hh-mm-ss-ffff`, heure locale) est ajouté à la fin pour que chaque
+    génération produise un fichier unique."""
     affaire = ssdgps.affaire
     propriete = affaire.propriete
     parts = ['RAPPORT_SDGPS']
@@ -114,6 +117,10 @@ def report_filename(ssdgps, session=None) -> str:
     parts.append(_slug(ssdgps.nature_ssdgps))
     if session is not None:
         parts.append(f'SESSION-N{session.numero_session}')
+    # Horodatage AAAA-MM-JJ-hh-mm-ss-ffff (heure locale) ; `ffff` = 4 premiers chiffres des
+    # microsecondes (résolution 100 µs), pour garantir l'unicité du nom de fichier.
+    now = datetime.now()
+    parts.append(now.strftime('%Y-%m-%d-%H-%M-%S-') + now.strftime('%f')[:4])
     return '_'.join(p for p in parts if p) + '.pdf'
 
 
