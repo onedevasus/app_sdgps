@@ -64,6 +64,11 @@ export class PieceDetailPageComponent implements OnInit {
     });
   }
 
+  /** Définition catalogue de la pièce (pour le nom complet du type dans le titre de page). */
+  get catalogDef(): PieceTypeDef | undefined {
+    return this.piece ? this.catalog.find(d => d.code === this.piece!.type_piece) : undefined;
+  }
+
   backToList(): void {
     this.router.navigate(['/dashboard/projets', this.projectId, 'pieces', this.ssdgpsId], {
       queryParams: { proprieteId: this.proprieteId, affaireId: this.affaireId, session: this.sessionId },

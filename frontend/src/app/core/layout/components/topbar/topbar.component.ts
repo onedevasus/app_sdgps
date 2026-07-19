@@ -70,10 +70,24 @@ export class TopBarComponent implements OnInit {
   goToProfile(): void {
     console.log('👤 Navigation vers profil');
     this.closeUserMenu();
-    // Petit délai pour permettre au menu de se fermer avant navigation
-    setTimeout(() => {
-      this.router.navigate(['/admin/profile']);
-    }, 100);
+    // `/admin/profile` est protégé par l'AdminGuard (Super Admin / Admin Système / Admin
+    // Org). Un opérateur (agent) y est refusé → renvoyé vers /dashboard/home. On route donc
+    // les non-admins vers `/dashboard/profile` (même page, hors AdminGuard).
+    const path = this.isAdminUser() ? '/admin/profile' : '/dashboard/profile';
+    setTimeout(() => { this.router.navigate([path]); }, 100);
+  }
+
+  /** Rôles autorisés par l'AdminGuard (peuvent accéder à /admin/**). */
+  private isAdminUser(): boolean {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return false;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const role = payload.platform_role || payload.role || 'ROLE_ORGANISATION_AGENT';
+      return ['ROLE_SUPER_ADMIN', 'ROLE_ADMIN_SYSTEME', 'ROLE_ORGANISATION_ADMIN'].includes(role);
+    } catch {
+      return false;
+    }
   }
 
   /**

@@ -131,6 +131,76 @@ class Piece(BaseModel):
         return f"{self.type_piece}" + (f" n°{self.numero}" if self.numero else "")
 
 
+class PieceFieldMeta(models.Model):
+    """Métadonnée DESCRIPTIVE d'un champ (colonne) d'un type de pièce du catalogue.
+
+    Contenu COMMUN à tous les opérateurs (pas de préférence par utilisateur), éditable
+    UNIQUEMENT par le rôle App Admin (ROLE_ADMIN_SYSTEME / super-admin) via l'écran
+    d'administration. Sert à décrire précisément la consistance d'un champ et à quoi il
+    correspond, pour aider l'opérateur à faire la correspondance avec ses données lors de
+    l'import. Fusionnée dans `catalog.serialize_catalog()` (clés `description` / `tooltip`)
+    et consommée par la page « Champs par défaut » et le mapping d'import.
+
+    Le couple (type_piece, field_name) référence une colonne du registre statique
+    `catalog.py` (`champs` ou `ecarts_champs`) ; il n'y a pas de FK vers le catalogue
+    puisque celui-ci n'est pas piloté par la base.
+    """
+    type_piece = models.CharField(max_length=10, choices=PIECE_CHOICES, verbose_name="Type de pièce")
+    field_name = models.CharField(max_length=100, verbose_name="Nom technique du champ")
+    description = models.TextField(
+        blank=True, verbose_name="Description détaillée",
+        help_text="Consistance exacte du champ et à quoi il correspond (aide à l'import).",
+    )
+    tooltip = models.CharField(
+        max_length=255, blank=True, verbose_name="Infobulle",
+        help_text="Résumé court affiché en infobulle.",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Dernière modification")
+
+    class Meta:
+        unique_together = ('type_piece', 'field_name')
+        ordering = ['type_piece', 'field_name']
+        verbose_name = "Description de champ de pièce"
+        verbose_name_plural = "Descriptions de champs de pièces"
+
+    def __str__(self):
+        return f"{self.type_piece}.{self.field_name}"
+
+
+class PieceCustomField(models.Model):
+    """Champ (colonne) SUPPLÉMENTAIRE ajouté par l'App Admin à un type de pièce, en plus des
+    champs du registre statique `catalog.py`. Contrairement à `PieceFieldMeta` (qui ne fait
+    que décrire un champ existant), ce modèle CRÉE une vraie colonne : elle s'ajoute aux
+    champs effectifs du type (`catalog.effective_champs`) et est donc utilisable partout —
+    import (mapping + stockage), affichage dans l'app, rapport PDF et configuration
+    « Champs par défaut » / tri.
+
+    Sa description détaillée et son infobulle sont stockées, comme pour les champs du
+    catalogue, dans `PieceFieldMeta` (couple type_piece/field_name = ce `name`).
+    """
+    class FieldType(models.TextChoices):
+        TEXT = 'text', 'Texte'
+        NUMBER = 'number', 'Nombre'
+        DATE = 'date', 'Date'
+        TEXTAREA = 'textarea', 'Texte long'
+
+    type_piece = models.CharField(max_length=10, choices=PIECE_CHOICES, verbose_name="Type de pièce")
+    name = models.CharField(max_length=100, verbose_name="Nom technique (identifiant de colonne)")
+    label = models.CharField(max_length=150, verbose_name="Libellé affiché")
+    field_type = models.CharField(max_length=10, choices=FieldType.choices, default=FieldType.TEXT,
+                                  verbose_name="Type de donnée")
+    ordre = models.PositiveIntegerField(default=0, verbose_name="Ordre (après les champs du catalogue)")
+
+    class Meta:
+        unique_together = ('type_piece', 'name')
+        ordering = ['type_piece', 'ordre', 'id']
+        verbose_name = "Champ personnalisé de pièce"
+        verbose_name_plural = "Champs personnalisés de pièces"
+
+    def __str__(self):
+        return f"{self.type_piece}.{self.name} (perso)"
+
+
 class PieceImage(models.Model):
     """Image d'une pièce à base d'image (RDC, CLC, PPA…). Une pièce peut en porter
     plusieurs, ordonnées (`ordre`). Les métadonnées techniques sont extraites à

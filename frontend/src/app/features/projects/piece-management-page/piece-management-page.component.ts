@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ProjectsService } from '../../../core/services/projects.service';
 import { PiecesService } from '../../../core/services/pieces.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -19,7 +20,7 @@ const VIEW_MODE_KEY = 'sdgps_pieces_view_mode';
 const PIECE_COLUMNS: ColumnConfig[] = [
   { field: 'ordre', label: '#', visible: true, type: 'number' },
   { field: 'type_piece_display', label: 'Type de pièce', visible: true, type: 'text' },
-  { field: 'numero', label: 'N°', visible: true, type: 'number' },
+  { field: 'numero', label: 'N°', visible: false, type: 'number' },
   { field: 'portee_label', label: 'Portée', visible: true, type: 'text' },
   { field: 'source_saisie', label: 'Source', visible: true, type: 'text' },
   { field: 'statut', label: 'Statut', visible: true, type: 'text' },
@@ -105,6 +106,12 @@ export class PieceManagementPageComponent implements OnInit {
   restoreTarget: Piece | null = null;
   isBulkRestore = false;
   restoring = false;
+
+  // Édition en masse du statut
+  showStatusModal = false;
+  bulkStatusValue = '';
+  updatingStatus = false;
+  statutOptions = Object.entries(STATUT_LABELS).map(([value, label]) => ({ value, label }));
 
   // Réordonnancement du rapport (glisser-déposer)
   draggedPieceIndex: number | null = null;
@@ -224,14 +231,22 @@ export class PieceManagementPageComponent implements OnInit {
   // ============================================
   // Libellés / valeurs calculées
   // ============================================
+  /** Vrai si le SSDGPS est multi-session : la notion de session (portée, sélecteur, n° de
+   * session) n'a de sens que dans ce cas. En mono-session, aucune session n'est affichée. */
+  get isMultiSession(): boolean { return this.ssdgps?.type_ssdgps === 'multi-session'; }
+
   /** Le niveau (SSDGPS commun / Session spécifique) est un choix libre par pièce,
    * matérialisé uniquement par la présence de `session` — indépendant du niveau
-   * par défaut suggéré par le catalogue pour son type. */
+   * par défaut suggéré par le catalogue pour son type. Vide en mono-session (la portée
+   * par session n'a pas de sens : une seule session implicite). */
   portee_label(p: Piece): string {
+    if (!this.isMultiSession) return '';
     return p.session ? `Niveau Session — n°${p.session_numero ?? '?'}` : 'Niveau SSDGPS (commune)';
   }
   catalogDef(typePiece: string): PieceTypeDef | undefined { return this.catalog.find(d => d.code === typePiece); }
-  showScopeSelector(p: Piece): boolean { return !p.is_deleted; }
+  /** Sélecteur de portée (rattachement à une session) : uniquement en multi-session et hors
+   * corbeille. En mono-session, la session n'a pas de sens → pas de sélecteur. */
+  showScopeSelector(p: Piece): boolean { return !p.is_deleted && this.isMultiSession; }
   sourceLabel(v: string): string { return SOURCE_LABELS[v] || v; }
   statutLabel(v: string): string { return STATUT_LABELS[v] || v; }
   statutBadgeClass(v: string): string {
@@ -468,7 +483,10 @@ export class PieceManagementPageComponent implements OnInit {
   // ============================================
   // Colonnes (vue Tableau)
   // ============================================
-  getVisibleColumns(): ColumnConfig[] { return this.columns.filter(c => c.visible); }
+  getVisibleColumns(): ColumnConfig[] {
+    // En mono-session, la colonne « Portée » (session/commune) n'a pas de sens : on la masque.
+    return this.columns.filter(c => c.visible && (this.isMultiSession || c.field !== 'portee_label'));
+  }
   getFilteredColumns(): ColumnConfig[] { return this.columnFilter === 'visible' ? this.columns.filter(c => c.visible) : this.columns; }
   getColumnStats(): { total: number; visible: number; hidden: number } {
     const total = this.columns.length;
@@ -719,6 +737,50 @@ export class PieceManagementPageComponent implements OnInit {
   }
 
   // ============================================
+  // Édition en masse du statut
+  // ============================================
+  openBulkStatusModal(): void {
+    if (this.selectedCount === 0) return;
+    // Pré-sélectionne le statut commun si toutes les pièces sélectionnées le partagent.
+    const statuts = new Set(this.getSelectedList().map(p => p.statut));
+    this.bulkStatusValue = statuts.size === 1 ? [...statuts][0] : '';
+    this.showStatusModal = true;
+  }
+  closeStatusModal(): void { if (!this.updatingStatus) { this.showStatusModal = false; } }
+
+  confirmBulkStatus(): void {
+    if (!this.bulkStatusValue || this.selectedCount === 0) return;
+    // N'appelle l'API que sur les pièces dont le statut change réellement.
+    const targets = this.getSelectedList().filter(p => p.statut !== this.bulkStatusValue);
+    if (targets.length === 0) {
+      this.toast.info('Aucun changement', 'Les pièces sélectionnées ont déjà ce statut.');
+      this.showStatusModal = false;
+      return;
+    }
+    this.updatingStatus = true;
+    // Chaque PATCH peut échouer indépendamment (ex. validation PPA/PPN → « valide ») :
+    // on isole les erreurs pour appliquer les statuts valides et rapporter les échecs.
+    forkJoin(
+      targets.map(p =>
+        this.piecesService.update(p.id, { statut: this.bulkStatusValue } as Partial<Piece>).pipe(
+          map(updated => ({ ok: true, piece: p, updated })),
+          catchError(() => of({ ok: false, piece: p, updated: null as Piece | null })),
+        ),
+      ),
+    ).subscribe(results => {
+      const succeeded = results.filter(r => r.ok);
+      const failed = results.filter(r => !r.ok);
+      // Applique localement les mises à jour réussies sans recharger toute la liste.
+      succeeded.forEach(r => { if (r.updated) Object.assign(r.piece, r.updated); });
+      this.updatingStatus = false;
+      this.showStatusModal = false;
+      const label = this.statutLabel(this.bulkStatusValue);
+      if (succeeded.length) this.toast.success('Statut mis à jour', `${succeeded.length} pièce(s) → « ${label} »`);
+      if (failed.length) this.toast.error('Échecs', `${failed.length} pièce(s) non modifiée(s) (validation).`);
+    });
+  }
+
+  // ============================================
   // Menu contextuel des lignes
   // ============================================
   onRowRightClick(event: MouseEvent, p: Piece, field: string | null = null): void {
@@ -785,5 +847,6 @@ export class PieceManagementPageComponent implements OnInit {
     if (this.showRowContextMenu || this.showColumnContextMenu) { this.closeAllContextMenus(); return; }
     if (this.showDeleteModal) { this.closeDeleteModal(); return; }
     if (this.showRestoreModal) { this.closeRestoreModal(); return; }
+    if (this.showStatusModal) { this.closeStatusModal(); return; }
   }
 }

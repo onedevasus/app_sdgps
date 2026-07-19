@@ -13,6 +13,7 @@ import { PieceImageGalleryComponent } from './piece-image-gallery/piece-image-ga
 import { PieceAddPageComponent } from './piece-add-page/piece-add-page.component';
 import { PieceDetailPageComponent } from './piece-detail-page/piece-detail-page.component';
 import { PiecePhotoPointsComponent } from './piece-photo-points/piece-photo-points.component';
+import { PieceDataTableComponent } from './piece-data-table/piece-data-table.component';
 
 @NgModule({
   declarations: [
@@ -20,6 +21,7 @@ import { PiecePhotoPointsComponent } from './piece-photo-points/piece-photo-poin
     PieceColumnMapperComponent, PieceManagementPageComponent, PieceAddWizardComponent,
     PieceDetailModalComponent, PieceImageGalleryComponent,
     PieceAddPageComponent, PieceDetailPageComponent, PiecePhotoPointsComponent,
+    PieceDataTableComponent,
   ],
   imports: [CommonModule, FormsModule, ReactiveFormsModule, ProjectsRoutingModule],
 })

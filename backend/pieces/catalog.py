@@ -22,6 +22,28 @@ def _champ(entries):
     return [{'name': n, 'label': l, 'type': t} for n, l, t in entries]
 
 
+# --- Champs OBLIGATOIRES (verrouillés) par type -------------------------------
+# La vue « Import des données » (piece_fields_config['<TYPE>']['import']) permet à
+# l'opérateur d'activer/désactiver et réordonner les champs bruts utilisés à la saisie.
+# Certains champs sont toutefois indispensables aux calculs (écarts, RC, assemblage RDIA) :
+# ils sont TOUJOURS conservés et ne peuvent être désactivés (verrou côté UI + validation
+# backend). Type absent = aucun champ verrouillé.
+_REQUIRED_FIELDS = {
+    'LPA':  {'nom_point', 'x_m', 'y_m'},
+    'PPA':  {'nom_point'},
+    'PPN':  {'nom_point'},
+    'RDL':  {'nom_point', 'x_m', 'y_m', 'sigma_x_m', 'sigma_y_m'},
+    'RDN':  {'nom_point', 'x_m', 'y_m', 'sigma_x_m', 'sigma_y_m'},
+    'RDD':  {'nom_point', 'x_m', 'y_m', 'sigma_x_m', 'sigma_y_m'},
+    'RDIA': {'nom_point', 'x_m', 'y_m', 'sigma_x_m', 'sigma_y_m'},
+}
+
+
+def required_field_names(type_piece: str) -> set:
+    """Ensemble des noms de champs bruts OBLIGATOIRES (verrouillés) d'un type."""
+    return set(_REQUIRED_FIELDS.get(type_piece, set()))
+
+
 # --- Schémas de colonnes, issus tels quels du classeur -------------------------
 
 _LPA_CHAMPS = [
@@ -146,15 +168,15 @@ PIECE_CATALOG = {
                 'natures': ['PDC/GPS', 'PLC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_LPA_CHAMPS),
                 'repeatable': False},
     'CCSPA':   {'nom': 'Canevas de Contrôle de Stabilité des Points Anciens', 'niveau': 'ssdgps',
-                'source': 'image', 'natures': ['PDC/GPS'], 'champs': [], 'repeatable': False},
+                'source': 'image', 'natures': ['PDC/GPS', 'PLC/GPS'], 'champs': [], 'repeatable': False},
     'CDC':     {'nom': 'Canevas de Densification Cadastrale', 'niveau': 'ssdgps', 'source': 'image',
                 'natures': ['DDC/GPS'], 'champs': [], 'repeatable': False},
     'CLC':     {'nom': 'Canevas de Levé Cadastral', 'niveau': 'ssdgps', 'source': 'image',
                 'natures': ['PLC/GPS', 'DLC/GPS'], 'champs': [], 'repeatable': False},
     'PPA':     {'nom': 'Photos des points anciens', 'niveau': 'ssdgps', 'source': 'image_csv_manuel',
-                'natures': ['PDC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
+                'natures': ['PDC/GPS', 'PLC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
     'PPN':     {'nom': 'Photos des points nouveaux', 'niveau': 'ssdgps', 'source': 'image_csv_manuel',
-                'natures': ['PDC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
+                'natures': ['PDC/GPS', 'PLC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_PPX_CHAMPS), 'repeatable': False},
     'FTR':     {'nom': 'Fiche Technique des Récepteurs', 'niveau': 'ssdgps', 'source': 'csv_manuel',
                 'natures': TOUTES, 'champs': _champ(_FTR_CHAMPS), 'repeatable': False},
     'ROB':     {'nom': 'Rapport des Observations Brutes', 'niveau': 'session', 'source': 'csv_manuel',
@@ -179,7 +201,7 @@ PIECE_CATALOG = {
                 'source': 'csv_manuel', 'natures': ['DLC/GPS'], 'champs': _champ(_RDI_CHAMPS),
                 'repeatable': False},
     'RDD':     {'nom': 'Rapport de la détermination définitive', 'niveau': 'session',
-                'source': 'csv_manuel', 'natures': ['PDC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_RDX_CHAMPS),
+                'source': 'csv_manuel', 'natures': ['PDC/GPS', 'PLC/GPS', 'DDC/GPS', 'DLC/GPS'], 'champs': _champ(_RDX_CHAMPS),
                 'repeatable': False, 'html_import': True},
     'RC':      {'nom': 'Rapport de contrôle', 'niveau': 'ssdgps', 'source': 'calcul',
                 'natures': TOUTES, 'champs': _champ(_RC_CHAMPS), 'repeatable': False,
@@ -233,13 +255,129 @@ ORIENTATION_CATALOG = {
 }
 
 
+def _field_meta_map() -> dict:
+    """`{ (type_piece, field_name): {'description', 'tooltip'} }` depuis la base
+    (PieceFieldMeta). Import local : `catalog` est importé par `models`, on évite la
+    dépendance circulaire à l'import du module. Silencieux si la table n'existe pas encore
+    (avant migration) — les descriptions valent alors ''."""
+    try:
+        from .models import PieceFieldMeta
+        return {
+            (m.type_piece, m.field_name): {'description': m.description or '', 'tooltip': m.tooltip or ''}
+            for m in PieceFieldMeta.objects.all()
+        }
+    except Exception:
+        return {}
+
+
+def _champs_with_meta(code: str, champs: list, meta: dict) -> list:
+    """Copie des champs enrichie des clés `description` / `tooltip` (métadonnées communes,
+    éditées par l'App Admin) ; valeurs vides si aucune description n'est enregistrée.
+    Préserve la clé `custom` si présente (champ ajouté par l'admin). Ajoute `required`
+    (champ verrouillé, non désactivable dans la vue « Import des données »)."""
+    req = required_field_names(code)
+    out = []
+    for c in champs:
+        m = meta.get((code, c['name']), {})
+        out.append({**c, 'description': m.get('description', ''), 'tooltip': m.get('tooltip', ''),
+                    'custom': bool(c.get('custom')), 'required': c['name'] in req})
+    return out
+
+
+def import_visible_names(type_piece: str, fields_config: dict):
+    """Noms des champs bruts VISIBLES à l'import pour un opérateur (vue `import` de sa
+    `piece_fields_config`). `None` = tous les champs (défaut, aucune config). Sinon la liste
+    ORDONNÉE configurée, complétée défensivement des champs `required` manquants (jamais
+    désactivables). Sert de FILTRE-MAÎTRE : les vues `app`/`pdf` s'appliquent ensuite à ce
+    sous-ensemble (un champ non importé ne peut être ni affiché ni imprimé)."""
+    imp = ((fields_config or {}).get(type_piece) or {}).get('import') or {}
+    names = imp.get('brut')
+    if names is None:
+        return None
+    seen = set(names)
+    out = list(names)
+    # Sécurité : réinjecte tout champ requis absent (dans l'ordre catalogue), en tête.
+    req = required_field_names(type_piece)
+    if req:
+        missing = [c['name'] for c in effective_champs(type_piece)
+                   if c['name'] in req and c['name'] not in seen]
+        out = missing + out
+    return out
+
+
+def import_effective_champs(type_piece: str, fields_config: dict) -> list:
+    """Champs bruts EFFECTIFS après application du filtre-maître « Import des données » de
+    l'opérateur : champs effectifs (statiques + perso) filtrés/réordonnés par `import`.
+    `fields_config` vide / vue absente ⇒ tous les champs (ordre catalogue)."""
+    champs = effective_champs(type_piece)
+    names = import_visible_names(type_piece, fields_config)
+    if names is None:
+        return champs
+    by_name = {c['name']: c for c in champs}
+    return [by_name[n] for n in names if n in by_name]
+
+
+def _custom_fields_map() -> dict:
+    """`{ type_piece: [ {'name','label','type','custom': True}, … ] }` : champs SUPPLÉMENTAIRES
+    ajoutés par l'App Admin (PieceCustomField), ordonnés. Silencieux avant migration."""
+    out = {}
+    try:
+        from .models import PieceCustomField
+        for f in PieceCustomField.objects.all():
+            out.setdefault(f.type_piece, []).append(
+                {'name': f.name, 'label': f.label, 'type': f.field_type, 'custom': True})
+    except Exception:
+        pass
+    return out
+
+
+def effective_champs(type_piece: str, custom_map: dict = None) -> list:
+    """Champs EFFECTIFS de la version brute d'un type = champs statiques du catalogue
+    (`champs`) + champs personnalisés de l'App Admin (PieceCustomField), ces derniers
+    ajoutés après. Source de vérité des colonnes réelles d'un type (import, affichage,
+    rapport PDF, configuration des champs). `custom_map` peut être fourni pour éviter des
+    requêtes répétées."""
+    d = get_piece_def(type_piece)
+    if custom_map is None:
+        custom_map = _custom_fields_map()
+    return list(d.get('champs') or []) + list(custom_map.get(type_piece, []))
+
+
+def valid_field_names(type_piece: str, version: str = 'brut') -> set:
+    """Ensemble des noms de champs valides d'un type pour une version : champs EFFECTIFS
+    (statiques + perso) pour 'brut' ; champs d'écarts (statiques) pour 'ecarts'."""
+    if version == 'ecarts':
+        return {c['name'] for c in (get_piece_def(type_piece).get('ecarts_champs') or [])}
+    return {c['name'] for c in effective_champs(type_piece)}
+
+
+def champs_with_meta(type_piece: str, version: str = 'brut') -> list:
+    """Champs d'un type enrichis des descriptions/infobulles (PieceFieldMeta). Pour 'brut',
+    renvoie les champs EFFECTIFS (statiques + personnalisés) ; pour 'ecarts', les champs
+    d'écarts statiques. Utilisé pour l'aperçu d'import (aide à la correspondance)."""
+    if version == 'ecarts':
+        champs = get_piece_def(type_piece).get('ecarts_champs') or []
+    else:
+        champs = effective_champs(type_piece)
+    return _champs_with_meta(type_piece, champs, _field_meta_map())
+
+
 def serialize_catalog() -> list:
-    """Représentation JSON du registre, consommée par GET /api/v1/pieces/catalog/."""
+    """Représentation JSON du registre, consommée par GET /api/v1/pieces/catalog/.
+
+    Les champs (`champs` et `ecarts_champs`) sont enrichis des métadonnées descriptives
+    (`description` / `tooltip`) stockées en base (PieceFieldMeta), afin d'aider à la
+    correspondance des colonnes lors de l'import et sur la page « Champs par défaut »."""
+    meta = _field_meta_map()
+    custom_map = _custom_fields_map()
     return [
         {'code': code, 'nom': d['nom'], 'niveau': d['niveau'], 'source': d['source'],
-         'natures': d['natures'], 'champs': d['champs'], 'repeatable': d['repeatable'],
+         'natures': d['natures'],
+         'champs': _champs_with_meta(code, effective_champs(code, custom_map), meta),
+         'repeatable': d['repeatable'],
          'html_import': d.get('html_import', False), 'computed': d.get('computed', False),
-         'ecarts': d.get('ecarts', False), 'ecarts_champs': d.get('ecarts_champs', []),
+         'ecarts': d.get('ecarts', False),
+         'ecarts_champs': _champs_with_meta(code, d.get('ecarts_champs', []), meta),
          'assemble': d.get('assemble', False)}
         for code, d in PIECE_CATALOG.items()
     ]

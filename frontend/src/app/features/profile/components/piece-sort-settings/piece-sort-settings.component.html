@@ -1,0 +1,226 @@
+<div class="piece-sort-page" [class.embedded]="embedded">
+
+  <!-- En-tête de page (uniquement en page dédiée) -->
+  <div class="page-header" *ngIf="!embedded">
+    <h1><i class="fas fa-sort-amount-down"></i> Paramètres de tri des pièces</h1>
+    <p class="subtitle">Champ de tri par défaut de chaque tableau de pièces — appliqué à l'affichage et au rapport PDF.</p>
+  </div>
+
+  <!-- Section Tri par défaut des tableaux de pièces -->
+  <div class="piece-sort-section card" [class.section-collapsed]="sortSectionCollapsed">
+    <button type="button" class="section-toggle" (click)="sortSectionCollapsed = !sortSectionCollapsed"
+            [attr.aria-expanded]="!sortSectionCollapsed">
+      <h2><i class="fas fa-sort-amount-down"></i> Tri par défaut des tableaux de pièces</h2>
+      <i class="fas fa-chevron-down section-chevron"></i>
+    </button>
+    <div class="section-body">
+    <p class="section-hint">
+      Pour chaque type de pièce, définissez un ou <strong>plusieurs niveaux de tri</strong> par
+      défaut de son tableau (le niveau 1 est prioritaire, le niveau 2 départage les égalités,
+      etc.), chacun en ordre croissant ou décroissant. Ce tri s'applique à l'affichage et au
+      <strong>rapport PDF</strong> (lignes triées + colonne <strong>ID</strong> renumérotée 1..n).
+    </p>
+
+    <!-- Indicateur d'enregistrement automatique (plus de bouton : tout changement est sauvegardé). -->
+    <div class="piece-sort-toolbar" *ngIf="sortTypes.length">
+      <div class="piece-sort-autosave">
+        <span class="saving" *ngIf="savingSort"><i class="fas fa-spinner fa-spin"></i> Enregistrement…</span>
+        <span class="saved" *ngIf="!savingSort && savedFlash"><i class="fas fa-check-circle"></i> Modifications enregistrées</span>
+        <span class="idle" *ngIf="!savingSort && !savedFlash"><i class="fas fa-bolt"></i> Les modifications sont enregistrées automatiquement</span>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn-reset-source" [disabled]="resettingSource" (click)="askResetSource()"
+              title="Remplacer votre tri par la configuration par défaut (compte administrateur)">
+        <i class="fas" [class.fa-spinner]="resettingSource" [class.fa-spin]="resettingSource" [class.fa-arrows-rotate]="!resettingSource"></i>
+        Réinitialiser avec la configuration source
+      </button>
+    </div>
+
+    <div class="piece-sort-empty" *ngIf="!sortTypes.length">
+      <i class="fas fa-info-circle"></i> Aucun type tabulaire disponible.
+    </div>
+
+    <div class="piece-sort-grid" *ngIf="sortTypes.length">
+      <div class="piece-sort-type-block" *ngFor="let t of sortTypes" [class.collapsed]="isCollapsed(t.code)">
+        <button type="button" class="piece-sort-type-header" (click)="toggleType(t.code)"
+                [attr.aria-expanded]="!isCollapsed(t.code)">
+          <span class="piece-sort-type"><span class="code">{{ t.code }}</span> {{ t.nom }}</span>
+          <span class="piece-sort-summary" [class.muted]="!isSortable(t) || !hasSort(t)">{{ isSortable(t) ? levelsSummary(t) : 'Sans colonne triable' }}</span>
+          <i class="fas fa-chevron-down piece-sort-chevron"></i>
+        </button>
+
+        <div class="piece-sort-type-body">
+          <!-- Type sans tableau triable (ex. page de garde) : listé mais non configurable. -->
+          <div class="piece-sort-empty-levels" *ngIf="!isSortable(t)">
+            <i class="fas fa-circle-info"></i> Ce type de pièce n'a pas de colonne triable.
+          </div>
+
+          <!-- Type à une seule version (la plupart) -->
+          <ng-container *ngIf="isSortable(t) && !t.hasEcarts">
+            <ng-container *ngTemplateOutlet="versionEditor; context: { t: t, v: 'brut' }"></ng-container>
+          </ng-container>
+
+          <!-- Types RDL/RDN/RDIA : deux versions (brute + écarts), configurées séparément -->
+          <ng-container *ngIf="isSortable(t) && t.hasEcarts">
+            <div class="piece-sort-version">
+              <div class="piece-sort-version-title">
+                <span class="v-label"><i class="fas fa-table"></i> Version brute des données</span>
+                <span class="v-summary" [class.muted]="!hasSort(t, 'brut')">{{ levelsSummary(t, 'brut') }}</span>
+              </div>
+              <ng-container *ngTemplateOutlet="versionEditor; context: { t: t, v: 'brut' }"></ng-container>
+            </div>
+            <div class="piece-sort-version">
+              <div class="piece-sort-version-title">
+                <span class="v-label"><i class="fas fa-not-equal"></i> Version des écarts (vs détermination définitive)</span>
+                <span class="v-summary" [class.muted]="!hasSort(t, 'ecarts')">{{ levelsSummary(t, 'ecarts') }}</span>
+              </div>
+              <ng-container *ngTemplateOutlet="versionEditor; context: { t: t, v: 'ecarts' }"></ng-container>
+            </div>
+          </ng-container>
+        </div><!-- /.piece-sort-type-body -->
+      </div>
+    </div>
+    </div><!-- /.section-body -->
+
+    <!-- Éditeur de niveaux d'UNE version (réutilisé : brute et/ou écarts) -->
+    <ng-template #versionEditor let-t="t" let-v="v">
+      <div class="piece-sort-empty-levels" *ngIf="!levelsOf(t, v).length">
+        <i class="fas fa-arrow-down"></i> Ordre d'import (aucun tri) — ajoutez un niveau pour trier.
+      </div>
+
+      <div class="piece-sort-level" *ngFor="let lv of levelsOf(t, v); let i = index">
+        <span class="level-badge">{{ i + 1 }}</span>
+        <select class="piece-sort-field" [(ngModel)]="lv.field" [ngModelOptions]="{standalone: true}" (ngModelChange)="queueAutoSave()">
+          <option value="">— Choisir un champ —</option>
+          <option *ngFor="let c of fieldsFor(t, lv, v)" [value]="c.name">{{ c.label }}</option>
+        </select>
+        <select class="piece-sort-dir" [(ngModel)]="lv.dir" [ngModelOptions]="{standalone: true}" [disabled]="!lv.field" (ngModelChange)="queueAutoSave()">
+          <option value="asc">Croissant</option>
+          <option value="desc">Décroissant</option>
+        </select>
+        <div class="level-actions">
+          <button type="button" title="Monter" [disabled]="i === 0" (click)="moveLevelUp(t, i, v)"><i class="fas fa-arrow-up"></i></button>
+          <button type="button" title="Descendre" [disabled]="i === levelsOf(t, v).length - 1" (click)="moveLevelDown(t, i, v)"><i class="fas fa-arrow-down"></i></button>
+          <button type="button" class="danger" title="Retirer" (click)="removeLevel(t, i, v)"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-add-level" [disabled]="levelsOf(t, v).length >= champsOf(t, v).length" (click)="addLevel(t, v)">
+        <i class="fas fa-plus"></i> Ajouter un niveau de tri
+      </button>
+    </ng-template>
+
+  </div>
+
+  <!-- Section : appliquer le tri configuré aux tableaux STOCKÉS des pièces existantes -->
+  <div class="piece-apply-section card" [class.section-collapsed]="applySectionCollapsed">
+    <button type="button" class="section-toggle" (click)="applySectionCollapsed = !applySectionCollapsed"
+            [attr.aria-expanded]="!applySectionCollapsed">
+      <h2><i class="fas fa-wand-magic-sparkles"></i> Appliquer le tri aux tableaux existants</h2>
+      <i class="fas fa-chevron-down section-chevron"></i>
+    </button>
+    <div class="section-body">
+    <p class="section-hint">
+      Réordonne définitivement les lignes des tableaux <strong>déjà enregistrés</strong> dans
+      vos SDGPS selon le tri ci-dessus (colonne <strong>ID</strong> renumérotée 1..n). Choisissez
+      une, plusieurs ou <strong>toutes</strong> les pièces. Cette action <strong>écrase</strong>
+      l'ordre actuellement stocké des pièces concernées.
+    </p>
+
+    <div class="piece-apply-toolbar">
+      <button type="button" class="btn-apply-refresh" (click)="loadSortable()" [disabled]="loadingSortable">
+        <i class="fas fa-rotate" [class.fa-spin]="loadingSortable"></i> Actualiser la liste
+      </button>
+      <span class="apply-count" *ngIf="!loadingSortable">
+        {{ sortableCount }} pièce(s) applicable(s)<ng-container *ngIf="selectedIds.size"> · {{ selectedIds.size }} sélectionnée(s)</ng-container>
+      </span>
+      <span class="spacer"></span>
+      <button type="button" class="btn-apply-all" [disabled]="applying || !sortableCount" (click)="askApply('all')">
+        <i class="fas fa-list-check"></i> Appliquer à toutes ({{ sortableCount }})
+      </button>
+    </div>
+
+    <div class="piece-apply-loading" *ngIf="loadingSortable">
+      <i class="fas fa-spinner fa-spin"></i> Chargement des pièces…
+    </div>
+
+    <div class="piece-apply-empty" *ngIf="!loadingSortable && !sortableCount">
+      <i class="fas fa-info-circle"></i>
+      Aucune pièce applicable : configurez un tri ci-dessus pour un type de pièce présent
+      dans vos SDGPS (les pièces sans données sont ignorées).
+    </div>
+
+    <div class="piece-apply-list" *ngIf="!loadingSortable && sortableCount">
+      <label class="apply-select-all">
+        <input type="checkbox" [checked]="allSelected" (change)="toggleSelectAll()" />
+        Tout sélectionner
+      </label>
+
+      <div class="apply-group" *ngFor="let g of sortableGroups">
+        <div class="apply-group-header">
+          <label class="apply-group-check">
+            <input type="checkbox" [checked]="isGroupSelected(g)" (change)="toggleGroupSelection(g)" />
+          </label>
+          <button type="button" class="apply-group-title" (click)="toggleGroup(g.ssdgpsId)"
+                  [attr.aria-expanded]="!isGroupCollapsed(g.ssdgpsId)">
+            <i class="fas fa-chevron-down apply-chevron" [class.collapsed]="isGroupCollapsed(g.ssdgpsId)"></i>
+            <span class="apply-group-label">{{ g.ssdgpsLabel }}</span>
+            <span class="apply-group-count">{{ g.pieces.length }}</span>
+          </button>
+        </div>
+        <div class="apply-group-body" *ngIf="!isGroupCollapsed(g.ssdgpsId)">
+          <label class="apply-piece" *ngFor="let p of g.pieces">
+            <input type="checkbox" [checked]="isPieceSelected(p.id)" (change)="togglePiece(p.id)" />
+            <span class="apply-piece-label">{{ pieceLabel(p) }}</span>
+            <span class="apply-piece-rows">{{ p.row_count }} ligne(s)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="piece-apply-actions">
+        <button type="button" class="btn-apply-selected" [disabled]="applying || !selectedIds.size" (click)="askApply('selected')">
+          <i class="fas fa-check"></i> Appliquer à la sélection ({{ selectedIds.size }})
+        </button>
+      </div>
+    </div>
+    </div><!-- /.section-body -->
+  </div>
+</div>
+
+<!-- Modale de confirmation (réinitialisation avec la configuration source) -->
+<div class="piece-apply-modal-backdrop" *ngIf="showResetConfirm" (click)="cancelResetSource()">
+  <div class="piece-apply-modal" (click)="$event.stopPropagation()">
+    <h3><i class="fas fa-arrows-rotate"></i> Réinitialiser avec la configuration source ?</h3>
+    <p>
+      Votre tri par défaut va être <strong>remplacé</strong> par la configuration source
+      (celle du compte administrateur). Vos réglages de tri personnalisés seront
+      <strong>écrasés</strong>. Cette action n'affecte pas les tableaux déjà enregistrés.
+    </p>
+    <div class="piece-apply-modal-actions">
+      <button type="button" class="btn-cancel" (click)="cancelResetSource()" [disabled]="resettingSource">Annuler</button>
+      <button type="button" class="btn-confirm" (click)="confirmResetSource()" [disabled]="resettingSource">
+        <i class="fas" [class.fa-spinner]="resettingSource" [class.fa-spin]="resettingSource" [class.fa-arrows-rotate]="!resettingSource"></i>
+        {{ resettingSource ? 'Réinitialisation…' : 'Réinitialiser' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale de confirmation (écrasement de l'ordre stocké) -->
+<div class="piece-apply-modal-backdrop" *ngIf="confirmOpen" (click)="cancelApply()">
+  <div class="piece-apply-modal" (click)="$event.stopPropagation()">
+    <h3><i class="fas fa-triangle-exclamation"></i> Appliquer le tri configuré ?</h3>
+    <p>
+      Les lignes de <strong>{{ applyCount }}</strong> tableau(x) vont être réordonnées selon
+      votre tri par défaut, et la colonne <strong>ID</strong> renumérotée. L'ordre actuellement
+      stocké de ces pièces sera <strong>écrasé</strong>. Cette action est immédiate.
+    </p>
+    <div class="piece-apply-modal-actions">
+      <button type="button" class="btn-cancel" (click)="cancelApply()" [disabled]="applying">Annuler</button>
+      <button type="button" class="btn-confirm" (click)="confirmApply()" [disabled]="applying">
+        <i class="fas" [class.fa-spinner]="applying" [class.fa-spin]="applying" [class.fa-check]="!applying"></i>
+        {{ applying ? 'Application…' : 'Appliquer' }}
+      </button>
+    </div>
+  </div>
+</div>

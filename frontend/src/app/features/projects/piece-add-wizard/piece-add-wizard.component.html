@@ -141,38 +141,9 @@
         </div>
 
         <!-- Sous-formulaire : saisie manuelle (tableau éditable) -->
-        <div class="source-form" *ngIf="selectedSource==='manuel' && manualForm" [formGroup]="manualForm">
-          <div class="data-grid">
-            <div class="data-grid-scroll">
-              <table class="data-grid-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th *ngFor="let champ of selectedType?.champs">{{ champ.label }}</th>
-                    <th class="col-act"></th>
-                  </tr>
-                </thead>
-                <tbody formArrayName="rows">
-                  <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
-                    <td class="col-num">{{ i + 1 }}</td>
-                    <td *ngFor="let champ of selectedType?.champs" class="cell-input">
-                      <input *ngIf="champ.type !== 'textarea'"
-                             [type]="champ.type === 'number' ? 'number' : (champ.type === 'date' ? 'date' : 'text')"
-                             [formControlName]="champ.name" [placeholder]="champ.label">
-                      <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
-                    </td>
-                    <td class="col-act">
-                      <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
-            <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
-          </div>
+        <div class="source-form" *ngIf="selectedSource==='manuel' && manualForm">
+          <app-piece-data-table [editable]="true" [champs]="manualChamps" [rows]="wizardRows"
+                                (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
           <div class="source-form-actions">
             <button class="btn-cancel" (click)="selectedSource=null">Retour</button>
             <button class="btn-confirm" [disabled]="submittingManual" (click)="submitManual()">
@@ -198,35 +169,8 @@
             </button>
           </div>
 
-          <div class="data-grid" *ngIf="manualForm" [formGroup]="manualForm">
-            <div class="data-grid-scroll">
-              <table class="data-grid-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th *ngFor="let champ of selectedType?.champs">{{ champ.label }}</th>
-                    <th class="col-act"></th>
-                  </tr>
-                </thead>
-                <tbody formArrayName="rows">
-                  <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
-                    <td class="col-num">{{ i + 1 }}</td>
-                    <td *ngFor="let champ of selectedType?.champs" class="cell-input">
-                      <input *ngIf="champ.type !== 'textarea'" type="text" [formControlName]="champ.name" [placeholder]="champ.label">
-                      <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
-                    </td>
-                    <td class="col-act">
-                      <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
-            <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
-          </div>
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
 
           <div class="source-form-actions">
             <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
@@ -261,35 +205,8 @@
             </div>
           </div>
 
-          <div class="data-grid" *ngIf="manualForm" [formGroup]="manualForm">
-            <div class="data-grid-scroll">
-              <table class="data-grid-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th *ngFor="let champ of selectedType?.champs">{{ champ.label }}</th>
-                    <th class="col-act"></th>
-                  </tr>
-                </thead>
-                <tbody formArrayName="rows">
-                  <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
-                    <td class="col-num">{{ i + 1 }}</td>
-                    <td *ngFor="let champ of selectedType?.champs" class="cell-input">
-                      <input *ngIf="champ.type !== 'textarea'" type="text" [formControlName]="champ.name" [placeholder]="champ.label">
-                      <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
-                    </td>
-                    <td class="col-act">
-                      <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
-            <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
-          </div>
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
 
           <div class="source-form-actions">
             <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
@@ -313,35 +230,8 @@
             <button class="btn-back sm" (click)="openAssembleModal()"><i class="fas fa-object-group"></i> Modifier la sélection</button>
           </div>
 
-          <div class="data-grid" *ngIf="manualForm" [formGroup]="manualForm">
-            <div class="data-grid-scroll">
-              <table class="data-grid-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th *ngFor="let champ of selectedType?.champs">{{ champ.label }}</th>
-                    <th class="col-act"></th>
-                  </tr>
-                </thead>
-                <tbody formArrayName="rows">
-                  <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
-                    <td class="col-num">{{ i + 1 }}</td>
-                    <td *ngFor="let champ of selectedType?.champs" class="cell-input">
-                      <input *ngIf="champ.type !== 'textarea'" type="text" [formControlName]="champ.name" [placeholder]="champ.label">
-                      <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
-                    </td>
-                    <td class="col-act">
-                      <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
-            <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
-          </div>
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
 
           <div class="source-form-actions">
             <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
@@ -365,35 +255,8 @@
             <button class="btn-back sm" (click)="openAssembleFilesModal()"><i class="fas fa-file-import"></i> Modifier les fichiers</button>
           </div>
 
-          <div class="data-grid" *ngIf="manualForm" [formGroup]="manualForm">
-            <div class="data-grid-scroll">
-              <table class="data-grid-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th *ngFor="let champ of selectedType?.champs">{{ champ.label }}</th>
-                    <th class="col-act"></th>
-                  </tr>
-                </thead>
-                <tbody formArrayName="rows">
-                  <tr *ngFor="let row of manualRows.controls; let i = index" [formGroupName]="i">
-                    <td class="col-num">{{ i + 1 }}</td>
-                    <td *ngFor="let champ of selectedType?.champs" class="cell-input">
-                      <input *ngIf="champ.type !== 'textarea'" type="text" [formControlName]="champ.name" [placeholder]="champ.label">
-                      <textarea *ngIf="champ.type === 'textarea'" [formControlName]="champ.name" rows="1" [placeholder]="champ.label"></textarea>
-                    </td>
-                    <td class="col-act">
-                      <button class="icon-btn danger" *ngIf="manualRows.length > 1" (click)="removeManualRow(i)" title="Supprimer la ligne">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <button class="btn-add-row" (click)="addManualRow()"><i class="fas fa-plus"></i> Ajouter une ligne</button>
-            <button class="btn-clear-rows" *ngIf="manualRows.length" (click)="clearManualRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
-          </div>
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
 
           <div class="source-form-actions">
             <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>

@@ -1,0 +1,165 @@
+<div class="piece-fields-page" [class.embedded]="embedded">
+
+  <!-- En-tête de page (uniquement en page dédiée) -->
+  <div class="page-header" *ngIf="!embedded">
+    <h1><i class="fas fa-table-columns"></i> Champs par défaut des pièces</h1>
+    <p class="subtitle">Colonnes (et leur ordre) pour chaque type de pièce — trois vues : import des données (source), affichage dans l'app et rapport PDF.</p>
+  </div>
+
+  <div class="piece-fields-section card">
+    <h2><i class="fas fa-table-columns"></i> Colonnes par type de pièce</h2>
+    <p class="section-hint">
+      Pour chaque type de pièce, la vue <strong>« Import des données »</strong> (source) définit les
+      <strong>champs réellement importés</strong> et leur ordre. Les vues
+      <strong>« Affichage dans l'app »</strong> et <strong>« Rapport PDF »</strong> en dépendent :
+      <strong>un champ non importé ne peut y être affiché</strong> (il apparaît verrouillé). Les
+      champs marqués <i class="fas fa-lock"></i> sont <strong>obligatoires</strong> (toujours
+      importés). Décocher une colonne la masque de la vue ; <strong>tout décocher masque le tableau
+      entier</strong>. Utilisez « Réinitialiser » pour revenir à toutes les colonnes.
+    </p>
+
+    <!-- Barre d'outils : indicateur d'enregistrement auto + réinitialisation avec la source -->
+    <div class="piece-fields-toolbar" *ngIf="types.length">
+      <div class="piece-fields-autosave">
+        <span class="saving" *ngIf="saving"><i class="fas fa-spinner fa-spin"></i> Enregistrement…</span>
+        <span class="saved" *ngIf="!saving && savedFlash"><i class="fas fa-check-circle"></i> Modifications enregistrées</span>
+        <span class="idle" *ngIf="!saving && !savedFlash"><i class="fas fa-bolt"></i> Les modifications sont enregistrées automatiquement</span>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn-reset-source" [disabled]="resettingSource" (click)="askResetSource()"
+              title="Remplacer vos colonnes par la configuration par défaut (compte administrateur)">
+        <i class="fas" [class.fa-spinner]="resettingSource" [class.fa-spin]="resettingSource" [class.fa-arrows-rotate]="!resettingSource"></i>
+        Réinitialiser avec la configuration source
+      </button>
+    </div>
+
+    <div class="piece-fields-loading" *ngIf="loading">
+      <i class="fas fa-spinner fa-spin"></i> Chargement…
+    </div>
+
+    <div class="piece-fields-empty" *ngIf="!loading && !types.length">
+      <i class="fas fa-info-circle"></i> Aucun type tabulaire disponible.
+    </div>
+
+    <div class="piece-fields-grid" *ngIf="!loading && types.length">
+      <div class="piece-fields-type-block" *ngFor="let t of types" [class.collapsed]="isCollapsed(t.code)">
+        <button type="button" class="piece-fields-type-header" (click)="toggleType(t.code)"
+                [attr.aria-expanded]="!isCollapsed(t.code)">
+          <span class="piece-fields-type"><span class="code">{{ t.code }}</span> {{ t.nom }}</span>
+          <span class="piece-fields-summary">
+            <i class="fas fa-file-import" title="Import des données"></i> {{ visibleCount(t, 'import', 'brut') }}/{{ t.champsBrut.length }}
+            <i class="fas fa-table-cells" title="Affichage dans l'app"></i> {{ visibleCount(t, 'app', 'brut') }}/{{ t.champsBrut.length }}
+            <i class="fas fa-file-pdf" title="Rapport PDF"></i> {{ visibleCount(t, 'pdf', 'brut') }}/{{ t.champsBrut.length }}
+          </span>
+          <i class="fas fa-chevron-down piece-fields-chevron"></i>
+        </button>
+
+        <div class="piece-fields-type-body">
+          <div class="piece-fields-views">
+            <!-- Une colonne par vue (Affichage app / Rapport PDF) -->
+            <div class="piece-fields-view" [class.view-import]="view === 'import'" *ngFor="let view of views">
+              <div class="view-title">
+                <span class="view-label"><i [ngClass]="viewIcons[view]"></i> {{ viewLabels[view] }}</span>
+                <span class="view-master-tag" *ngIf="view === 'import'" title="Filtre-maître : un champ non importé ne peut être affiché ni imprimé">
+                  <i class="fas fa-diagram-project"></i> Source
+                </span>
+              </div>
+
+              <!-- La vue « import » n'a que la version brute (les écarts sont calculés) ;
+                   les types à écarts n'affichent les deux versions que pour app/pdf. -->
+              <ng-container *ngIf="!t.hasEcarts || view === 'import'">
+                <ng-container *ngTemplateOutlet="fieldList; context: { t: t, view: view, v: 'brut' }"></ng-container>
+              </ng-container>
+
+              <!-- Types RDL/RDN/RDIA (app/pdf) : version brute + version des écarts -->
+              <ng-container *ngIf="t.hasEcarts && view !== 'import'">
+                <div class="piece-fields-version">
+                  <div class="version-sub-title"><i class="fas fa-table"></i> Version brute</div>
+                  <ng-container *ngTemplateOutlet="fieldList; context: { t: t, view: view, v: 'brut' }"></ng-container>
+                </div>
+                <div class="piece-fields-version">
+                  <div class="version-sub-title"><i class="fas fa-not-equal"></i> Version des écarts</div>
+                  <ng-container *ngTemplateOutlet="fieldList; context: { t: t, view: view, v: 'ecarts' }"></ng-container>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </div><!-- /.piece-fields-type-body -->
+      </div>
+    </div>
+
+    <!-- Liste des champs (colonnes) d'UNE vue/version : cases à cocher + réordonnancement -->
+    <ng-template #fieldList let-t="t" let-view="view" let-v="v">
+      <div class="field-list-head">
+        <span class="field-list-summary">{{ summary(t, view, v) }}</span>
+        <button type="button" class="btn-reset-view" *ngIf="!isDefault(t, view, v)"
+                (click)="resetView(t, view, v)" title="Tout afficher, ordre d'origine">
+          <i class="fas fa-rotate-left"></i> Réinitialiser
+        </button>
+      </div>
+
+      <!-- Outils de sélection groupée de la vue/version -->
+      <div class="field-list-tools">
+        <button type="button" (click)="selectAll(t, view, v)" title="Cocher toutes les colonnes">
+          <i class="fas fa-check-double"></i> Tout sélectionner
+        </button>
+        <button type="button" (click)="deselectAll(t, view, v)" title="Décocher toutes les colonnes">
+          <i class="fas fa-square"></i> Tout désélectionner
+        </button>
+        <button type="button" (click)="invertSelection(t, view, v)" title="Inverser la sélection">
+          <i class="fas fa-right-left"></i> Inverser la sélection
+        </button>
+      </div>
+
+      <ul class="field-list">
+        <li class="field-item" *ngFor="let item of itemsOf(t, view, v); let i = index"
+            [class.hidden-field]="!isChecked(t, view, v, item)"
+            [class.locked-field]="isLocked(t, view, v, item)"
+            [title]="item.tooltip || item.description || ''">
+          <label class="field-check" [title]="lockHint(t, view, v, item)">
+            <input type="checkbox" [checked]="isChecked(t, view, v, item)"
+                   [disabled]="isLocked(t, view, v, item)" (change)="toggleVisible(t, view, v, item)" />
+          </label>
+          <span class="field-label">{{ item.label }}
+            <i class="fas fa-lock field-required" *ngIf="view === 'import' && item.required"
+               title="Champ obligatoire (toujours importé)"></i>
+            <i class="fas fa-ban field-blocked" *ngIf="isLocked(t, view, v, item) && view !== 'import'"
+               title="Champ non importé"></i>
+            <i class="fas fa-circle-info field-info" *ngIf="item.description"
+               [title]="item.description"></i>
+          </span>
+          <span class="field-actions">
+            <button type="button" title="Vers le début" [disabled]="i === 0"
+                    (click)="moveToStart(t, view, v, i)"><i class="fas fa-angles-up"></i></button>
+            <button type="button" title="Monter" [disabled]="i === 0"
+                    (click)="moveUp(t, view, v, i)"><i class="fas fa-arrow-up"></i></button>
+            <button type="button" title="Descendre" [disabled]="i === itemsOf(t, view, v).length - 1"
+                    (click)="moveDown(t, view, v, i)"><i class="fas fa-arrow-down"></i></button>
+            <button type="button" title="Vers la fin" [disabled]="i === itemsOf(t, view, v).length - 1"
+                    (click)="moveToEnd(t, view, v, i)"><i class="fas fa-angles-down"></i></button>
+          </span>
+        </li>
+      </ul>
+    </ng-template>
+
+  </div>
+</div>
+
+<!-- Modale de confirmation (réinitialisation avec la configuration source) -->
+<div class="piece-fields-modal-backdrop" *ngIf="showResetConfirm" (click)="cancelResetSource()">
+  <div class="piece-fields-modal" (click)="$event.stopPropagation()">
+    <h3><i class="fas fa-arrows-rotate"></i> Réinitialiser avec la configuration source ?</h3>
+    <p>
+      Votre configuration de colonnes va être <strong>remplacée</strong> par la configuration
+      source (celle du compte administrateur). Vos réglages de colonnes personnalisés seront
+      <strong>écrasés</strong>. Cette action n'affecte pas les tableaux déjà enregistrés.
+    </p>
+    <div class="piece-fields-modal-actions">
+      <button type="button" class="btn-cancel" (click)="cancelResetSource()" [disabled]="resettingSource">Annuler</button>
+      <button type="button" class="btn-confirm" (click)="confirmResetSource()" [disabled]="resettingSource">
+        <i class="fas" [class.fa-spinner]="resettingSource" [class.fa-spin]="resettingSource" [class.fa-arrows-rotate]="!resettingSource"></i>
+        {{ resettingSource ? 'Réinitialisation…' : 'Réinitialiser' }}
+      </button>
+    </div>
+  </div>
+</div>

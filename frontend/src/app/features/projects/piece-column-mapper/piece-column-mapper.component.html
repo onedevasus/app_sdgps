@@ -16,9 +16,14 @@
 
   <div class="mapper-panes">
     <div class="mapper-fields">
-      <div class="mapper-field-row" *ngFor="let champ of champs">
+      <div class="mapper-field-row" *ngFor="let champ of champs"
+           [class.has-desc]="champ.description || champ.tooltip">
         <i class="fas field-status" [ngClass]="form.value[champ.name] ? 'fa-check-circle mapped' : 'fa-circle unmapped'"></i>
-        <span class="champ-label">{{ champ.label }}</span>
+        <span class="champ-label" [title]="champ.tooltip || champ.description || ''">
+          {{ champ.label }}
+          <i class="fas fa-circle-info champ-info" *ngIf="champ.description || champ.tooltip"
+             [title]="champ.description || champ.tooltip"></i>
+        </span>
         <select [formControlName]="champ.name">
           <option [value]="ignoreValue">— ignorer —</option>
           <option *ngFor="let col of preview.columns" [value]="col">{{ col }}</option>

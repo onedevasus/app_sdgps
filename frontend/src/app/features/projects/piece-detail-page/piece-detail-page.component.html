@@ -3,12 +3,21 @@
     <button class="crumb-back" (click)="backToList()">
       <i class="fas fa-arrow-left"></i> Retour aux pièces
     </button>
-    <span class="crumb-title">
-      <i class="fas" [ngClass]="mode==='edit' ? 'fa-edit' : 'fa-eye'"></i>
-      {{ mode==='edit' ? 'Modifier' : 'Consulter' }} — {{ piece.type_piece }}<span *ngIf="piece.numero"> n°{{ piece.numero }}</span>
-    </span>
+
+    <div class="page-title">
+      <span class="page-title-icon"><i class="fas" [ngClass]="mode==='edit' ? 'fa-pen-to-square' : 'fa-eye'"></i></span>
+      <div class="page-title-text">
+        <span class="page-title-eyebrow">{{ mode==='edit' ? 'Modification de la pièce' : 'Consultation de la pièce' }}</span>
+        <span class="page-title-main">
+          <span class="type-code">{{ piece.type_piece }}</span>
+          <span class="type-name">{{ catalogDef?.nom || piece.type_piece_display }}</span>
+          <span class="type-numero" *ngIf="piece.numero">n°{{ piece.numero }}</span>
+        </span>
+      </div>
+    </div>
+
     <button class="crumb-edit" *ngIf="mode==='view'" (click)="goToEdit()">
-      <i class="fas fa-edit"></i> Modifier
+      <i class="fas fa-pen-to-square"></i> Modifier
     </button>
   </nav>
 

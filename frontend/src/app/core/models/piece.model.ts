@@ -18,6 +18,16 @@ export interface PieceChampDef {
   name: string;
   label: string;
   type: PieceChampType;
+  /** Description détaillée du champ (métadonnée commune éditée par l'App Admin, Lot 2) :
+   * consistance exacte du champ, aide à la correspondance lors de l'import. */
+  description?: string;
+  /** Infobulle courte du champ (métadonnée commune, Lot 2). */
+  tooltip?: string;
+  /** true = champ personnalisé ajouté par l'App Admin (vraie colonne hors catalogue statique). */
+  custom?: boolean;
+  /** true = champ OBLIGATOIRE (verrouillé) : toujours importé, non désactivable dans la
+   * vue « Import des données » (indispensable aux calculs écarts / RC / assemblage). */
+  required?: boolean;
 }
 
 export interface PieceTypeDef {

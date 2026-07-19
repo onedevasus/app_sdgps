@@ -30,15 +30,15 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
   
   // Critères de validation du mot de passe
   passwordCriteria: PasswordCriterion[] = [];
-  
+
   private subscriptions = new Subscription();
-  
+
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
     public layoutService: LayoutService,
     private passwordValidationService: PasswordValidationService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
   ) {}
   
   ngOnInit(): void {
@@ -46,7 +46,7 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
     this.initForms();
     this.loadProfile();
     this.subscribeToProfileUpdates();
-    
+
     // Initialiser les critères de mot de passe
     this.passwordCriteria = this.passwordValidationService.getCriteria();
     

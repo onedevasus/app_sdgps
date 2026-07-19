@@ -21,8 +21,10 @@ from rest_framework.response import Response
 
 from projects.models import Session, Ssdgps
 from projects.views import user_org_ids
-from .catalog import serialize_catalog, get_piece_def
-from .report import EXCLUDED_TYPES, render_report_pdf, report_filename
+from .catalog import (serialize_catalog, get_piece_def, champs_with_meta, valid_field_names,
+                      import_visible_names)
+from .report import (EXCLUDED_TYPES, PHOTO_TYPES, render_report_pdf, report_filename,
+                     _sorted_only, _sorted_renumbered, sort_versions)
 from .imaging import extract_image_metadata, make_png_preview, NON_WEB_FORMATS
 from .models import Piece, PieceImage
 from .parsing import (parse_uploaded_table, apply_mapping, auto_map_columns,
@@ -112,6 +114,125 @@ class PieceViewSet(viewsets.ModelViewSet):
         """GET /api/v1/pieces/catalog/ — registre statique des types de pièces."""
         return Response(serialize_catalog())
 
+    @action(detail=False, methods=['get', 'put'], url_path='field-descriptions')
+    def field_descriptions(self, request):
+        """GET/PUT /api/v1/pieces/field-descriptions/
+
+        Descriptions détaillées + infobulles des champs (colonnes) des types de pièces.
+        Contenu COMMUN à tous, éditable UNIQUEMENT par le rôle App Admin
+        (ROLE_ADMIN_SYSTEME / super-admin).
+
+        - GET : renvoie le catalogue enrichi (mêmes données que `catalog/`, avec
+          `description` / `tooltip` / `custom` par champ) — base de l'écran d'édition.
+        - PUT : par type, upsert des descriptions ET réconciliation des champs
+          PERSONNALISÉS (colonnes ajoutées par l'App Admin). Corps par type :
+          `{ '<TYPE>': {
+               'fields': { '<field_name>': {'description', 'tooltip'} },   # descriptions
+               'custom': [ {'name','label','type','description','tooltip'} ]  # jeu complet des champs perso
+          } }`.
+          La liste `custom` REMPLACE les champs personnalisés du type (les absents sont
+          supprimés). Un `field_name` de `fields` doit exister (champ statique OU perso).
+          Description+infobulle vides ⇒ métadonnée supprimée.
+        """
+        user = request.user
+        if not (user.is_superuser or getattr(user, 'is_platform_admin', lambda: False)()):
+            raise PermissionDenied("Réservé à l'administrateur de l'application.")
+
+        if request.method == 'GET':
+            return Response(serialize_catalog())
+
+        import re
+        from .models import PieceFieldMeta, PieceCustomField
+        from .catalog import effective_champs
+        NAME_RE = re.compile(r'^[a-z][a-z0-9_]*$')
+
+        data = request.data or {}
+        if not isinstance(data, dict):
+            return Response({'detail': "Un objet { type: { fields, custom } } est attendu."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        def _err(msg):
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        for type_piece, entry in data.items():
+            try:
+                piece_def = get_piece_def(type_piece)
+            except KeyError:
+                return _err(f"Type de pièce inconnu : « {type_piece} ».")
+            if not isinstance(entry, dict):
+                return _err(f"Configuration invalide pour « {type_piece} ».")
+
+            # Ancienne forme tolérée : { field_name: {description, tooltip} }.
+            fields = entry.get('fields') if ('fields' in entry or 'custom' in entry) else entry
+            custom = entry.get('custom')
+            fields = fields or {}
+
+            # Noms réservés = champs STATIQUES (brut + écarts) — un champ perso ne peut pas
+            # écraser un champ du catalogue.
+            static_names = {c['name'] for c in (piece_def.get('champs') or [])} \
+                | {c['name'] for c in (piece_def.get('ecarts_champs') or [])}
+
+            # --- Réconciliation des champs personnalisés (si 'custom' fourni) ---
+            if custom is not None:
+                if not isinstance(custom, list):
+                    return _err(f"« custom » doit être une liste pour « {type_piece} ».")
+                seen, keep = set(), []
+                for i, cf in enumerate(custom):
+                    if not isinstance(cf, dict):
+                        return _err(f"Champ personnalisé invalide pour « {type_piece} ».")
+                    name = (cf.get('name') or '').strip()
+                    label = (cf.get('label') or '').strip()
+                    ftype = (cf.get('type') or 'text').strip()
+                    if not NAME_RE.match(name):
+                        return _err(f"Nom de champ « {name} » invalide (minuscules, chiffres, _ ; "
+                                    f"doit commencer par une lettre) pour « {type_piece} ».")
+                    if name in static_names:
+                        return _err(f"Le nom « {name} » est réservé (champ du catalogue) pour "
+                                    f"« {type_piece} ».")
+                    if name in seen:
+                        return _err(f"Nom de champ personnalisé en double : « {name} » pour "
+                                    f"« {type_piece} ».")
+                    if not label:
+                        return _err(f"Le libellé du champ « {name} » est requis pour « {type_piece} ».")
+                    if ftype not in dict(PieceCustomField.FieldType.choices):
+                        ftype = 'text'
+                    seen.add(name)
+                    keep.append({'name': name, 'label': label, 'type': ftype, 'ordre': i})
+                # Supprime les champs perso disparus (+ leurs descriptions).
+                stale = list(PieceCustomField.objects.filter(type_piece=type_piece)
+                             .exclude(name__in=seen).values_list('name', flat=True))
+                if stale:
+                    PieceCustomField.objects.filter(type_piece=type_piece, name__in=stale).delete()
+                    PieceFieldMeta.objects.filter(type_piece=type_piece, field_name__in=stale).delete()
+                for cf in keep:
+                    PieceCustomField.objects.update_or_create(
+                        type_piece=type_piece, name=cf['name'],
+                        defaults={'label': cf['label'], 'field_type': cf['type'], 'ordre': cf['ordre']})
+                # Descriptions portées directement par les entrées custom.
+                for cf in custom:
+                    nm = (cf.get('name') or '').strip()
+                    if nm in seen and ('description' in cf or 'tooltip' in cf):
+                        fields.setdefault(nm, {'description': cf.get('description', ''),
+                                               'tooltip': cf.get('tooltip', '')})
+
+            # --- Descriptions (champs statiques + perso désormais persistés) ---
+            valid = valid_field_names(type_piece, 'brut') | valid_field_names(type_piece, 'ecarts')
+            if not isinstance(fields, dict):
+                return _err(f"« fields » doit être un objet pour « {type_piece} ».")
+            for field_name, meta in fields.items():
+                if field_name not in valid:
+                    return _err(f"Champ « {field_name} » invalide pour « {type_piece} ».")
+                meta = meta or {}
+                description = (meta.get('description') or '').strip()
+                tooltip = (meta.get('tooltip') or '').strip()[:255]
+                if not description and not tooltip:
+                    PieceFieldMeta.objects.filter(type_piece=type_piece, field_name=field_name).delete()
+                else:
+                    PieceFieldMeta.objects.update_or_create(
+                        type_piece=type_piece, field_name=field_name,
+                        defaults={'description': description, 'tooltip': tooltip})
+        return Response(serialize_catalog())
+
     @action(detail=False, methods=['post'])
     def reorder(self, request):
         """
@@ -170,6 +291,204 @@ class PieceViewSet(viewsets.ModelViewSet):
                     piece.save(update_fields=['ordre'])
         instance.refresh_from_db()
         return Response(self.get_serializer(instance).data)
+
+    # ------------------------------------------------------------------
+    # Application du tri par défaut (config opérateur) aux tableaux STOCKÉS
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _ssdgps_label(ssdgps):
+        """Libellé lisible d'un SSDGPS pour la sélection (titre|réquisition + n° SD +
+        n° SDGPS + nature)."""
+        affaire = ssdgps.affaire
+        propriete = affaire.propriete
+        ident = (propriete.id_titre or propriete.id_requisition or '').strip()
+        parts = [p for p in (
+            ident,
+            f'SD{affaire.numero_sd_affaire}',
+            f'SDGPS N°{ssdgps.numero_ssdgps}',
+            (ssdgps.nature_ssdgps or '').strip(),
+        ) if p]
+        return ' · '.join(parts)
+
+    @staticmethod
+    def _apply_sort_to_piece(piece, sort_config, user):
+        """Réordonne physiquement les lignes stockées d'une pièce selon le tri configuré
+        pour son type et l'enregistre comme tri PROPRE de la pièce (`payload['sort']` =
+        dernier tri appliqué → suivi par le rapport PDF et l'affichage). Les deux versions
+        (brute / écarts) des pièces RDL/RDN/RDIA sont traitées avec leur tri respectif.
+        Renvoie True si la pièce a été modifiée. Les tableaux tabulaires voient leur colonne
+        ID renumérotée 1..n ; les points PPA/PPN NE sont PAS renumérotés (photos rattachées
+        par l'id d'origine)."""
+        cfg = sort_versions((sort_config or {}).get(piece.type_piece))
+        sort_brut = cfg['brut']
+        # L'écarts sans tri propre configuré retombe sur le tri de la version brute.
+        sort_ecarts = cfg['ecarts'] or sort_brut
+        if not sort_brut and not sort_ecarts:
+            return False
+        payload = dict(piece.payload or {})
+        is_photo = piece.type_piece in PHOTO_TYPES
+        has_ecarts = bool(get_piece_def(piece.type_piece).get('ecarts'))
+        sort_fn = _sorted_only if is_photo else _sorted_renumbered
+
+        changed = False
+        rows = payload.get('rows') or []
+        if rows and sort_brut:
+            new_rows = sort_fn(rows, sort_brut)
+            if new_rows != rows:
+                payload['rows'] = new_rows
+                changed = True
+        rows_ecarts = payload.get('rows_ecarts') or []
+        if rows_ecarts and sort_ecarts:
+            new_ecarts = sort_fn(rows_ecarts, sort_ecarts)
+            if new_ecarts != rows_ecarts:
+                payload['rows_ecarts'] = new_ecarts
+                changed = True
+        # Mémorise le tri appliqué comme tri propre de la pièce (prime sur le tri du type) :
+        # forme à deux versions pour les types RDL/RDN/RDIA, liste simple sinon.
+        new_sort = {'brut': sort_brut, 'ecarts': cfg['ecarts']} if has_ecarts else sort_brut
+        if payload.get('sort') != new_sort:
+            payload['sort'] = new_sort
+            changed = True
+
+        if not changed:
+            return False
+        piece.payload = payload
+        piece.updated_by = user
+        piece.save(update_fields=['payload', 'updated_by', 'updated_at'])
+        return True
+
+    @action(detail=True, methods=['post'], url_path='set-sort')
+    def set_sort(self, request, pk=None):
+        """
+        POST /api/v1/pieces/{id}/set-sort/  {sort: [{field, dir}, …], version: 'brut'|'ecarts'}
+        Enregistre le tri PROPRE de la pièce pour UNE version de sa table (dernier tri appliqué —
+        ex. tri manuel par clic sur un en-tête). `version` vaut 'brut' (défaut) ou 'ecarts'
+        (pièces RDL/RDN/RDIA). Ce tri est suivi par le rapport PDF et l'affichage,
+        INDÉPENDAMMENT du tri par défaut du type (`/tri-pieces`). Une liste vide retire le tri
+        propre de cette version. Ne réordonne PAS physiquement les lignes.
+        """
+        piece = self._org_scoped_queryset().filter(pk=pk, is_deleted=False).first()
+        if piece is None:
+            return Response({'detail': 'Pièce non trouvée.'}, status=status.HTTP_404_NOT_FOUND)
+        piece_def = get_piece_def(piece.type_piece)
+        has_ecarts = bool(piece_def.get('ecarts'))
+        version = (request.data.get('version') or 'brut').strip().lower()
+        if version not in ('brut', 'ecarts') or (version == 'ecarts' and not has_ecarts):
+            version = 'brut'
+        champs = piece_def.get('ecarts_champs') if version == 'ecarts' else piece_def.get('champs')
+        valid = {c['name'] for c in (champs or [])}
+        raw = request.data.get('sort')
+        levels = raw if isinstance(raw, list) else ([raw] if raw else [])
+        out, seen = [], set()
+        for lv in levels:
+            if not isinstance(lv, dict):
+                continue
+            field = (lv.get('field') or '').strip()
+            if not field or field in seen:
+                continue
+            if field not in valid:
+                return Response(
+                    {'detail': f"Champ de tri « {field} » invalide pour la version « {version} » "
+                               f"du type « {piece.type_piece} »."},
+                    status=status.HTTP_400_BAD_REQUEST)
+            seen.add(field)
+            direction = (lv.get('dir') or 'asc').strip().lower()
+            out.append({'field': field, 'dir': direction if direction in ('asc', 'desc') else 'asc'})
+
+        payload = dict(piece.payload or {})
+        current = sort_versions(payload.get('sort'))
+        current[version] = out
+        if has_ecarts:
+            # Forme à deux versions ; retirée entièrement si les deux sont vides.
+            if current['brut'] or current['ecarts']:
+                payload['sort'] = {'brut': current['brut'], 'ecarts': current['ecarts']}
+            else:
+                payload.pop('sort', None)
+        else:
+            if out:
+                payload['sort'] = out
+            else:
+                payload.pop('sort', None)
+        piece.payload = payload
+        piece.updated_by = request.user
+        piece.save(update_fields=['payload', 'updated_by', 'updated_at'])
+        return Response(self.get_serializer(piece).data)
+
+    @action(detail=False, methods=['get'])
+    def sortable(self, request):
+        """
+        GET /api/v1/pieces/sortable/
+        Liste, dans la portée de l'utilisateur connecté, les pièces tabulaires dont le
+        type possède un tri par défaut configuré (`piece_sort_config`) ET qui ont des
+        données — candidates à l'application du tri sur leur tableau stocké. Renvoie de
+        quoi bâtir la sélection (une/plusieurs/toutes) côté client, groupée par SSDGPS.
+        """
+        sort_config = getattr(request.user, 'piece_sort_config', None) or {}
+        configured = set(sort_config.keys())
+        if not configured:
+            return Response({'items': [], 'configured_types': []})
+
+        qs = self._scope(self.queryset.filter(is_deleted=False, type_piece__in=configured)) \
+            .order_by('ssdgps__numero_ssdgps', 'ordre', 'type_piece', 'numero')
+        items = []
+        for piece in qs:
+            rows = (piece.payload or {}).get('rows') or []
+            if not rows:
+                continue  # rien à trier
+            piece_def = get_piece_def(piece.type_piece)
+            items.append({
+                'id': str(piece.id),
+                'type_piece': piece.type_piece,
+                'type_nom': piece_def.get('nom', piece.type_piece),
+                'numero': piece.numero,
+                'row_count': len(rows),
+                'ssdgps_id': str(piece.ssdgps_id),
+                'ssdgps_label': self._ssdgps_label(piece.ssdgps),
+                'session_numero': piece.session.numero_session if piece.session_id else None,
+            })
+        return Response({'items': items, 'configured_types': sorted(configured)})
+
+    @action(detail=False, methods=['post'], url_path='apply-sort-config')
+    def apply_sort_config(self, request):
+        """
+        POST /api/v1/pieces/apply-sort-config/
+        Applique le tri par défaut configuré (`piece_sort_config`) aux tableaux STOCKÉS
+        des pièces de l'utilisateur connecté — pour une, plusieurs, ou toutes les pièces.
+        Corps :
+        - `piece_ids` : liste d'UUID de pièces à traiter (portée = organisation) ; OU
+        - `all: true` : toutes les pièces des types configurés dans la portée.
+        Seules les pièces d'un type disposant d'un tri configuré sont réordonnées ;
+        les autres sont comptées en « ignorées ». Renvoie {updated, skipped, total}.
+        """
+        sort_config = getattr(request.user, 'piece_sort_config', None) or {}
+        if not sort_config:
+            return Response(
+                {'detail': "Aucun tri par défaut n'est configuré : définissez-en un avant "
+                           "de l'appliquer aux tableaux existants."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        apply_all = str(request.data.get('all', '')).lower() in ('1', 'true', 'yes') \
+            or request.data.get('all') is True
+        piece_ids = request.data.get('piece_ids')
+
+        qs = self._scope(self.queryset.filter(is_deleted=False))
+        if apply_all:
+            qs = qs.filter(type_piece__in=sort_config.keys())
+        else:
+            if not isinstance(piece_ids, list) or not piece_ids:
+                return Response(
+                    {'detail': 'Fournissez piece_ids (liste) ou all=true.'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(pk__in=[str(i) for i in piece_ids])
+
+        updated = skipped = 0
+        with transaction.atomic():
+            for piece in qs:
+                if self._apply_sort_to_piece(piece, sort_config, request.user):
+                    updated += 1
+                else:
+                    skipped += 1
+        return Response({'updated': updated, 'skipped': skipped, 'total': updated + skipped})
 
     # ------------------------------------------------------------------
     # Galerie multi-images d'une pièce (RDC, CLC, PPA…)
@@ -819,7 +1138,10 @@ class PieceViewSet(viewsets.ModelViewSet):
                 {'detail': 'Aucune pièce valide à inclure dans le rapport.'}, status=400)
 
         try:
-            pdf_bytes = render_report_pdf(ssdgps, session, pieces)
+            sort_config = getattr(request.user, 'piece_sort_config', None) or {}
+            fields_config = getattr(request.user, 'piece_fields_config', None) or {}
+            pdf_bytes = render_report_pdf(ssdgps, session, pieces,
+                                          sort_config=sort_config, fields_config=fields_config)
         except RuntimeError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
@@ -872,11 +1194,22 @@ class PieceViewSet(viewsets.ModelViewSet):
         mapping_raw = request.data.get('mapping')
         if not mapping_raw:
             # --- Phase 1 : aperçu ---
+            # Champs proposés au mapping = FILTRE-MAÎTRE « import » de l'opérateur : seuls les
+            # champs activés (dans son ordre) sont importables ; les champs désactivés ne sont
+            # pas mappés (donc jamais présents dans les données, ni affichés, ni imprimés).
+            champs = champs_with_meta(type_piece)
+            fields_config = getattr(request.user, 'piece_fields_config', None) or {}
+            visible = import_visible_names(type_piece, fields_config)
+            if visible is not None:
+                by_name = {c['name']: c for c in champs}
+                champs = [by_name[n] for n in visible if n in by_name]
             return Response({
                 'columns': columns,
                 'preview_rows': rows[:20],
                 'total_rows': len(rows),
-                'champs': piece_def['champs'],
+                # Champs enrichis des descriptions/infobulles → aide à la correspondance
+                # des colonnes dans le mapping d'import.
+                'champs': champs,
             })
 
         # --- Phase 2 : confirmation ---

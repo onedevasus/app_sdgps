@@ -9,6 +9,7 @@ import {AuthModule} from './features/auth/auth.module'; // ← AJOUT: Module Aut
 import {DashboardModule} from './features/dashboard/dashboard.module'; // ← AJOUT: Module Dashboard
 import {UsersModule} from './features/admin/users/users.module'; // ← AJOUT: Module Users
 import {OrganismesModule} from './features/admin/organismes/organismes.module'; // ← AJOUT: Module Organismes
+import {PieceFieldDescriptionsModule} from './features/admin/piece-field-descriptions/piece-field-descriptions.module'; // ← Descriptions des champs de pièces (App Admin)
 import {ToastrModule} from 'ngx-toastr';
 import {AuthInterceptor} from './core/interceptors/auth.interceptor';
 
@@ -26,6 +27,7 @@ import {AuthInterceptor} from './core/interceptors/auth.interceptor';
         DashboardModule, // ← AJOUT: Dashboard components (OrganizationList, etc.)
         UsersModule, // ← AJOUT: User management components
         OrganismesModule, // ← AJOUT: Organismes premier/deuxième niveau
+        PieceFieldDescriptionsModule, // ← AJOUT: Descriptions des champs de pièces (App Admin)
         ToastrModule.forRoot({
           timeOut: 3000,
           positionClass: 'toast-bottom-right', // ← Position en bas à droite

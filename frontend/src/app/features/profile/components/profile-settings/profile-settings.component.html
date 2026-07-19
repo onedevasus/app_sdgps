@@ -174,7 +174,11 @@
         
       </form>
     </div>
-    
+
+    <!-- Tri par défaut des tableaux de pièces (composant dédié, aussi accessible via son
+         entrée de menu / page dédiée « /admin/profile/tri-pieces »). -->
+    <app-piece-sort-settings [embedded]="true"></app-piece-sort-settings>
+
     <!-- Section Sécurité -->
     <div class="security-section card">
       <h2><i class="fas fa-shield-alt"></i> Sécurité</h2>

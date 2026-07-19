@@ -2,7 +2,9 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import { PiecesService, RcSource } from '../../../core/services/pieces.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { Piece, PieceImportPreview, PieceTypeDef } from '../../../core/models/piece.model';
+import { PieceSortConfigService, PieceSortConfig, brutSortLevels } from '../../../core/services/piece-sort-config.service';
+import { PieceFieldsConfig, PieceFieldsConfigService } from '../../../core/services/piece-fields-config.service';
+import { Piece, PieceChampDef, PieceImportPreview, PieceTypeDef } from '../../../core/models/piece.model';
 import { Ssdgps, Session } from '../../../core/models/project.model';
 import { findTbcReports, TbcReportCandidate } from '../tbc-report.util';
 import { assembleDeterminationRows, sortDeterminationItems, relabelDeterminationItems,
@@ -49,6 +51,8 @@ export class PieceAddWizardComponent implements OnInit {
 
   // --- Saisie manuelle ---
   manualForm: FormGroup | null = null;
+  /** Lignes du tableau de données éditable (composant app-piece-data-table). */
+  wizardRows: any[] = [];
   submittingManual = false;
 
   // --- Images (multi) ---
@@ -61,13 +65,42 @@ export class PieceAddWizardComponent implements OnInit {
   customPosition = 1;
   get maxPosition(): number { return this.existingPieces.filter(p => !p.is_deleted).length + 1; }
 
+  private sortConfig: PieceSortConfig = {};
+  /** Tri par défaut opérateur (version brute, multi-niveaux) pour le type en cours de création. */
+  get defaultSort(): { field: string; dir: 'asc' | 'desc' }[] | null {
+    if (!this.selectedType) return null;
+    const levels = brutSortLevels(this.sortConfig[this.selectedType.code]);
+    return levels.length ? levels : null;
+  }
+
+  /** Config des champs de l'opérateur (pour le filtre-maître « import » de la grille manuelle). */
+  private fieldsConfig: PieceFieldsConfig = {};
+
   constructor(
     private piecesService: PiecesService,
     private toast: ToastService,
     private fb: FormBuilder,
+    private sortConfigService: PieceSortConfigService,
+    private fieldsConfigService: PieceFieldsConfigService,
   ) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.sortConfigService.get().subscribe(cfg => this.sortConfig = cfg);
+    this.fieldsConfigService.get().subscribe(cfg => this.fieldsConfig = cfg as PieceFieldsConfig);
+  }
+
+  /** Champs de saisie de la grille manuelle = champs du type filtrés/réordonnés par la vue
+   * « import » de l'opérateur (les champs `required` sont toujours conservés). Un champ non
+   * importé n'est pas saisissable (cascade cohérente avec l'affichage et le rapport PDF). */
+  get manualChamps(): PieceChampDef[] {
+    const champs = this.selectedType?.champs || [];
+    const names = this.fieldsConfig[this.selectedType?.code as string]?.import?.brut;
+    if (names == null) return champs;
+    const byName = new Map(champs.map(c => [c.name, c]));
+    const ordered = [...names];
+    champs.forEach(c => { if (c.required && !ordered.includes(c.name)) ordered.unshift(c.name); });
+    return ordered.map(n => byName.get(n)).filter((c): c is PieceChampDef => !!c);
+  }
 
   /** Un SSDGPS multi-session rattache ses pièces à une session précise ; un
    * mono-session les rattache directement au SSDGPS (aucun choix de niveau). */
@@ -368,7 +401,7 @@ export class PieceAddWizardComponent implements OnInit {
   computeRc(source?: RcSource): void {
     if (!this.selectedType) return;
     this.computeError = null;
-    this.manualForm = null;
+    this.manualForm = null; this.wizardRows = [];
     this.computing = true;
     this.piecesService.previewComputeRc(this.parentRef(), source).subscribe({
       next: (res) => {
@@ -376,7 +409,7 @@ export class PieceAddWizardComponent implements OnInit {
         this.rcSource = res.source;
         this.rcAvailableSources = res.available_sources || [];
         const rows = res.rows?.length ? res.rows : [{}];
-        this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+        this.setGridData(rows);
         this.toast.success('Rapport de contrôle', `${res.total_rows} ligne(s) calculée(s).`);
       },
       error: (e) => {
@@ -395,7 +428,7 @@ export class PieceAddWizardComponent implements OnInit {
   submitCompute(): void {
     if (!this.manualForm || !this.selectedType || this.submittingCompute) return;
     this.submittingCompute = true;
-    this.piecesService.confirmComputeRc(this.parentRef(), this.manualRows.value, this.rcSource || undefined).subscribe({
+    this.piecesService.confirmComputeRc(this.parentRef(), this.wizardRows, this.rcSource || undefined).subscribe({
       next: (p) => { this.submittingCompute = false; this.finishCreate(p, 'Rapport de contrôle généré'); },
       error: (e) => { this.submittingCompute = false; this.toast.error('Échec', this.errorMessage(e, 'Création du rapport de contrôle impossible')); },
     });
@@ -445,7 +478,7 @@ export class PieceAddWizardComponent implements OnInit {
         this.assembleModalOpen = false;
         this.assembleSourceIds = ids;
         const rows = res.rows?.length ? res.rows : [{}];
-        this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+        this.setGridData(rows);
         this.toast.success('Assemblage', `${res.total_rows} ligne(s) assemblées.`);
       },
       error: (e) => { this.assembling = false; this.toast.error('Échec', this.errorMessage(e, 'Assemblage impossible')); },
@@ -455,7 +488,7 @@ export class PieceAddWizardComponent implements OnInit {
   submitAssemble(): void {
     if (!this.manualForm || !this.selectedType || this.submittingAssemble) return;
     this.submittingAssemble = true;
-    this.piecesService.confirmAssembleRdi(this.parentRef(), this.assembleSourceIds, this.manualRows.value).subscribe({
+    this.piecesService.confirmAssembleRdi(this.parentRef(), this.assembleSourceIds, this.wizardRows).subscribe({
       next: (p) => { this.submittingAssemble = false; this.finishCreate(p, 'Rapport des déterminations intermédiaires assemblé'); },
       error: (e) => { this.submittingAssemble = false; this.toast.error('Échec', this.errorMessage(e, 'Création impossible')); },
     });
@@ -557,7 +590,7 @@ export class PieceAddWizardComponent implements OnInit {
   runAssembleFiles(): void {
     if (!this.assembleFileItems.length || !this.selectedType) return;
     const rows = assembleDeterminationRows(this.assembleFileItems);
-    this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+    this.setGridData(rows);
     this.assembleFilesModalOpen = false;
     this.toast.success('Assemblage', `${rows.length} ligne(s) assemblées.`);
   }
@@ -567,7 +600,7 @@ export class PieceAddWizardComponent implements OnInit {
     this.submittingAssembleFiles = true;
     this.piecesService.createManual({
       type_piece: this.selectedType.code, parent: this.parentRef(),
-      numero: this.nextNumero(), data: { rows: this.manualRows.value },
+      numero: this.nextNumero(), data: { rows: this.wizardRows },
     }).subscribe({
       next: (p) => { this.submittingAssembleFiles = false; this.finishCreate(p, 'Rapport des déterminations intermédiaires assemblé'); },
       error: (e) => { this.submittingAssembleFiles = false; this.toast.error('Échec', this.errorMessage(e, 'Création impossible')); },
@@ -582,7 +615,7 @@ export class PieceAddWizardComponent implements OnInit {
     const files = Array.from(input.files ?? []);
     input.value = '';
     if (!files.length || !this.selectedType) return;
-    this.manualForm = null;
+    this.manualForm = null; this.wizardRows = [];
     this.htmlFile = null;
     this.htmlPreviewing = true;
 
@@ -607,14 +640,14 @@ export class PieceAddWizardComponent implements OnInit {
   previewCandidate(file: File): void {
     if (!this.selectedType) return;
     this.htmlFile = file;
-    this.manualForm = null;
+    this.manualForm = null; this.wizardRows = [];
     this.htmlPreviewing = true;
     this.piecesService.previewHtmlImport(file, this.selectedType.code).subscribe({
       next: (res) => {
         this.htmlPreviewing = false;
         this.htmlModalOpen = false;
         const rows = res.rows?.length ? res.rows : [{}];
-        this.manualForm = this.fb.group({ rows: this.fb.array(rows.map((r: any) => this.buildManualRow(r))) });
+        this.setGridData(rows);
         this.toast.success('Import HTML', `${res.total_rows} ligne(s) générée(s).`);
       },
       error: (e) => { this.htmlPreviewing = false; this.htmlFile = null; this.toast.error('Échec', this.errorMessage(e, 'Lecture du rapport HTML impossible')); },
@@ -622,7 +655,7 @@ export class PieceAddWizardComponent implements OnInit {
   }
 
   /** Revenir à la liste des rapports détectés (multi-rapports). */
-  backToHtmlChoice(): void { this.manualForm = null; this.htmlFile = null; }
+  backToHtmlChoice(): void { this.manualForm = null; this.wizardRows = []; this.htmlFile = null; }
 
   /** Extrait un message lisible d'une erreur HTTP DRF (`detail`, erreur par champ, ou chaîne). */
   private errorMessage(e: any, fallback: string): string {
@@ -641,7 +674,7 @@ export class PieceAddWizardComponent implements OnInit {
     if (!this.htmlFile || !this.selectedType || !this.manualForm || this.submittingHtml) return;
     this.submittingHtml = true;
     this.piecesService.confirmHtmlImport(
-      this.htmlFile, this.selectedType.code, this.parentRef(), this.nextNumero(), this.manualRows.value,
+      this.htmlFile, this.selectedType.code, this.parentRef(), this.nextNumero(), this.wizardRows,
     ).subscribe({
       next: (p) => { this.submittingHtml = false; this.finishCreate(p, 'Rapport HTML importé'); },
       error: (e) => { this.submittingHtml = false; this.toast.error('Échec', this.errorMessage(e, 'Import HTML impossible')); },
@@ -649,12 +682,17 @@ export class PieceAddWizardComponent implements OnInit {
   }
 
   // --- Saisie manuelle ---
-  private initManualForm(): void {
-    this.manualForm = this.fb.group({ rows: this.fb.array([this.buildManualRow()]) });
+  private initManualForm(): void { this.setGridData([{}]); }
+
+  /** Alimente la grille éditable (composant app-piece-data-table) et le drapeau de préparation
+   * `manualForm`. Copie profonde des lignes ; démarre sur une ligne vide si aucune donnée. */
+  private setGridData(rows: any[]): void {
+    this.wizardRows = (rows || []).map((r: any) => ({ ...r }));
+    this.manualForm = this.fb.group({ rows: this.fb.array((rows.length ? rows : [{}]).map((r: any) => this.buildManualRow(r))) });
   }
   private buildManualRow(row: any = {}): FormGroup {
     const group: Record<string, any> = {};
-    (this.selectedType?.champs || []).forEach(c => { group[c.name] = [row[c.name] ?? '']; });
+    this.manualChamps.forEach(c => { group[c.name] = [row[c.name] ?? '']; });
     return this.fb.group(group);
   }
   get manualRows(): FormArray { return this.manualForm!.get('rows') as FormArray; }
@@ -677,7 +715,7 @@ export class PieceAddWizardComponent implements OnInit {
     this.submittingManual = true;
     this.piecesService.createManual({
       type_piece: this.selectedType.code, parent: this.parentRef(), numero: this.nextNumero(),
-      data: { rows: this.manualRows.value },
+      data: { rows: this.wizardRows },
     }).subscribe({
       next: (p) => { this.submittingManual = false; this.finishCreate(p, 'Pièce enregistrée'); },
       error: (e) => { this.submittingManual = false; this.toast.error('Échec', e?.error?.detail || 'Enregistrement impossible'); },
@@ -689,7 +727,7 @@ export class PieceAddWizardComponent implements OnInit {
     this.selectedFile = null;
     this.importPreview = null;
     this.currentMapping = {};
-    this.manualForm = null;
+    this.manualForm = null; this.wizardRows = [];
     this.htmlFile = null;
     this.htmlCandidates = [];
     this.htmlModalOpen = false;

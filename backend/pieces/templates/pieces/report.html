@@ -143,6 +143,12 @@
     border: 0.8pt solid #000; padding: 4px 5px; text-align: center; vertical-align: middle;
   }
   table.data thead th { background: #191919; color: #fff; font-weight: bold; }
+  /* Repère de tri (discret) dans l'en-tête : petit chevron ▲ (croissant) / ▼ (décroissant)
+     à côté du libellé des colonnes utilisées pour trier le tableau, avec un exposant de
+     priorité (1, 2, …) — affiché même pour un tri mono-colonne (« 1 »). Se répète sur chaque
+     page (l'en-tête est réaffiché à chaque segment de tableau). */
+  table.data thead th .sort-mark { margin-left: 3px; font-size: 7pt; line-height: 1; opacity: 0.9; }
+  table.data thead th .sort-mark sup { font-size: 4.5pt; margin-left: 0.5px; }
   table.data tbody td { font-weight: bold; }
   /* Zébrage calculé sur l'index GLOBAL des lignes (les :nth-child se réinitialiseraient
      à chaque <tbody> de groupe fusionné). */
@@ -342,7 +348,7 @@ N° Ordre / Désignation) → clic = saut vers cette page-séparateur.{% endcomm
       <div class="tbl-block{% if blk.break_before %} pb{% endif %}">
         {% if blk.title %}<div class="table-caption">{{ blk.title }}</div>{% endif %}
         <table class="data">
-          <thead><tr>{% for col in blk.columns %}<th>{{ col.label }}</th>{% endfor %}</tr></thead>
+          <thead><tr>{% for col in blk.columns %}<th>{{ col.label }}{% if col.sort_dir %}<span class="sort-mark">{% if col.sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% if col.sort_rank %}<sup>{{ col.sort_rank }}</sup>{% endif %}</span>{% endif %}</th>{% endfor %}</tr></thead>
           {% for group in blk.groups %}
           <tbody>
             {% for row in group.rows %}<tr class="{{ row.zebra }}" data-row="{{ row.rid }}">{% for cell in row.cells %}{% if not cell.skip %}<td class="{% if cell.num %}num {% endif %}{% if cell.merged %}merged {{ cell.mz }}{% endif %}"{% if cell.rowspan %} rowspan="{{ cell.rowspan }}"{% endif %}>{{ cell.value }}</td>{% endif %}{% endfor %}</tr>{% endfor %}

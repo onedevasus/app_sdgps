@@ -15,6 +15,18 @@ interface PieceParent {
  * intermédiaires assemblé. */
 export type RcSource = 'rdn' | 'rdia';
 
+/** Pièce candidate à l'application du tri configuré sur son tableau stocké. */
+export interface SortablePiece {
+  id: string;
+  type_piece: string;
+  type_nom: string;
+  numero: number | null;
+  row_count: number;
+  ssdgps_id: string;
+  ssdgps_label: string;
+  session_numero: number | null;
+}
+
 /** Service CRUD + import des pièces (Phase 6.5). Calqué sur ProjectsService. */
 @Injectable({ providedIn: 'root' })
 export class PiecesService {
@@ -24,6 +36,21 @@ export class PiecesService {
 
   getCatalog(): Observable<PieceTypeDef[]> {
     return this.http.get<PieceTypeDef[]>(`${this.base}catalog/`);
+  }
+
+  /** Catalogue enrichi des descriptions/infobulles (endpoint admin) — écran d'édition
+   * des descriptions des champs (App Admin uniquement, 403 sinon). */
+  getFieldDescriptions(): Observable<PieceTypeDef[]> {
+    return this.http.get<PieceTypeDef[]>(`${this.base}field-descriptions/`);
+  }
+
+  /** Upsert des descriptions/infobulles des champs (App Admin uniquement). Corps :
+   * `{ '<TYPE>': { '<field_name>': { description, tooltip } } }`. Une valeur vide
+   * (description ET tooltip) supprime la métadonnée. Renvoie le catalogue mis à jour. */
+  saveFieldDescriptions(
+    payload: Record<string, Record<string, { description: string; tooltip: string }>>,
+  ): Observable<PieceTypeDef[]> {
+    return this.http.put<PieceTypeDef[]>(`${this.base}field-descriptions/`, payload);
   }
 
   private list(params: Record<string, any>): Observable<Piece[]> {
@@ -295,6 +322,38 @@ export class PiecesService {
 
   moveToPosition(id: string, position: number): Observable<Piece> {
     return this.http.post<Piece>(`${this.base}${id}/move/`, { position });
+  }
+
+  /**
+   * Liste les pièces (portée de l'utilisateur connecté) dont le type possède un tri par
+   * défaut configuré et qui ont des données — candidates à l'application du tri sur leur
+   * tableau stocké (page « tri des pièces »).
+   */
+  listSortable(): Observable<{ items: SortablePiece[]; configured_types: string[] }> {
+    return this.http.get<{ items: SortablePiece[]; configured_types: string[] }>(
+      `${this.base}sortable/`);
+  }
+
+  /**
+   * Enregistre le tri PROPRE d'une pièce pour UNE version de sa table (dernier tri appliqué —
+   * ex. tri manuel par clic sur un en-tête). Suivi par le rapport PDF et l'affichage,
+   * indépendamment du tri par défaut du type. Liste vide = retour au tri par défaut du type.
+   * `version` : 'brut' (défaut) ou 'ecarts' (pièces RDL/RDN/RDIA).
+   */
+  setSort(id: string, levels: { field: string; dir: 'asc' | 'desc' }[],
+          version: 'brut' | 'ecarts' = 'brut'): Observable<Piece> {
+    return this.http.post<Piece>(`${this.base}${id}/set-sort/`, { sort: levels || [], version });
+  }
+
+  /**
+   * Applique le tri par défaut configuré aux tableaux STOCKÉS des pièces. Passer
+   * `pieceIds` pour cibler une/plusieurs pièces, ou rien (`all=true`) pour toutes les
+   * pièces des types configurés dans la portée de l'utilisateur.
+   */
+  applySortConfig(pieceIds?: string[]): Observable<{ updated: number; skipped: number; total: number }> {
+    const body = pieceIds && pieceIds.length ? { piece_ids: pieceIds } : { all: true };
+    return this.http.post<{ updated: number; skipped: number; total: number }>(
+      `${this.base}apply-sort-config/`, body);
   }
 
   setScope(id: string, sessionId: string | null): Observable<Piece> {

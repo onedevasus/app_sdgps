@@ -8,6 +8,7 @@ import { UserListComponent } from './features/admin/users/user-list/user-list.co
 import { UserDetailComponent } from './features/admin/users/user-detail/user-detail.component';
 import { RolesPermissionsComponent } from './features/admin/users/roles-permissions/roles-permissions.component';
 import { OrganismeListComponent } from './features/admin/organismes/organisme-list/organisme-list.component';
+import { PieceFieldDescriptionsComponent } from './features/admin/piece-field-descriptions/piece-field-descriptions.component';
 
 // Composant placeholder temporaire (à remplacer par vos vrais composants)
 @Component({
@@ -55,6 +56,12 @@ const routes: Routes = [
         path: 'projets',
         loadChildren: () => import('./features/projects/projects.module').then(m => m.ProjectsModule),
         data: { title: 'Projets' }
+      },
+      {
+        // Profil accessible à TOUT opérateur authentifié (hors AdminGuard).
+        path: 'profile',
+        loadChildren: () => import('./features/profile/profile.module').then(m => m.ProfileModule),
+        data: { title: 'Mon Profil' }
       }
     ]
   },
@@ -99,6 +106,12 @@ const routes: Routes = [
         path: 'organismes/niveau2',
         component: OrganismeListComponent,
         data: { title: 'Organismes — deuxième niveau', niveau: 2 }
+      },
+      {
+        // Paramètres → Descriptions des champs de pièces (App Admin uniquement).
+        path: 'parametres/descriptions-champs',
+        component: PieceFieldDescriptionsComponent,
+        data: { title: 'Descriptions des champs de pièces' }
       },
       {
         path: 'utilisateurs',

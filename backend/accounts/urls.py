@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import RegisterView, LoginView, ForgotPasswordView, VerifyCodeView, ResetPasswordView, ChangePasswordView, UserProfileView
+from .views import RegisterView, LoginView, ForgotPasswordView, VerifyCodeView, ResetPasswordView, ChangePasswordView, UserProfileView, PieceSortConfigView, PieceSortConfigResetView, PieceFieldsConfigView, PieceFieldsConfigResetView
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -11,4 +11,8 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),  # ← Nouveau endpoint
     path('me/', UserProfileView.as_view(), name='user-profile'),  # ← Profil utilisateur
+    path('me/piece-sort-config/', PieceSortConfigView.as_view(), name='piece-sort-config'),
+    path('me/piece-sort-config/reset/', PieceSortConfigResetView.as_view(), name='piece-sort-config-reset'),
+    path('me/piece-fields-config/', PieceFieldsConfigView.as_view(), name='piece-fields-config'),
+    path('me/piece-fields-config/reset/', PieceFieldsConfigResetView.as_view(), name='piece-fields-config-reset'),
 ]

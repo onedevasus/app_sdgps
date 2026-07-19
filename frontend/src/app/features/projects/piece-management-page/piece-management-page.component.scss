@@ -14,6 +14,8 @@
   &.btn-secondary { background: var(--secondary-color); color: var(--text-color); border: 1px solid var(--border-color); &:hover { background: var(--hover-bg); border-color: var(--accent-color); } }
   &.btn-success { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: #fff; font-weight: 600; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.25); &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); } &:disabled { opacity: 0.6; cursor: not-allowed; } }
   &.btn-danger { background: rgba(231, 76, 60, 0.14); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); &:hover:not(:disabled) { background: #e74c3c; color: #fff; } &:disabled { opacity: 0.45; cursor: not-allowed; } }
+  &.btn-status { background: rgba(31, 111, 235, 0.12); color: #1f6feb; border: 1px solid rgba(31, 111, 235, 0.3); &:hover:not(:disabled) { background: #1f6feb; color: #fff; } &:disabled { opacity: 0.45; cursor: not-allowed; } }
+  &.btn-primary { background: linear-gradient(135deg, #1f6feb 0%, #14396b 100%); color: #fff; font-weight: 600; &:hover:not(:disabled) { transform: translateY(-1px); } &:disabled { opacity: 0.6; cursor: not-allowed; } }
   &.btn-report { background: linear-gradient(135deg, #1f6feb 0%, #14396b 100%); color: #fff; font-weight: 600; box-shadow: 0 2px 8px rgba(31, 111, 235, 0.25); &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(31, 111, 235, 0.4); } &:disabled { opacity: 0.5; cursor: not-allowed; } }
   &.sm { padding: 7px 12px; font-size: 13px; }
 }
@@ -239,6 +241,18 @@
       td { padding: 12px 14px; font-size: 14px; color: var(--text-color); vertical-align: middle;
         &.checkbox-col, &.actions-col { text-align: center; }
         .num-value { font-variant-numeric: tabular-nums; }
+        .type-cell {
+          display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+          .type-name { font-weight: 500; color: var(--text-color); }
+          .type-numero {
+            display: inline-flex; align-items: center; gap: 2px;
+            font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+            color: var(--accent-color); background: rgba(204, 88, 88, 0.1);
+            border: 1px solid rgba(204, 88, 88, 0.25); border-radius: 9999px; padding: 1px 8px;
+            line-height: 1.5;
+            i { font-size: 8px; margin: 0; opacity: 0.8; color: inherit; }
+          }
+        }
         .badge { padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
           &.badge-success { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
           &.badge-warning { background: rgba(243, 156, 18, 0.15); color: #f39c12; border: 1px solid rgba(243, 156, 18, 0.3); }
@@ -390,4 +404,24 @@
 .report-error {
   display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: #e74c3c;
   i { font-size: 16px; }
+}
+
+/* Options de statut (modale d'édition en masse) */
+.status-options {
+  display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0;
+  .status-option {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer;
+    transition: all 0.15s;
+    input { cursor: pointer; }
+    &:hover { border-color: var(--accent-color); background: var(--hover-bg); }
+    &.active { border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.2); }
+    .badge {
+      padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      &.badge-success { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
+      &.badge-warning { background: rgba(243, 156, 18, 0.15); color: #f39c12; border: 1px solid rgba(243, 156, 18, 0.3); }
+      &.badge-secondary { background: rgba(149, 165, 166, 0.15); color: #95a5a6; border: 1px solid rgba(149, 165, 166, 0.3); }
+    }
+  }
 }

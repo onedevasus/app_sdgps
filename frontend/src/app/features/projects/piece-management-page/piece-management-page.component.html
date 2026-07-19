@@ -98,6 +98,7 @@
 
       <div class="toolbar-sep"></div>
 
+      <button class="btn btn-status sm" *ngIf="!showDeleted" [disabled]="selectedCount===0" (click)="openBulkStatusModal()" title="Modifier le statut des pièces sélectionnées"><i class="fas fa-tag"></i> Statut <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
       <button class="btn btn-danger sm" *ngIf="!showDeleted" [disabled]="selectedCount===0" (click)="openBulkDeleteModal()"><i class="fas fa-trash"></i> <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
       <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount===0" (click)="openBulkRestoreModal()"><i class="fas fa-undo"></i> Restaurer <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
     </div>
@@ -146,7 +147,7 @@
         <span class="item-meta">
           <span class="tag">{{ sourceLabel(p.source_saisie) }}</span>
           <span class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ statutLabel(p.statut) }}</span>
-          <span class="portee-tag">{{ portee_label(p) }}</span>
+          <span class="portee-tag" *ngIf="isMultiSession">{{ portee_label(p) }}</span>
         </span>
       </div>
       <select class="scope-select" *ngIf="showScopeSelector(p)" [ngModel]="p.session || ''" (ngModelChange)="changeScope(p, $event)" (click)="$event.stopPropagation()">
@@ -217,6 +218,10 @@
             </td>
             <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onRowRightClick($event, p, col.field)" (click)="$event.stopPropagation()">
               <span *ngIf="col.field === 'ordre'" class="num-value">{{ p.ordre + 1 }}</span>
+              <div *ngIf="col.field === 'type_piece_display'" class="type-cell">
+                <span class="type-name">{{ p.type_piece_display }}</span>
+                <span class="type-numero" *ngIf="p.numero"><i class="fas fa-hashtag"></i>{{ p.numero }}</span>
+              </div>
               <span *ngIf="col.field === 'statut'" class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ statutLabel(p.statut) }}</span>
               <span *ngIf="col.field === 'is_deleted'">{{ p.is_deleted ? 'Oui' : 'Non' }}</span>
               <ng-container *ngIf="col.field==='portee_label' && showScopeSelector(p)">
@@ -225,7 +230,7 @@
                   <option *ngFor="let s of sessions" [value]="s.id">Session n°{{ s.numero_session }}</option>
                 </select>
               </ng-container>
-              <span *ngIf="col.field !== 'ordre' && col.field !== 'statut' && col.field !== 'is_deleted' && !(col.field==='portee_label' && showScopeSelector(p))">{{ getCellValue(p, col.field) }}</span>
+              <span *ngIf="col.field !== 'ordre' && col.field !== 'type_piece_display' && col.field !== 'statut' && col.field !== 'is_deleted' && !(col.field==='portee_label' && showScopeSelector(p))">{{ getCellValue(p, col.field) }}</span>
             </td>
             <td class="actions-col" (click)="$event.stopPropagation()">
               <button class="btn-icon" *ngIf="!p.is_deleted" title="Voir" (click)="openDetail(p, $event, 'view')"><i class="fas fa-eye"></i></button>
@@ -426,6 +431,32 @@
       <button class="btn btn-secondary" (click)="closeRestoreModal()" [disabled]="restoring">Annuler</button>
       <button class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
         <i class="fas" [ngClass]="restoring ? 'fa-spinner fa-spin' : 'fa-undo'"></i> {{ restoring ? 'Restauration…' : 'Restaurer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale édition en masse du statut ========== -->
+<div class="modal-overlay" *ngIf="showStatusModal" (click)="closeStatusModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left"><span class="header-icon"><i class="fas fa-tag"></i></span><h3>Modifier le statut</h3></div>
+      <button class="close-btn" (click)="closeStatusModal()" [disabled]="updatingStatus"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Appliquer un statut à <strong>{{ selectedCount }} pièce(s)</strong> sélectionnée(s) :</p>
+      <div class="status-options">
+        <label class="status-option" *ngFor="let opt of statutOptions" [class.active]="bulkStatusValue === opt.value">
+          <input type="radio" name="bulkStatus" [value]="opt.value" [(ngModel)]="bulkStatusValue" [disabled]="updatingStatus">
+          <span class="badge" [ngClass]="statutBadgeClass(opt.value)">{{ opt.label }}</span>
+        </label>
+      </div>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Le passage à « Validée » peut être refusé pour certaines pièces (ex. points sans photo) ; celles-ci resteront inchangées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeStatusModal()" [disabled]="updatingStatus">Annuler</button>
+      <button class="btn btn-primary" (click)="confirmBulkStatus()" [disabled]="updatingStatus || !bulkStatusValue">
+        <i class="fas" [ngClass]="updatingStatus ? 'fa-spinner fa-spin' : 'fa-check'"></i> {{ updatingStatus ? 'Application…' : 'Appliquer' }}
       </button>
     </div>
   </div>

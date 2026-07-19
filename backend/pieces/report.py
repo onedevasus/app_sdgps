@@ -21,7 +21,7 @@ from pathlib import Path
 
 from django.template.loader import render_to_string
 
-from .catalog import get_piece_def, catalog_orientation
+from .catalog import get_piece_def, catalog_orientation, effective_champs, import_effective_champs
 
 # Types à base d'images pleine page (galerie plate, sans point rattaché).
 IMAGE_TYPES = {'RDC', 'CCSPA', 'CDC', 'CLC'}
@@ -52,7 +52,9 @@ def _content_column_count(piece) -> int:
     """Nombre de colonnes visibles du contenu tabulaire d'une pièce (tient compte de
     la version « écarts », plus large, quand elle est présente sur CETTE pièce)."""
     d = get_piece_def(piece.type_piece)
-    cols = len(d.get('champs') or [])
+    # Champs effectifs (statiques + personnalisés App Admin) : l'orientation auto tient
+    # compte des colonnes réellement rendues.
+    cols = len(effective_champs(piece.type_piece))
     if (piece.payload or {}).get('rows_ecarts') and d.get('ecarts_champs'):
         cols = max(cols, len(d['ecarts_champs']))
     return cols
@@ -205,15 +207,41 @@ def _merge_fields(type_piece, version):
     return ()
 
 
-def _table_cells(champs, rows):
+def _table_cells(champs, rows, sort_levels=None, visible=None):
     """Colonnes gardées (colonnes entièrement vides retirées) + lignes de cellules
     formatées (valeurs en mètres arrondies via `_meter_decimals`). Ne fait aucune
-    fusion ni pagination : c'est la base commune aux deux passes de rendu."""
+    fusion ni pagination : c'est la base commune aux deux passes de rendu.
+
+    `sort_levels` (niveaux de tri effectifs de la version) annote chaque colonne triée
+    d'un sens (`sort_dir`) et d'un rang de priorité (`sort_rank`, 1 = niveau prioritaire ;
+    présent même pour un tri mono-colonne) → repère (flèche + n°) dans l'en-tête du rapport PDF.
+
+    `visible` (liste ordonnée de noms de champs, préférences opérateur pour la vue PDF)
+    filtre et réordonne les colonnes AVANT le retrait des colonnes vides. `None` = toutes
+    les colonnes du catalogue (ordre du catalogue) ; liste VIDE `[]` = AUCUNE colonne
+    (l'opérateur a désactivé toutes les colonnes → tableau masqué)."""
     def _nonempty(v):
         return v is not None and str(v).strip() != ''
 
+    if visible is not None:
+        by_name = {c['name']: c for c in champs}
+        champs = [by_name[n] for n in visible if n in by_name]
+        if not champs:
+            return [], []  # toutes les colonnes désactivées : aucun tableau à rendre
+
     kept = [c for c in champs if any(_nonempty(row.get(c['name'])) for row in rows)] or list(champs)
-    columns = [{'name': c['name'], 'label': c['label'], 'num': c.get('type') == 'number'}
+    # Rang (1..n) et sens de chaque champ trié ; seuls les champs réellement affichés comptent.
+    kept_names = {c['name'] for c in kept}
+    rank_by_field = {}
+    rank = 0
+    for lv in (sort_levels or []):
+        f = lv.get('field')
+        if f in kept_names and f not in rank_by_field:
+            rank += 1
+            rank_by_field[f] = (rank, lv.get('dir'))
+    columns = [{'name': c['name'], 'label': c['label'], 'num': c.get('type') == 'number',
+                'sort_rank': rank_by_field.get(c['name'], (None, None))[0],
+                'sort_dir': rank_by_field.get(c['name'], (None, None))[1]}
                for c in kept]
     decimals = {c['name']: _meter_decimals(c) for c in kept}
     flat = []
@@ -325,15 +353,136 @@ def paged_blocks(tables, row_pages):
     return blocks
 
 
-def _piece_content(piece, landscape=False):
+_EMPTY_SORT_TOKENS = {'', '--', '?', '—'}
+
+
+def _sort_numeric(value):
+    """Parse tolérant en nombre (espaces = séparateur de milliers, virgule décimale) ; None si
+    non numérique. Même tolérance que `_format_meters` et que le comparateur frontend."""
+    s = str(value).strip()
+    if s in _EMPTY_SORT_TOKENS:
+        return None
+    cleaned = re.sub(r'\s', '', s)
+    if ',' in cleaned and '.' not in cleaned:
+        cleaned = cleaned.replace(',', '.')
+    else:
+        cleaned = cleaned.replace(',', '')
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _natural_key(value):
+    """Clé de tri « naturel » d'une chaîne (« CTB26 » < « CTB157 ») : chunks texte/nombre,
+    typés pour rester comparables entre eux."""
+    parts = re.split(r'(\d+)', str(value).lower())
+    return [(0, int(t)) if t.isdigit() else (1, t) for t in parts if t != '']
+
+
+def _normalize_sort_levels(sort):
+    """Normalise la config de tri d'un type en liste de niveaux [{'field','dir'}]. Accepte
+    une liste (nouvelle forme), un objet unique {'field','dir'} (ancienne) ou None."""
+    if not sort:
+        return []
+    raw = sort if isinstance(sort, list) else [sort]
+    levels = []
+    for lv in raw:
+        if isinstance(lv, dict) and lv.get('field'):
+            levels.append({'field': lv['field'],
+                           'dir': 'desc' if lv.get('dir') == 'desc' else 'asc'})
+    return levels
+
+
+def sort_versions(entry):
+    """Normalise une entrée de tri (config d'un type OU tri propre d'une pièce) en deux jeux de
+    niveaux : `{'brut': [...], 'ecarts': [...]}`. Accepte :
+    - une liste de niveaux (= version brute uniquement) ;
+    - un objet `{'brut': [...], 'ecarts': [...]}` (pièces RDL/RDN/RDIA à deux versions) ;
+    - un objet unique `{'field', 'dir'}` (ancienne forme, = brut) ; ou None."""
+    if isinstance(entry, dict) and ('brut' in entry or 'ecarts' in entry):
+        return {'brut': _normalize_sort_levels(entry.get('brut')),
+                'ecarts': _normalize_sort_levels(entry.get('ecarts'))}
+    return {'brut': _normalize_sort_levels(entry), 'ecarts': []}
+
+
+def _sorted_only(rows, sort):
+    """Trie `rows` selon PLUSIEURS niveaux `sort=[{'field','dir'}, …]` (niveau 1 prioritaire,
+    niveau 2 en cas d'égalité, etc.). Par niveau : numérique si toute la colonne l'est, sinon
+    ordre naturel ; valeurs vides toujours en fin, quel que soit le sens. NE renumérote PAS
+    l'`id` — utile pour PPA/PPN, où les photos sont rattachées aux points par leur id d'origine.
+    Sans tri valide, conserve l'ordre reçu."""
+    from functools import cmp_to_key
+    rows = list(rows or [])
+    levels = _normalize_sort_levels(sort)
+
+    def is_empty(v):
+        return v is None or str(v).strip() in _EMPTY_SORT_TOKENS
+
+    # Nature (numérique/naturel) détectée par niveau sur les valeurs non vides.
+    for lv in levels:
+        f = lv['field']
+        nonempty = [r.get(f) for r in rows if not is_empty(r.get(f))]
+        lv['numeric'] = bool(nonempty) and all(_sort_numeric(v) is not None for v in nonempty)
+        lv['sign'] = -1 if lv['dir'] == 'desc' else 1
+
+    if levels and rows:
+        def cmp(ra, rb):
+            for lv in levels:
+                a, b = ra.get(lv['field']), rb.get(lv['field'])
+                ea, eb = is_empty(a), is_empty(b)
+                if ea and eb:
+                    continue
+                if ea:
+                    return 1
+                if eb:
+                    return -1
+                if lv['numeric']:
+                    na, nb = _sort_numeric(a), _sort_numeric(b)
+                    c = (na > nb) - (na < nb)
+                else:
+                    ka, kb = _natural_key(a), _natural_key(b)
+                    c = (ka > kb) - (ka < kb)
+                if c != 0:
+                    return lv['sign'] * c
+            return 0
+
+        rows.sort(key=cmp_to_key(cmp))
+    return rows
+
+
+def _sorted_renumbered(rows, sort):
+    """Comme `_sorted_only`, mais renvoie des COPIES avec `id` = position 1..n (pour les tableaux
+    où la colonne ID doit suivre l'ordre d'affichage). Ne PAS utiliser pour PPA/PPN."""
+    return [{**r, 'id': i + 1} for i, r in enumerate(_sorted_only(rows, sort))]
+
+
+def _piece_content(piece, landscape=False, sort_config=None, fields_config=None):
     """Modèle de rendu du contenu d'une pièce : tableaux (liste `tables` « à plat », la
     pagination/fusion est décidée ensuite par `flat_blocks`/`paged_blocks`), images, photos.
 
     `landscape` (orientation effective du contenu) sert à dimensionner les photos
-    complémentaires des points PPA/PPN : elles se partagent la hauteur utile de la page."""
+    complémentaires des points PPA/PPN. Tri effectif des lignes : le tri PROPRE à la pièce
+    (`payload['sort']`, dernier tri appliqué à sa table — manuel ou tri par défaut appliqué)
+    prime ; à défaut, le tri par défaut opérateur pour ce type (`sort_config[type]`). Ordonne
+    les lignes des tableaux et renumérote la colonne ID (1..n) selon l'ordre d'affichage.
+
+    `fields_config` (préférences opérateur de colonnes, cf. CustomUser.piece_fields_config) :
+    la vue 'pdf' filtre/réordonne les colonnes des tableaux du rapport."""
     piece_def = get_piece_def(piece.type_piece)
     payload = piece.payload or {}
     content = {'tables': [], 'images': [], 'photos': [], 'kind': 'empty'}
+    # Tri effectif, par version (brute / écarts) : tri propre à la pièce (`payload['sort']`,
+    # dernier tri appliqué) d'abord, sinon tri par défaut du type (opérateur). L'écarts, s'il
+    # n'a pas de tri propre, retombe sur le tri de la version brute (comportement historique).
+    own = sort_versions(payload.get('sort'))
+    cfg = sort_versions((sort_config or {}).get(piece.type_piece))
+    sort_brut = own['brut'] or cfg['brut']
+    sort_ecarts = own['ecarts'] or cfg['ecarts'] or sort_brut
+    # Colonnes visibles (vue PDF) par version : None = toutes (ordre catalogue).
+    pdf_view = ((fields_config or {}).get(piece.type_piece) or {}).get('pdf') or {}
+    visible_brut = pdf_view.get('brut')
+    visible_ecarts = pdf_view.get('ecarts')
 
     if piece.type_piece in PHOTO_TYPES:
         # Modèle métier : UNE entrée par POINT (pas par photo). La 1re photo du point
@@ -347,7 +496,9 @@ def _piece_content(piece, landscape=False):
         # 43 mm haut / 10 mm bas) moins l'en-tête « Photos complémentaires » (~14 mm). Chaque
         # photo étant seule sur sa page, elle occupe toute cette hauteur.
         extra_region_mm = 143 if landscape else 230
-        rows = payload.get('rows') or []
+        # Ordonne les POINTS selon le tri opérateur (PPA/PPN) sans renuméroter l'`id`
+        # (les photos sont rattachées aux points par leur id d'origine).
+        rows = _sorted_only(payload.get('rows') or [], sort_brut)
         images = list(piece.images.all())
 
         # `PieceImage.point_ref` = l'ID de la ligne du point (cf. models.py). On rattache
@@ -421,20 +572,30 @@ def _piece_content(piece, landscape=False):
     # tableaux sont préparés « à plat » ; la fusion et la pagination sont appliquées
     # ensuite (flat_blocks / paged_blocks) — la mise en pages fusionnée nécessite une
     # passe de sonde pour connaître les sauts de page réels (cf. render_report_pdf).
-    rows = payload.get('rows') or []
-    rows_ecarts = payload.get('rows_ecarts') or []
+    # Tri des lignes selon les préférences de l'opérateur pour ce type, puis renumérotation de
+    # la colonne ID (1..n = ordre d'affichage). Sans préférence : ordre d'import conservé, ID
+    # renuméroté 1..n (identique à l'ordre stocké).
+    rows = _sorted_renumbered(payload.get('rows') or [], sort_brut)
+    rows_ecarts = _sorted_renumbered(payload.get('rows_ecarts') or [], sort_ecarts)
 
+    # `columns` vide = l'opérateur a désactivé toutes les colonnes de cette vue/version
+    # (visible == []) → aucun tableau rendu pour cette version.
+    # Colonnes brutes = FILTRE-MAÎTRE « import » de l'opérateur (un champ non importé n'est
+    # jamais imprimé), puis restriction par la vue PDF (`visible_brut`).
     brut = None
-    if rows and piece_def.get('champs'):
-        columns, flat = _table_cells(piece_def['champs'], rows)
-        brut = {'title': '', 'columns': columns, 'flat': flat,
-                'merge': _merge_fields(piece.type_piece, 'brut')}
+    brut_champs = import_effective_champs(piece.type_piece, fields_config)
+    if rows and brut_champs:
+        columns, flat = _table_cells(brut_champs, rows, sort_brut, visible_brut)
+        if columns:
+            brut = {'title': '', 'columns': columns, 'flat': flat,
+                    'merge': _merge_fields(piece.type_piece, 'brut')}
     ecarts = None
     if rows_ecarts and piece_def.get('ecarts_champs'):
-        columns, flat = _table_cells(piece_def['ecarts_champs'], rows_ecarts)
-        ecarts = {'title': 'Écarts par rapport à la détermination définitive',
-                  'columns': columns, 'flat': flat,
-                  'merge': _merge_fields(piece.type_piece, 'ecarts')}
+        columns, flat = _table_cells(piece_def['ecarts_champs'], rows_ecarts, sort_ecarts, visible_ecarts)
+        if columns:
+            ecarts = {'title': 'Écarts par rapport à la détermination définitive',
+                      'columns': columns, 'flat': flat,
+                      'merge': _merge_fields(piece.type_piece, 'ecarts')}
 
     # Choix de la/des version(s) à afficher (types RDL/RDN/RDIA). Repli sur ce qui existe
     # si le choix ne correspond à aucune donnée disponible.
@@ -467,8 +628,10 @@ def _piece_content(piece, landscape=False):
     return content
 
 
-def build_report_context(ssdgps, session, pieces):
-    """Assemble le contexte de rendu du template `pieces/report.html`."""
+def build_report_context(ssdgps, session, pieces, sort_config=None, fields_config=None):
+    """Assemble le contexte de rendu du template `pieces/report.html`. `sort_config` =
+    préférences de tri de l'opérateur ({ type_piece: {field, dir} }). `fields_config` =
+    préférences de colonnes de l'opérateur (vue PDF), cf. CustomUser.piece_fields_config."""
     affaire = ssdgps.affaire
     propriete = affaire.propriete
     projet = propriete.projet
@@ -513,7 +676,7 @@ def build_report_context(ssdgps, session, pieces):
             'index': index,
             'title': designation.upper(),
             'code': piece.type_piece,
-            'content': _piece_content(piece, landscape),
+            'content': _piece_content(piece, landscape, sort_config, fields_config),
             'content_landscape': landscape,
         })
 
@@ -525,7 +688,7 @@ def build_report_context(ssdgps, session, pieces):
     }
 
 
-def render_report_pdf(ssdgps, session, pieces):
+def render_report_pdf(ssdgps, session, pieces, sort_config=None, fields_config=None):
     """Rend le rapport en PDF (bytes). Lève `RuntimeError` si WeasyPrint (ou ses
     bibliothèques natives) n'est pas disponible sur l'environnement d'exécution.
 
@@ -542,7 +705,7 @@ def render_report_pdf(ssdgps, session, pieces):
             f"(GTK/Pango/Cairo). Détail : {exc}"
         ) from exc
 
-    context = build_report_context(ssdgps, session, pieces)
+    context = build_report_context(ssdgps, session, pieces, sort_config, fields_config)
     base = {'header': context['header']}
 
     # Préfixe commun du pied de page : « <titre|réquisition> SD<n> SDGPS N°<i> ».

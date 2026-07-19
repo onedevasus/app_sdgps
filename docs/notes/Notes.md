@@ -2,12 +2,6 @@
 
 
 
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -75,7 +69,49 @@
   - import des donneees des pieces 
     - gestion des ssd-gps mono-session
     - gestion des ssd-gps multi-sessions
-      
+
+
+  - Personnalisation pieces d'un sdgps monosession
+    - ajout des outils des tableaux dans les tableaux de donnees des pieces (fait)
+    - gestion des colonnes de tri des tables des donnees des pieces  (fait).
+    - Personnaliser les templates des champs affichees dans chaque piece qui contient un tableau de donnees.   (fait).
+    - suppression des sessions des sdgps monosessions   (fait)
+    - supprime colonne portee dans tableau de la liste des pieces pour ssdgps monosession   (fait)
+    - ajout enregistrement automatique des donnees lors creation/modification des pieces   (fait)
+
+    - possibilite de masquage de la colonne "N" dans tableau des pieces et l'afficher sous le nom de la piece  (fait)
+    - edition en masse du statut des pieces dans la liste des pieces.  (fait)
+    - restyler les outils modification/reimportation/remplacement des donnees des tables de donnees des pieces dans la page modification/creation en les mettant dans un style et design élégant, pro et conforme au design System de l'app.  (fait)
+
+    - definir le catalogue source des champs pour l'import des donnees pour les pieces. donner la possibilite a l'utilisateur de personnaliser les champs
+
+
+  - Preparation des sdgps multisession exemples
+    - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
+    - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
+    - 
+  - Divers
+    - ajouter une pagination globale des pages dans la partie gauche du pied de page
+    - gestion impression recto verso 
+      - toujours les pages de garde des pieces dans la page droite.
+      - mention d'identification des pages dans la partie gauche du pied de page de la page gauche et dans la partie droite pour les pages droites.
+      - pagination globale des pages du rapport dans la partie droite de la page gauche et dans la partie gauche de la page droite.
+    - gestion impression recto seulement.
+      - mention d'identification des pages dans la partie droite du pied de page
+      - pagination globale des pages du rapport dans la partie gauche du pied de page
+    
+    - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees 
+    - ajouter la colonne ID si manquantes dans les tables des donnnees des pieces.
+    - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
+
+  - Build + Deployement de l'app + Gestion des maj de l'app
+    - 
+
+
+
+
+Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
+
 
 # Rôles de l'application
 
@@ -302,7 +338,7 @@ Je veux maintenant, ajouter les fonctionnalites suivantes dans le tableau de la 
 
 dans le footer du tableau a gauche les outils de filtres (afficher toutes les organisations, Afficher uniquement les organisations selectionnees, filtrer par champs) et dans la partie droite les outils de paginations.
 
-Le tout en s'inspirant tres grandement du tableau deja present dans le code et qui contient toutes ces fonctionnalites (tableau de la "Liste des tranches des grilles tarifaires des corridors" dans la page "/admin/devises-pays" onglet "Grilles Tarifaires") du projet dont le code source est dans le dossier suivant "D:\BOULMANE\SMAHAN BOULMANE\PROJET-ATLAS-OKAN-TRANSFERT" . Le tout dans un style élégant, pro et conforme au design System de l'app.
+Le tout en s'inspirant tres grandement du tableau deja present dans le code et qui contient toutes ces fonctionnalites (tableau de la "Liste des tranches des grilles tarifaires des corridors" dans la page "/admin/devises-pays" onglet "Grilles Tarifaires") du projet dont le code source est dans le dossier suivant "D:\BOULMANE\SMAHAN BOULMANE\PROJET-ATLAS-OKAN-TRANSFERT" . Le tout dans un style et design élégant, pro et conforme au design System de l'app.
 
 #### Prompte n2
 
