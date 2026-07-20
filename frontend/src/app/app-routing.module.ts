@@ -31,42 +31,8 @@ const routes: Routes = [
     loadChildren: () => import('./features/auth/auth.module').then(m => m.AuthModule)
   },
   
-  // Routes Dashboard Utilisateur Normal
-  {
-    path: 'dashboard',
-    component: DashboardLayoutComponent,
-    children: [
-      {
-        path: '',
-        redirectTo: 'home',
-        pathMatch: 'full'
-      },
-      {
-        path: 'home',
-        component: PlaceholderComponent,
-        data: { title: 'Tableau de bord' }
-      },
-      {
-        path: 'mes-projets',
-        component: PlaceholderComponent,
-        data: { title: 'Mes Projets' }
-      },
-      {
-        // Feature Projets (Phase 5) accessible aux Agents d'organisation.
-        path: 'projets',
-        loadChildren: () => import('./features/projects/projects.module').then(m => m.ProjectsModule),
-        data: { title: 'Projets' }
-      },
-      {
-        // Profil accessible à TOUT opérateur authentifié (hors AdminGuard).
-        path: 'profile',
-        loadChildren: () => import('./features/profile/profile.module').then(m => m.ProfileModule),
-        data: { title: 'Mon Profil' }
-      }
-    ]
-  },
-
-  // Routes Admin (protégées par guard)
+  // Routes Admin (protégées par guard) — déclarées AVANT le groupe opérateur (path '')
+  // afin d'être appariées en priorité (un groupe à path vide masquerait sinon /admin/**).
   {
     path: 'admin',
     component: DashboardLayoutComponent,
@@ -109,9 +75,17 @@ const routes: Routes = [
       },
       {
         // Paramètres → Descriptions des champs de pièces (App Admin uniquement).
+        // NB : doit rester AVANT le module `parametres` (route exacte prioritaire).
         path: 'parametres/descriptions-champs',
         component: PieceFieldDescriptionsComponent,
         data: { title: 'Descriptions des champs de pièces' }
+      },
+      {
+        // Paramètres (tri + champs des pièces) — sorti de `profile/` pour ne plus afficher
+        // « Mon profil » dans le fil d'Ariane. URL : /admin/parametres/…
+        path: 'parametres',
+        loadChildren: () => import('./features/parametres/parametres.module').then(m => m.ParametresModule),
+        data: { title: 'Paramètres' }
       },
       {
         path: 'utilisateurs',
@@ -202,10 +176,50 @@ const routes: Routes = [
     ]
   },
 
-  // Route pour page non trouvée
+  // Routes Opérateur d'organisation — servies à la RACINE (sans préfixe « dashboard »).
   {
-    path: '**',
-    redirectTo: '/dashboard'
+    path: '',
+    component: DashboardLayoutComponent,
+    children: [
+      {
+        path: '',
+        redirectTo: 'home',
+        pathMatch: 'full'
+      },
+      {
+        path: 'home',
+        component: PlaceholderComponent,
+        data: { title: 'Tableau de bord' }
+      },
+      {
+        path: 'mes-projets',
+        component: PlaceholderComponent,
+        data: { title: 'Mes Projets' }
+      },
+      {
+        // Feature Projets (Phase 5) accessible aux Agents d'organisation.
+        path: 'projets',
+        loadChildren: () => import('./features/projects/projects.module').then(m => m.ProjectsModule),
+        data: { title: 'Projets' }
+      },
+      {
+        // Profil accessible à TOUT opérateur authentifié (hors AdminGuard).
+        path: 'profile',
+        loadChildren: () => import('./features/profile/profile.module').then(m => m.ProfileModule),
+        data: { title: 'Mon Profil' }
+      },
+      {
+        // Paramètres (tri + champs des pièces) — URL /parametres/… (sans « profile/ »).
+        path: 'parametres',
+        loadChildren: () => import('./features/parametres/parametres.module').then(m => m.ParametresModule),
+        data: { title: 'Paramètres' }
+      },
+      {
+        // Sous-chemin opérateur inconnu → accueil (évite de dépendre du backtracking du path vide).
+        path: '**',
+        redirectTo: 'home'
+      }
+    ]
   }
 ];
 

@@ -336,11 +336,106 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-colo
     font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
     i { font-size: 12px; opacity: 0.7; } &:hover { background: var(--hover-bg); border-color: var(--accent-color); color: var(--accent-color); i { opacity: 1; } } }
 }
-.footer-buttons { display: flex; gap: 8px; flex-shrink: 0;
-  .btn-cancel { padding: 8px 20px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--secondary-color); color: var(--text-color);
-    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 7px;
-    &:hover { background: var(--hover-bg); border-color: #e74c3c; color: #e74c3c; } }
-  .btn-confirm { padding: 8px 22px; border: none; border-radius: 6px; background: linear-gradient(135deg, var(--accent-color), #b84949); color: #fff;
-    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 2px 8px rgba(204, 88, 88, 0.3);
-    &:hover { box-shadow: 0 4px 14px rgba(204, 88, 88, 0.45); transform: translateY(-1px); } }
+.footer-buttons { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* ===== Boutons d'action des modales — style partagé =====
+   S'applique aux trois conteneurs : « Organiser les colonnes » (.footer-buttons),
+   footer du panneau de tri (.modal-footer) et confirmation de réinitialisation
+   (.confirm-actions). Auparavant seuls les boutons de .footer-buttons étaient
+   stylés, laissant « Fermer » et les boutons de « Réinitialiser le tri ? » bruts. */
+.footer-buttons .btn-cancel,
+.modal-footer .btn-cancel,
+.confirm-actions .btn-cancel {
+  padding: 9px 20px; border: 1px solid var(--border-color); border-radius: 8px;
+  background: var(--secondary-color); color: var(--text-color);
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1;
+  &:hover:not(:disabled) { background: var(--hover-bg); border-color: var(--accent-color); color: var(--accent-color); }
+  &:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
+
+.footer-buttons .btn-confirm,
+.modal-footer .btn-confirm,
+.confirm-actions .btn-confirm {
+  padding: 9px 22px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-color), #b84949); color: #fff;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1;
+  box-shadow: 0 2px 8px rgba(204, 88, 88, 0.3);
+  &:hover:not(:disabled) { box-shadow: 0 6px 16px rgba(204, 88, 88, 0.45); transform: translateY(-1px); filter: brightness(1.05); }
+  &:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(204, 88, 88, 0.3); filter: none; }
+  &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; filter: none; }
+}
+
+/* ===== Marqueurs de tri multi-niveaux sur les en-têtes ===== */
+.modern-table thead th.sortable.is-sorted { color: var(--accent-color); }
+.sort-badge {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: 6px;
+  padding: 1px 6px 1px 4px; border-radius: 20px;
+  background: rgba(204, 88, 88, 0.14); border: 1px solid rgba(204, 88, 88, 0.35);
+  color: var(--accent-color); font-size: 10.5px; font-weight: 700; vertical-align: middle;
+  .sort-rank { line-height: 1; }
+  i { margin-left: 0; opacity: 1; font-size: 10px; }
+}
+.level-toolbar .icon-tool.active { color: var(--accent-color); background: rgba(204, 88, 88, 0.12); border-color: rgba(204, 88, 88, 0.35); }
+
+/* ===== Panneau de configuration du tri multi-niveaux ===== */
+.modal-content.sort-config-panel { max-width: 620px; }
+.modal-content.confirm-panel { max-width: 460px; padding: 22px 24px;
+  h3 { margin: 0 0 12px; font-size: 16px; font-weight: 700; color: var(--text-color); display: flex; align-items: center; gap: 9px; i { color: var(--accent-color); } }
+  p { margin: 0 0 20px; font-size: 13.5px; line-height: 1.55; color: var(--text-muted); }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+}
+
+.sort-config-panel {
+  .panel-hint { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  .sort-autosave {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 16px;
+    .spacer { flex: 1 1 auto; }
+    > span:first-child {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 500;
+      border: 1px solid var(--border-color); background: var(--hover-bg, rgba(0,0,0,0.03)); color: var(--text-muted);
+    }
+    .saved { color: #16a34a; background: rgba(22, 163, 74, 0.08); border-color: rgba(22, 163, 74, 0.25); }
+  }
+  .btn-reset-source {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-weight: 600; border: 1px solid var(--border-color); background: var(--secondary-color); color: var(--text-color);
+    transition: all 0.15s; i { color: var(--accent-color); }
+    &:hover:not(:disabled) { background: rgba(204, 88, 88, 0.06); border-color: rgba(204, 88, 88, 0.4); color: var(--accent-color); }
+    &:disabled { opacity: 0.6; cursor: default; }
+  }
+
+  .sort-levels-empty { color: var(--text-muted); font-size: 13px; margin-bottom: 12px; i { margin-right: 6px; } }
+  .sort-levels { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .sort-level {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--primary-color);
+    .level-badge {
+      flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--accent-color); color: #fff; font-size: 12px; font-weight: 700;
+    }
+    select { padding: 7px 9px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--secondary-color); color: var(--text-color); font-size: 13px; }
+    .level-field { flex: 1 1 auto; }
+    .level-dir { flex: 0 0 auto; }
+    .level-actions { display: inline-flex; gap: 4px; margin-left: auto;
+      button { width: 28px; height: 28px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--border-color); background: var(--secondary-color); color: var(--text-muted); font-size: 11px; transition: all 0.15s;
+        &:hover:not(:disabled) { border-color: var(--accent-color); color: var(--accent-color); }
+        &.danger:hover { border-color: #e74c3c; color: #e74c3c; }
+        &:disabled { opacity: 0.35; cursor: not-allowed; } }
+    }
+  }
+  .btn-add-level {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+    background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); font-size: 12.5px; font-weight: 600; transition: all 0.15s;
+    &:hover:not(:disabled) { border-color: var(--accent-color); color: var(--accent-color); background: rgba(204, 88, 88, 0.05); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+}
+.sort-config-panel .modal-footer .sort-summary { font-size: 12.5px; color: var(--text-muted); font-weight: 600; display: inline-flex; align-items: center; gap: 7px; i { color: var(--accent-color); } }

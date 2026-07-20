@@ -2,6 +2,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -82,31 +84,50 @@
     - possibilite de masquage de la colonne "N" dans tableau des pieces et l'afficher sous le nom de la piece  (fait)
     - edition en masse du statut des pieces dans la liste des pieces.  (fait)
     - restyler les outils modification/reimportation/remplacement des donnees des tables de donnees des pieces dans la page modification/creation en les mettant dans un style et design élégant, pro et conforme au design System de l'app.  (fait)
+    - definir le catalogue source des champs pour l'import des donnees pour les pieces.    (fait)
+    - donner la possibilite a l'utilisateur de personnaliser les champs  (fait)
 
-    - definir le catalogue source des champs pour l'import des donnees pour les pieces. donner la possibilite a l'utilisateur de personnaliser les champs
+  - Personnalisation du tableau de la liste des ssdgps
+    - ajoute fonctionnalite tri multi-niveau dans le tableau de la liste des ssdgps        (fait)
+       - tri pardefaut herite/reinitialisee depuis celui du compte superadmin              (fait)
+       - possibilite a l'utilisateur connectee de modifier la config du tri multi-niveau   (fait)
+       - marquer les niveaux + le sens du tri multi-niveau  dans les colonnes du tableau   (fait)
 
 
   - Preparation des sdgps multisession exemples
     - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
     - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
     - 
-  - Divers
-    - ajouter une pagination globale des pages dans la partie gauche du pied de page
-    - gestion impression recto verso 
-      - toujours les pages de garde des pieces dans la page droite.
-      - mention d'identification des pages dans la partie gauche du pied de page de la page gauche et dans la partie droite pour les pages droites.
-      - pagination globale des pages du rapport dans la partie droite de la page gauche et dans la partie gauche de la page droite.
-    - gestion impression recto seulement.
-      - mention d'identification des pages dans la partie droite du pied de page
-      - pagination globale des pages du rapport dans la partie gauche du pied de page
-    
+
+
+  - Divers:
     - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees 
     - ajouter la colonne ID si manquantes dans les tables des donnnees des pieces.
     - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
 
-  - Build + Deployement de l'app + Gestion des maj de l'app
+
+  - Finaliser l'interface grphique UI/UX
+    - Page de profile de l'utilisateur connectee (fait)
+    - Pages de connexion + reinitialisation des mdp + creation du compte  (fait)
+    - breadcrumb dans topbar   (fait)
+    - corriger fil d'arian et url de l'entree parametres et ces sous entrees. (fait)
+    - Implementation de la page accueil "/home" pour les utilisateurs dont role est agent d'organisation (operateur)
+
+
+
+  - Plan de deployement
+    - Generer plan de deployement dans "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps\docs\plans\plans_claude_code"
+      - inclure phase de resolution les problemes de securite
+      - 
+      - inclure phase de maj de l'app web apres deploiement et production
+      
+    - executer plan de deployement
+
+
+
     - 
 
+ 
 
 
 

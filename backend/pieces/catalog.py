@@ -40,8 +40,18 @@ _REQUIRED_FIELDS = {
 
 
 def required_field_names(type_piece: str) -> set:
-    """Ensemble des noms de champs bruts OBLIGATOIRES (verrouillés) d'un type."""
-    return set(_REQUIRED_FIELDS.get(type_piece, set()))
+    """Ensemble des noms de champs bruts OBLIGATOIRES (verrouillés) d'un type.
+
+    Source de vérité = base (PieceFieldMeta.required), éditable par l'App Admin. Repli sur
+    les valeurs statiques `_REQUIRED_FIELDS` uniquement si la table n'est pas disponible
+    (avant migration / tests sans base). Une fois la donnée seedée, la base fait foi (l'admin
+    peut donc retirer un champ de la liste, y compris jusqu'à aucun)."""
+    try:
+        from .models import PieceFieldMeta
+        return set(PieceFieldMeta.objects.filter(type_piece=type_piece, required=True)
+                   .values_list('field_name', flat=True))
+    except Exception:
+        return set(_REQUIRED_FIELDS.get(type_piece, set()))
 
 
 # --- Schémas de colonnes, issus tels quels du classeur -------------------------
@@ -263,7 +273,10 @@ def _field_meta_map() -> dict:
     try:
         from .models import PieceFieldMeta
         return {
-            (m.type_piece, m.field_name): {'description': m.description or '', 'tooltip': m.tooltip or ''}
+            (m.type_piece, m.field_name): {
+                'description': m.description or '', 'tooltip': m.tooltip or '',
+                'required': bool(m.required),
+            }
             for m in PieceFieldMeta.objects.all()
         }
     except Exception:
@@ -274,13 +287,13 @@ def _champs_with_meta(code: str, champs: list, meta: dict) -> list:
     """Copie des champs enrichie des clés `description` / `tooltip` (métadonnées communes,
     éditées par l'App Admin) ; valeurs vides si aucune description n'est enregistrée.
     Préserve la clé `custom` si présente (champ ajouté par l'admin). Ajoute `required`
-    (champ verrouillé, non désactivable dans la vue « Import des données »)."""
-    req = required_field_names(code)
+    (champ verrouillé, non désactivable dans la vue « Import des données ») lu depuis la base
+    (PieceFieldMeta.required, éditable par l'App Admin)."""
     out = []
     for c in champs:
         m = meta.get((code, c['name']), {})
         out.append({**c, 'description': m.get('description', ''), 'tooltip': m.get('tooltip', ''),
-                    'custom': bool(c.get('custom')), 'required': c['name'] in req})
+                    'custom': bool(c.get('custom')), 'required': bool(m.get('required'))})
     return out
 
 

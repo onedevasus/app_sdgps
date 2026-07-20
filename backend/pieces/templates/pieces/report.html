@@ -47,6 +47,20 @@
     @top-center { content: element(chead2); vertical-align: top; padding-top: 5mm; }
     @bottom-center { width: {% if piece.content_landscape %}287mm{% else %}200mm{% endif %}; }
   }
+{% if duplex %}
+  /* Recto-verso : l'identification du pied de page bascule côté EXTÉRIEUR — à gauche sur
+     une page gauche (paire), à droite sur une page droite (impaire). La pagination globale
+     « Page i/n » est superposée côté intérieur en Python. Les variantes nommées
+     (contenu/contenu2) doublent la règle générique au cas où `@page :left/:right` ne se
+     propagerait pas aux pages nommées de contenu. Le calage par pages blanches (report.py)
+     garantit que la parité interne de chaque sous-document = la parité globale. */
+  @page :left        { @bottom-center { text-align: left; } }
+  @page :right       { @bottom-center { text-align: right; } }
+  @page contenu:left  { @bottom-center { text-align: left; } }
+  @page contenu:right { @bottom-center { text-align: right; } }
+  @page contenu2:left  { @bottom-center { text-align: left; } }
+  @page contenu2:right { @bottom-center { text-align: right; } }
+{% endif %}
 
   * { box-sizing: border-box; }
   html { font-family: "URW Bookman", "Bookman Old Style", "Bookman", "Times New Roman", serif; }

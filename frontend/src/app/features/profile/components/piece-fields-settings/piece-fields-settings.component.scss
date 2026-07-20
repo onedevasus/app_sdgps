@@ -183,6 +183,27 @@
 
   /* Vue « import » = source : liseré accentué pour la distinguer. */
   &.view-import { border-color: rgba(204, 88, 88, 0.4); box-shadow: inset 3px 0 0 var(--accent-color, #cc5858); }
+
+  .view-admin-hint {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 10px;
+    font-size: 11.5px; color: var(--text-muted, #6b7280); line-height: 1.4;
+    padding: 6px 9px; border-radius: 8px; background: rgba(204, 88, 88, 0.07);
+    border: 1px dashed rgba(204, 88, 88, 0.3);
+    i { color: var(--accent-color, #cc5858); }
+  }
+}
+
+/* Bouton admin : (dé)verrouiller un champ obligatoire (vue import). */
+.field-actions .btn-required {
+  width: 28px; height: 28px; border-radius: 7px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-color, #d1d5db); background: var(--secondary-color, #fff);
+  color: var(--text-muted, #6b7280); font-size: 11px; transition: all 0.15s;
+  &:hover { border-color: var(--accent-color, #cc5858); color: var(--accent-color, #cc5858); background: rgba(204, 88, 88, 0.06); }
+  &.on {
+    border-color: var(--accent-color, #cc5858); color: #fff; background: var(--accent-color, #cc5858);
+    &:hover { filter: brightness(1.05); }
+  }
 }
 
 .piece-fields-version {

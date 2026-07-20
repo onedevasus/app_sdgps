@@ -226,11 +226,68 @@ class PieceViewSet(viewsets.ModelViewSet):
                 description = (meta.get('description') or '').strip()
                 tooltip = (meta.get('tooltip') or '').strip()[:255]
                 if not description and not tooltip:
-                    PieceFieldMeta.objects.filter(type_piece=type_piece, field_name=field_name).delete()
+                    # Ne pas supprimer une ligne marquée obligatoire (le flag `required` est géré
+                    # par l'écran « Champs par défaut ») : on vide seulement description/infobulle.
+                    obj = PieceFieldMeta.objects.filter(type_piece=type_piece, field_name=field_name).first()
+                    if obj and obj.required:
+                        if obj.description or obj.tooltip:
+                            obj.description = ''
+                            obj.tooltip = ''
+                            obj.save(update_fields=['description', 'tooltip'])
+                    elif obj:
+                        obj.delete()
                 else:
+                    # `required` n'est PAS dans `defaults` → préservé sur une ligne existante.
                     PieceFieldMeta.objects.update_or_create(
                         type_piece=type_piece, field_name=field_name,
                         defaults={'description': description, 'tooltip': tooltip})
+        return Response(serialize_catalog())
+
+    @action(detail=False, methods=['put'], url_path='required-fields')
+    def required_fields(self, request):
+        """PUT /api/v1/pieces/required-fields/
+
+        Champs OBLIGATOIRES (verrouillés) de la vue « Import des données » par type de pièce.
+        Contenu COMMUN à tous, éditable UNIQUEMENT par le rôle App Admin (ROLE_ADMIN_SYSTEME /
+        super-admin). Persistés dans PieceFieldMeta.required.
+
+        Corps : `{ '<TYPE>': ['<field_name>', ...] }` — pour chaque type, l'ENSEMBLE EXACT des
+        champs bruts obligatoires (les absents repassent non obligatoires). Seuls les champs
+        bruts effectifs (statiques + personnalisés) sont acceptés. Renvoie le catalogue à jour.
+        """
+        user = request.user
+        if not (user.is_superuser or getattr(user, 'is_platform_admin', lambda: False)()):
+            raise PermissionDenied("Réservé à l'administrateur de l'application.")
+
+        from .models import PieceFieldMeta
+        from .catalog import effective_champs
+        data = request.data or {}
+        if not isinstance(data, dict):
+            return Response({'detail': "Un objet { type: [field, ...] } est attendu."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        for type_piece, names in data.items():
+            try:
+                get_piece_def(type_piece)
+            except KeyError:
+                return Response({'detail': f"Type de pièce inconnu : « {type_piece} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if not isinstance(names, list):
+                return Response({'detail': f"Liste de champs attendue pour « {type_piece} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            valid = {c['name'] for c in effective_champs(type_piece)}
+            wanted = {n for n in names if isinstance(n, str) and n in valid}
+            # Marque obligatoires les champs voulus (upsert).
+            for field_name in wanted:
+                PieceFieldMeta.objects.update_or_create(
+                    type_piece=type_piece, field_name=field_name, defaults={'required': True})
+            # Retire l'obligation des autres (et nettoie les lignes devenues vides).
+            for obj in PieceFieldMeta.objects.filter(type_piece=type_piece, required=True).exclude(field_name__in=wanted):
+                if obj.description or obj.tooltip:
+                    obj.required = False
+                    obj.save(update_fields=['required'])
+                else:
+                    obj.delete()
         return Response(serialize_catalog())
 
     @action(detail=False, methods=['post'])
@@ -1137,11 +1194,16 @@ class PieceViewSet(viewsets.ModelViewSet):
             return Response(
                 {'detail': 'Aucune pièce valide à inclure dans le rapport.'}, status=400)
 
+        # Mode d'impression : recto-verso (calage des pages de garde sur page droite +
+        # pied de page en miroir) si `duplex` vaut 1/true, recto seul sinon.
+        duplex = str(request.query_params.get('duplex', '')).strip().lower() in ('1', 'true', 'yes')
+
         try:
             sort_config = getattr(request.user, 'piece_sort_config', None) or {}
             fields_config = getattr(request.user, 'piece_fields_config', None) or {}
             pdf_bytes = render_report_pdf(ssdgps, session, pieces,
-                                          sort_config=sort_config, fields_config=fields_config)
+                                          sort_config=sort_config, fields_config=fields_config,
+                                          duplex=duplex)
         except RuntimeError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_501_NOT_IMPLEMENTED)
 

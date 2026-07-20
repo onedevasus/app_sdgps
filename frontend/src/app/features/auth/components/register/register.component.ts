@@ -2,6 +2,7 @@ import {Component, OnInit} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {AuthService} from '../../../../core/auth/auth.service'; // Ajuste le chemin si nécessaire
 import {Router} from '@angular/router'; // Pour la redirection après inscription
+import {LayoutService} from '../../../../core/layout/services/layout.service'; // Bascule thème clair/sombre
 
 @Component({
     selector: 'app-register',
@@ -34,7 +35,8 @@ export class RegisterComponent implements OnInit {
     constructor(
         private fb: FormBuilder, // Injecte FormBuilder pour créer des contrôles de formulaire
         private authService: AuthService, // Injecte AuthService pour la logique d'authentification
-        private router: Router // Injecte Router pour la navigation
+        private router: Router, // Injecte Router pour la navigation
+        public layout: LayoutService // Bascule de thème (applique aussi le thème sauvegardé)
     ) {
     }
 

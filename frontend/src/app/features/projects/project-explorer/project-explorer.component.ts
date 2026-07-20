@@ -1,8 +1,11 @@
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Observable, forkJoin } from 'rxjs';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Observable, forkJoin, Subscription } from 'rxjs';
+import { skip } from 'rxjs/operators';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { ProjectsService } from '../../../core/services/projects.service';
+import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.service';
+import { BreadcrumbItem } from '../../../core/layout/interfaces/menu.interface';
 import { OrganismeService } from '../../../core/services/organisme.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { OrganismeNiveau1, OrganismeNiveau2 } from '../../../core/models/organisme.model';
@@ -123,6 +126,7 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   readonly typeSsdgpsOptions = TYPE_SSDGPS_OPTIONS;
 
   private boundHandleClickOutside!: (event: Event) => void;
+  private qpSub?: Subscription;
 
   projet: Projet | null = null;
   level: Level = 'propriete';
@@ -245,6 +249,7 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
     private router: Router,
     private toast: ToastService,
     private fb: FormBuilder,
+    private breadcrumb: BreadcrumbService,
   ) {}
 
   ngOnInit(): void {
@@ -253,17 +258,60 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
     document.addEventListener('click', this.boundHandleClickOutside);
 
     const id = this.route.snapshot.paramMap.get('id')!;
-    const proprieteId = this.route.snapshot.queryParamMap.get('proprieteId');
-    const affaireId = this.route.snapshot.queryParamMap.get('affaireId');
-    const ssdgpsId = this.route.snapshot.queryParamMap.get('ssdgpsId');
     this.service.getProjet(id).subscribe({
       next: (p) => {
         this.projet = p;
-        if (proprieteId && affaireId && ssdgpsId) this.restoreToSessionLevel(proprieteId, affaireId, ssdgpsId);
-        else if (proprieteId && affaireId) this.restoreToSsdgpsLevel(proprieteId, affaireId);
-        else this.goToLevel('propriete');
+        // Niveau initial déduit des query params (forcé : on applique même si « vide »).
+        this.applyQueryParams(this.route.snapshot.queryParamMap, true);
+        // Réagir aux CHANGEMENTS de query params sur la MÊME route : c'est ce qui rend
+        // cliquables les crumps du fil du topbar (projet / propriété / affaire / SSDGPS),
+        // l'URL de l'explorateur restant `:id`. `skip(1)` ignore l'émission initiale
+        // (déjà traitée) ; le garde d'idempotence évite tout double chargement.
+        this.qpSub = this.route.queryParamMap.pipe(skip(1)).subscribe(qp => this.applyQueryParams(qp, false));
       },
       error: () => { this.toast.error('Erreur', 'Projet introuvable'); this.backToList(); },
+    });
+  }
+
+  /**
+   * Restaure le niveau de l'explorateur d'après les query params (propriété/affaire/SSDGPS).
+   * `force` = true pour l'application initiale ; sinon un garde d'idempotence évite de
+   * recharger quand les params correspondent déjà à l'état courant (ex. URL synchronisée par
+   * nous-mêmes après une navigation par carte / fil interne).
+   */
+  private applyQueryParams(qp: ParamMap, force: boolean): void {
+    const proprieteId = qp.get('proprieteId');
+    const affaireId = qp.get('affaireId');
+    const ssdgpsId = qp.get('ssdgpsId');
+    if (!force && this.matchesCurrentState(proprieteId, affaireId, ssdgpsId)) return;
+    if (proprieteId && affaireId && ssdgpsId) this.restoreToSessionLevel(proprieteId, affaireId, ssdgpsId);
+    else if (proprieteId && affaireId) this.restoreToSsdgpsLevel(proprieteId, affaireId);
+    else if (proprieteId) this.restoreToAffaireLevel(proprieteId);
+    else this.goToLevel('propriete');
+  }
+
+  /** Vrai si les query params correspondent déjà au niveau/chaîne courant. */
+  private matchesCurrentState(proprieteId: string | null, affaireId: string | null, ssdgpsId: string | null): boolean {
+    return (proprieteId || null) === (this.chain.propriete?.id || null)
+        && (affaireId || null) === (this.chain.affaire?.id || null)
+        && (ssdgpsId || null) === (this.chain.ssdgps?.id || null);
+  }
+
+  /**
+   * Aligne l'URL (query params) sur le niveau/chaîne courant. Appelé à CHAQUE changement de
+   * niveau (cartes, fil interne, restauration) → l'URL reflète toujours la position, ce qui
+   * rend TOUS les crumps du fil du topbar réellement navigables quel que soit le niveau.
+   */
+  private syncUrlToState(): void {
+    if (!this.projet) return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        proprieteId: this.chain.propriete?.id ?? null,
+        affaireId: this.chain.affaire?.id ?? null,
+        ssdgpsId: this.chain.ssdgps?.id ?? null,
+      },
+      replaceUrl: true,
     });
   }
 
@@ -289,6 +337,25 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
           },
           error: () => this.goToLevel('propriete'),
         });
+      },
+      error: () => this.goToLevel('propriete'),
+    });
+  }
+
+  /**
+   * Restaure la chaîne jusqu'au niveau AFFAIRE (liste des affaires d'une propriété) — utilisé
+   * quand on clique le crumb « propriété » du fil du topbar depuis une page pièces.
+   */
+  private restoreToAffaireLevel(proprieteId: string): void {
+    this.service.getProprietes(this.projet!.id).subscribe({
+      next: (proprietes) => {
+        const propriete = proprietes.find(p => p.id === proprieteId);
+        if (!propriete) { this.goToLevel('propriete'); return; }
+        this.chain = { propriete };
+        this.level = 'affaire';
+        this.showDeleted = false;
+        this.resetLevelState();
+        this.loadLevel();
       },
       error: () => this.goToLevel('propriete'),
     });
@@ -331,6 +398,8 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.breadcrumb.clear();
+    this.qpSub?.unsubscribe();
     if (this.boundHandleClickOutside) document.removeEventListener('click', this.boundHandleClickOutside);
   }
 
@@ -354,6 +423,55 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
     this.displayMode = 'all';
     this.clearFieldFilter();
     this.closeAllContextMenus();
+    this.updateTopbarBreadcrumb();
+    // L'URL doit TOUJOURS refléter le niveau/chaîne courant, y compris après une navigation
+    // interne (cartes, fil d'Ariane interne). Sans cela, les crumps du fil du topbar pointant
+    // vers le même état (ex. « projet en cours ») ne déclenchent aucune navigation → clic sans
+    // effet. La synchronisation rend ainsi tous les crumps réellement cliquables quel que soit
+    // le niveau. Idempotent : re-synchroniser vers les mêmes params est un no-op (cf. `qpSub`).
+    this.syncUrlToState();
+  }
+
+  /**
+   * Publie le fil d'Ariane MÉTIER dans le topbar : Accueil › Projets › <Projet> › …chaîne
+   * (Propriété/Affaire/SSDGPS)… › <niveau courant>. Les crumbs de la chaîne sont affichés
+   * (non cliquables) ; la navigation dans l'explorateur reste assurée par son fil interne.
+   */
+  private updateTopbarBreadcrumb(): void {
+    if (!this.projet) return;
+    const base = this.router.url.startsWith('/admin') ? '/admin/projets' : '/projets';
+    const projRoute = `${base}/${this.projet.id}`;
+    const propId = this.chain.propriete?.id;
+    const affId = this.chain.affaire?.id;
+    const ssId = this.chain.ssdgps?.id;
+
+    // Les crumps de niveau pointent vers `:id` + query params : l'explorateur réagit à ces
+    // changements (cf. `applyQueryParams`) et restaure le bon niveau sans quitter la page.
+    const trail: BreadcrumbItem[] = [
+      { label: 'Accueil', route: '/home', icon: 'fa-house' },
+      { label: 'Projets', route: base, icon: 'fa-folder-open' },
+      { label: this.projet.nom_projet || this.projet.code_projet, icon: 'fa-diagram-project', route: projRoute },
+    ];
+    if (this.chain.propriete) {
+      trail.push({
+        label: this.proprieteBreadcrumbLabel(this.chain.propriete), icon: 'fa-map-marker-alt',
+        route: projRoute, queryParams: { proprieteId: propId },
+      });
+    }
+    if (this.chain.affaire) {
+      trail.push({
+        label: `SD ${this.chain.affaire.numero_sd_affaire}`, icon: 'fa-file-signature',
+        route: projRoute, queryParams: { proprieteId: propId, affaireId: affId },
+      });
+    }
+    if (this.chain.ssdgps) {
+      trail.push({
+        label: `SSDGPS ${this.chain.ssdgps.numero_ssdgps}`, icon: 'fa-satellite-dish',
+        route: projRoute, queryParams: { proprieteId: propId, affaireId: affId, ssdgpsId: ssId },
+      });
+    }
+    trail.push({ label: this.levelTitle, icon: this.levelIcon(), isActive: true });
+    this.breadcrumb.set(trail);
   }
 
   goToLevel(level: Level): void {
@@ -498,7 +616,21 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
   formatDate(value: any): string {
     if (!value) return '—';
-    return new Date(value).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    return new Date(value).toLocaleString('fr-FR', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  }
+
+  /** Convertit une valeur ISO du backend vers le format attendu par un
+   * `<input type="datetime-local" step="1">` (« YYYY-MM-DDTHH:mm:ss », heure locale). */
+  private toDatetimeLocal(value: any): string | null {
+    if (!value) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+      `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
   // --- Recherche, filtre, tri & sélection ---
@@ -766,7 +898,7 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
           numero_sd_affaire: [item?.numero_sd_affaire ?? null, Validators.required],
           nature_procedure_affaire: [item?.nature_procedure_affaire || '', Validators.required],
           nature_affaire: [item?.nature_affaire || '', Validators.required],
-          date_bornage: [item?.date_bornage || null],
+          date_bornage: [this.toDatetimeLocal(item?.date_bornage)],
         });
         this.onProcedureChange(item?.nature_procedure_affaire || '');
         this.form.get('nature_procedure_affaire')!.valueChanges.subscribe(v => this.onProcedureChange(v));
@@ -781,7 +913,7 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
       case 'session':
         this.form = this.fb.group({
           numero_session: [item?.numero_session ?? null, Validators.required],
-          date_session: [item?.date_session || null],
+          date_session: [this.toDatetimeLocal(item?.date_session)],
         });
         break;
     }

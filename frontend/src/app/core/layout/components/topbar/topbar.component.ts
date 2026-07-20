@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { LayoutService } from '../../services/layout.service';
+import { BreadcrumbService } from '../../services/breadcrumb.service';
 import { UserProfile, BreadcrumbItem, ThemeMode, SidebarState } from '../../interfaces/menu.interface';
 import { Observable } from 'rxjs';
 import { Router, NavigationEnd } from '@angular/router';
@@ -18,8 +19,13 @@ export class TopBarComponent implements OnInit {
   breadcrumbs: BreadcrumbItem[] = [];
   showUserMenu = false;
 
+  // Fil d'Ariane métier fourni par les pages (null → repli URL). Le rendu = trail ?? repli.
+  private domainTrail: BreadcrumbItem[] | null = null;
+  private urlFallback: BreadcrumbItem[] = [];
+
   constructor(
     private layoutService: LayoutService,
+    private breadcrumbService: BreadcrumbService,
     private router: Router
   ) {
     this.userProfile$ = this.layoutService.userProfile$;
@@ -28,12 +34,33 @@ export class TopBarComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Mettre à jour le breadcrumb à chaque navigation
+    // Repli déduit de l'URL, recalculé à chaque navigation.
+    this.urlFallback = this.buildUrlFallback();
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
-      this.updateBreadcrumb();
+      this.urlFallback = this.buildUrlFallback();
+      this.renderBreadcrumb();
     });
+
+    // Fil métier prioritaire, publié par les pages via le BreadcrumbService.
+    this.breadcrumbService.trail$.subscribe(trail => {
+      this.domainTrail = trail;
+      this.renderBreadcrumb();
+    });
+  }
+
+  /** Le fil affiché = fil métier s'il existe, sinon repli URL. */
+  private renderBreadcrumb(): void {
+    let trail = this.domainTrail ?? this.urlFallback;
+    // Dans TOUTES les sections du menu latéral (Projets, Paramètres, Utilisateurs…), on masque
+    // le crumb « Accueil » de tête : la section courante et sa hiérarchie se suffisent à elles-
+    // mêmes. On le conserve uniquement sur la page d'accueil elle-même (fil réduit à « Accueil »,
+    // longueur 1). `slice(1)` ne mute pas le tableau source (fil publié par la page).
+    if (trail.length > 1 && trail[0].icon === 'fa-house') {
+      trail = trail.slice(1);
+    }
+    this.breadcrumbs = trail;
   }
 
   /**
@@ -71,9 +98,9 @@ export class TopBarComponent implements OnInit {
     console.log('👤 Navigation vers profil');
     this.closeUserMenu();
     // `/admin/profile` est protégé par l'AdminGuard (Super Admin / Admin Système / Admin
-    // Org). Un opérateur (agent) y est refusé → renvoyé vers /dashboard/home. On route donc
-    // les non-admins vers `/dashboard/profile` (même page, hors AdminGuard).
-    const path = this.isAdminUser() ? '/admin/profile' : '/dashboard/profile';
+    // Org). Un opérateur (agent) y est refusé → renvoyé vers /home. On route donc
+    // les non-admins vers `/profile` (même page, hors AdminGuard).
+    const path = this.isAdminUser() ? '/admin/profile' : '/profile';
     setTimeout(() => { this.router.navigate([path]); }, 100);
   }
 
@@ -108,41 +135,53 @@ export class TopBarComponent implements OnInit {
   }
 
   /**
-   * Mettre à jour le fil d'Ariane selon l'URL courante
+   * Construit le fil d'Ariane de REPLI à partir de l'URL (pages hors hiérarchie métier).
+   * Un unique point de départ « Accueil » (icône maison) → tableau de bord, suivi de la
+   * section courante. Les segments « techniques » (dashboard/home, UUID) sont ignorés.
    */
-  private updateBreadcrumb(): void {
-    const url = this.router.url;
-    const segments = url.split('/').filter(segment => segment);
-    
-    this.breadcrumbs = [
-      { label: 'Accueil', route: '/dashboard', isActive: segments.length === 0 }
+  private buildUrlFallback(): BreadcrumbItem[] {
+    const path = this.router.url.split('?')[0].split('#')[0];
+    const segments = path.split('/').filter(s => s);
+
+    const items: BreadcrumbItem[] = [
+      { label: 'Accueil', route: '/home', icon: 'fa-house' }
     ];
 
-    let currentPath = '';
-    segments.forEach((segment, index) => {
-      currentPath += '/' + segment;
-      
-      // Mapper les segments d'URL vers des labels lisibles
-      const labelMap: { [key: string]: string } = {
-        'dashboard': 'Tableau de bord',
-        'admin': 'Administration',
-        'organisations': 'Organisations',
-        'utilisateurs': 'Utilisateurs',
-        'logs-audit': 'Logs',
-        'supervision': 'Supervision',
-        'quotas': 'Quotas',
-        'maintenance': 'Maintenance',
-        'mes-projets': 'Mes Projets'
-      };
+    const labelMap: { [key: string]: string } = {
+      'admin': 'Administration',
+      'projets': 'Projets',
+      'mes-projets': 'Mes projets',
+      'organisations': 'Organisations',
+      'organismes': 'Organismes',
+      'utilisateurs': 'Utilisateurs',
+      'logs-audit': "Journaux d'audit",
+      'supervision': 'Supervision',
+      'quotas': 'Quotas',
+      'maintenance': 'Maintenance',
+      'profile': 'Mon profil',
+      'parametres': 'Paramètres',
+    };
+    // Segments à ne jamais afficher (déjà couverts par « Accueil » ou non signifiants).
+    const skip = new Set(['dashboard', 'home']);
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-      const label = labelMap[segment] || segment;
-      
-      this.breadcrumbs.push({
-        label: label,
-        route: currentPath,
-        isActive: index === segments.length - 1
-      });
+    let currentPath = '';
+    segments.forEach(seg => {
+      currentPath += '/' + seg;
+      if (skip.has(seg) || uuidRe.test(seg)) return;
+      const label = labelMap[seg] || this.prettifySegment(seg);
+      if (!label) return;
+      items.push({ label, route: currentPath });
     });
+
+    items[items.length - 1].isActive = true;
+    return items;
+  }
+
+  /** Transforme un segment d'URL brut en libellé lisible (« logs-audit » → « Logs audit »). */
+  private prettifySegment(seg: string): string {
+    const s = seg.replace(/[-_]+/g, ' ').trim();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   }
 
   /**
@@ -153,6 +192,31 @@ export class TopBarComponent implements OnInit {
     const first = user.first_name?.charAt(0) || '';
     const last = user.last_name?.charAt(0) || '';
     return (first + last).toUpperCase();
+  }
+
+  /**
+   * Libellé « humain » (non technique) du rôle, pour l'affichage dans le menu profil.
+   * Le rôle brut (ex. ROLE_ORGANISATION_AGENT) n'est jamais montré à l'utilisateur.
+   */
+  roleLabel(role?: string | null): string {
+    switch (role) {
+      case 'ROLE_SUPER_ADMIN': return 'Super administrateur';
+      case 'ROLE_ADMIN_SYSTEME': return 'Administrateur de la plateforme';
+      case 'ROLE_ORGANISATION_ADMIN': return "Administrateur d'organisation";
+      case 'ROLE_ORGANISATION_AGENT': return 'Opérateur';
+      default: return 'Utilisateur';
+    }
+  }
+
+  /** Icône FontAwesome associée au rôle (chip du menu profil). */
+  roleIcon(role?: string | null): string {
+    switch (role) {
+      case 'ROLE_SUPER_ADMIN': return 'fa-crown';
+      case 'ROLE_ADMIN_SYSTEME': return 'fa-user-shield';
+      case 'ROLE_ORGANISATION_ADMIN': return 'fa-user-tie';
+      case 'ROLE_ORGANISATION_AGENT': return 'fa-user-gear';
+      default: return 'fa-user';
+    }
   }
 
   /**

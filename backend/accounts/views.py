@@ -631,3 +631,66 @@ class PieceFieldsConfigResetView(APIView):
         request.user.piece_fields_config = copy.deepcopy(source)
         request.user.save(update_fields=['piece_fields_config'])
         return Response(request.user.piece_fields_config, status=status.HTTP_200_OK)
+
+
+# Colonnes triables du tableau de la liste des SSDGPS (allowlist de validation serveur).
+SSDGPS_SORT_FIELDS = {
+    'numero_ssdgps', 'nature_ssdgps', 'type_ssdgps', 'propriete_label', 'affaire_numero',
+    'nbr_total_sessions', 'nbr_total_pieces', 'propriete_nom', 'propriete_id_titre',
+    'propriete_id_requisition', 'created_at', 'updated_at',
+}
+
+
+class SsdgpsSortConfigView(APIView):
+    """Tri MULTI-NIVEAUX par défaut du tableau de la liste des SSDGPS, propre à l'opérateur.
+
+    GET/PUT /api/auth/me/ssdgps-sort-config/
+    Corps PUT : liste ordonnée `[{'field': '<colonne>', 'dir': 'asc'|'desc'}, ..]` (niveau 1 =
+    prioritaire). Champs validés contre `SSDGPS_SORT_FIELDS` ; doublons supprimés ; `dir`
+    normalisé (défaut 'asc')."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(request.user.ssdgps_sort_config or [], status=status.HTTP_200_OK)
+
+    def put(self, request):
+        data = request.data
+        if not isinstance(data, list):
+            return Response({'detail': "Une liste de niveaux [{field, dir}] est attendue."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cleaned, seen = [], set()
+        for level in data:
+            if not isinstance(level, dict):
+                return Response({'detail': "Chaque niveau doit être un objet {field, dir}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            field = (level.get('field') or '').strip()
+            if field not in SSDGPS_SORT_FIELDS:
+                return Response({'detail': f"Champ de tri invalide : « {field} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if field in seen:
+                continue  # un champ ne peut apparaître qu'une fois
+            seen.add(field)
+            cleaned.append({'field': field, 'dir': 'desc' if level.get('dir') == 'desc' else 'asc'})
+        request.user.ssdgps_sort_config = cleaned
+        request.user.save(update_fields=['ssdgps_sort_config'])
+        return Response(cleaned, status=status.HTTP_200_OK)
+
+
+class SsdgpsSortConfigResetView(APIView):
+    """Réinitialise le tri multi-niveaux de la liste des SSDGPS de l'opérateur avec la
+    configuration SOURCE (compte super admin). POST .../reset/ → config appliquée, ou 400 si
+    aucune source disponible."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import copy
+        from .piece_defaults import superadmin_ssdgps_sort_config
+        source = superadmin_ssdgps_sort_config()
+        if not source:
+            return Response(
+                {'detail': "Aucune configuration source disponible : le compte administrateur "
+                           "n'a pas encore de tri des SSDGPS configuré."},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.ssdgps_sort_config = copy.deepcopy(source)
+        request.user.save(update_fields=['ssdgps_sort_config'])
+        return Response(request.user.ssdgps_sort_config, status=status.HTTP_200_OK)

@@ -162,7 +162,7 @@
         <span class="item-meta" *ngIf="level==='affaire'">
           <span class="tag">{{ it.nature_procedure_affaire }}</span>
           {{ natureLabel(it.nature_affaire) }}
-          <ng-container *ngIf="it.date_bornage"> · bornage {{ it.date_bornage }}</ng-container>
+          <ng-container *ngIf="it.date_bornage"> · bornage {{ formatDate(it.date_bornage) }}</ng-container>
           <span class="tag">{{ it.nbr_total_ssdgps ?? 0 }} SSDGPS</span>
           <span class="tag">{{ it.nbr_total_sessions ?? 0 }} session(s)</span>
         </span>
@@ -171,7 +171,7 @@
           <span class="tag">{{ it.nbr_total_pieces ?? 0 }} pièce(s)</span>
         </span>
         <span class="item-meta" *ngIf="level==='session'">
-          <ng-container *ngIf="it.date_session">{{ it.date_session }} · </ng-container>{{ it.nbr_total_pieces ?? 0 }} pièce(s)
+          <ng-container *ngIf="it.date_session">{{ formatDate(it.date_session) }} · </ng-container>{{ it.nbr_total_pieces ?? 0 }} pièce(s)
         </span>
       </div>
       <div class="item-actions" (click)="$event.stopPropagation()">
@@ -573,8 +573,8 @@
             </select>
           </div>
           <div class="form-group" *ngIf="dateBornageRequired">
-            <label>Date de bornage / recollement <span class="req">*</span></label>
-            <input type="date" formControlName="date_bornage">
+            <label>Date et heure de bornage / recollement <span class="req">*</span></label>
+            <input type="datetime-local" step="1" formControlName="date_bornage">
           </div>
           <p class="form-hint" *ngIf="!dateBornageRequired && form.value.nature_procedure_affaire">
             <i class="fas fa-info-circle"></i> Date de bornage non applicable (procédures IFE/IFR).
@@ -613,8 +613,8 @@
               <input type="number" formControlName="numero_session" placeholder="1">
             </div>
             <div class="form-group">
-              <label>Date de la session</label>
-              <input type="date" formControlName="date_session">
+              <label>Date et heure de la session</label>
+              <input type="datetime-local" step="1" formControlName="date_session">
             </div>
           </div>
         </ng-container>

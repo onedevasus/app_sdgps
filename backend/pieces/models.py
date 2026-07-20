@@ -155,6 +155,11 @@ class PieceFieldMeta(models.Model):
         max_length=255, blank=True, verbose_name="Infobulle",
         help_text="Résumé court affiché en infobulle.",
     )
+    required = models.BooleanField(
+        default=False, verbose_name="Champ obligatoire",
+        help_text="Champ verrouillé dans la vue « Import des données » : toujours importé, "
+                  "non désactivable par l'opérateur (indispensable aux calculs).",
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Dernière modification")
 
     class Meta:

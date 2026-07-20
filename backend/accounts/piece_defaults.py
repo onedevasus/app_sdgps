@@ -232,13 +232,17 @@ DEFAULT_PIECE_SORT_CONFIG = {
 def superadmin_piece_sort_config():
     """Configuration de tri du compte super admin de référence, ou `None` si indisponible
     (aucun super admin, ou configuration vide). Choix déterministe : le super admin le plus
-    ancien (par date d'inscription puis email)."""
+    ancien (par date d'inscription puis email). Défensif : `None` si la requête échoue (schéma
+    en cours de migration)."""
     from django.contrib.auth import get_user_model
-    User = get_user_model()
-    admin = (User.objects.filter(is_superuser=True)
-             .order_by('date_joined', 'email').first())
-    cfg = getattr(admin, 'piece_sort_config', None) if admin else None
-    return cfg or None
+    try:
+        User = get_user_model()
+        admin = (User.objects.filter(is_superuser=True)
+                 .order_by('date_joined', 'email').first())
+        cfg = getattr(admin, 'piece_sort_config', None) if admin else None
+        return cfg or None
+    except Exception:
+        return None
 
 
 def default_piece_sort_config():
@@ -258,10 +262,13 @@ def superadmin_piece_fields_config():
     `superadmin_piece_sort_config`."""
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    admin = (User.objects.filter(is_superuser=True)
-             .order_by('date_joined', 'email').first())
-    cfg = getattr(admin, 'piece_fields_config', None) if admin else None
-    return cfg or None
+    try:
+        admin = (User.objects.filter(is_superuser=True)
+                 .order_by('date_joined', 'email').first())
+        cfg = getattr(admin, 'piece_fields_config', None) if admin else None
+        return cfg or None
+    except Exception:
+        return None
 
 
 def default_piece_fields_config():
@@ -272,3 +279,35 @@ def default_piece_fields_config():
     catalogue). Invoquée à la création d'un compte quand le champ n'est pas fourni."""
     cfg = superadmin_piece_fields_config()
     return copy.deepcopy(cfg) if cfg else {}
+
+
+# ---------------------------------------------------------------------------
+# Tri multi-niveaux de la LISTE DES SSDGPS (tableau à plat d'un projet).
+# Forme : liste ordonnée de niveaux `[{'field': <nom_colonne>, 'dir': 'asc'|'desc'}, ..]`.
+# Même logique de source (super admin) que les configs de pièces ci-dessus.
+# ---------------------------------------------------------------------------
+DEFAULT_SSDGPS_SORT_CONFIG = [{'field': 'numero_ssdgps', 'dir': 'asc'}]
+
+
+def superadmin_ssdgps_sort_config():
+    """Config de tri multi-niveaux de la liste des SSDGPS du super admin de référence, ou
+    `None` si indisponible (aucun super admin, ou config vide). Super admin le plus ancien.
+
+    Défensif : renvoie `None` si la requête échoue — notamment pendant la migration qui CRÉE
+    la colonne (la valeur par défaut est alors évaluée avant que la colonne existe)."""
+    from django.contrib.auth import get_user_model
+    try:
+        User = get_user_model()
+        admin = (User.objects.filter(is_superuser=True)
+                 .order_by('date_joined', 'email').first())
+        cfg = getattr(admin, 'ssdgps_sort_config', None) if admin else None
+        return cfg or None
+    except Exception:
+        return None
+
+
+def default_ssdgps_sort_config():
+    """Valeur par défaut du champ `ssdgps_sort_config` (copie profonde). Source = config du super
+    admin ; à défaut, repli sur `DEFAULT_SSDGPS_SORT_CONFIG` (tri par numéro croissant)."""
+    cfg = superadmin_ssdgps_sort_config()
+    return copy.deepcopy(cfg if cfg else DEFAULT_SSDGPS_SORT_CONFIG)

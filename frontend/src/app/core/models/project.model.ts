@@ -18,6 +18,7 @@ export interface Projet {
   nbr_total_affaires?: number;
   nbr_total_ssdgps?: number;
   nbr_total_sessions?: number;
+  nbr_total_pieces?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;

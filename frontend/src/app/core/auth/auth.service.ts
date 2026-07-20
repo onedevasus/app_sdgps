@@ -284,6 +284,27 @@ export class AuthService {
     }
 
     /**
+     * @method isPlatformAdmin
+     * @returns boolean Vrai pour un super-admin ou un App Admin (ROLE_ADMIN_SYSTEME).
+     * @description Décode le JWT pour lire `platform_role` / `is_superuser` (le rôle
+     *              plateforme n'est pas stocké dans `userRole`). Sert à autoriser l'édition
+     *              des réglages COMMUNS (ex. champs obligatoires du catalogue). La vraie
+     *              barrière reste côté backend.
+     */
+    isPlatformAdmin(): boolean {
+        const token = localStorage.getItem('authToken');
+        if (!token) return false;
+        try {
+            const p = JSON.parse(atob(token.split('.')[1]));
+            return p.is_superuser === true
+                || p.platform_role === 'ROLE_SUPER_ADMIN'
+                || p.platform_role === 'ROLE_ADMIN_SYSTEME';
+        } catch {
+            return false;
+        }
+    }
+
+    /**
      * @method isManager
      * @returns boolean Vrai si l'utilisateur est gestionnaire.
      * @description Vérifie si l'utilisateur a le rôle MANAGER.
@@ -391,27 +412,28 @@ export class AuthService {
                         window.location.href = '/auth/change-password?reason=first_login';
                     }, 100);
                 } else {
-                    // Redirection uniquement depuis les pages d'auth (post-login)
-                    // Ne pas rediriger si déjà sur une page de l'application (dashboard, admin, etc.)
-                    if (currentPath.includes('/dashboard') || currentPath.includes('/admin')) {
+                    // Redirection uniquement depuis les pages d'auth (post-login). Si on est
+                    // déjà sur une page de l'application (toute page hors /auth), ne pas rediriger
+                    // — sinon un rafraîchissement sur /projets, /home… renverrait à l'accueil.
+                    if (!currentPath.startsWith('/auth')) {
                         console.log('✅ Déjà sur une page de l\'application - Pas de redirection');
                         return;
                     }
 
-                    // Si aucun changement requis, rediriger vers le dashboard
-                    console.log('✅ Connexion réussie - Redirection vers dashboard...');
+                    // Si aucun changement requis, rediriger vers l'accueil de l'application
+                    console.log('✅ Connexion réussie - Redirection vers l\'accueil...');
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = '/home';
                     }, 100);
                 }
             },
             error: (err) => {
                 console.error('Erreur vérification statut MDP:', err);
 
-                // En cas d'erreur, ne rediriger que si pas déjà sur dashboard ou admin
-                if (!currentPath.includes('/dashboard') && !currentPath.includes('/admin')) {
+                // En cas d'erreur, ne rediriger que depuis une page d'auth (post-login).
+                if (currentPath.startsWith('/auth')) {
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = '/home';
                     }, 100);
                 }
             }

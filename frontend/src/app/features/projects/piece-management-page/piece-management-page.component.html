@@ -58,7 +58,7 @@
       <button class="btn btn-report" *ngIf="!showDeleted"
               [disabled]="validCount === 0"
               [title]="validCount === 0 ? 'Aucune pièce valide à inclure dans le rapport' : 'Générer le rapport PDF des pièces valides'"
-              (click)="generateReport()">
+              (click)="openReportModal()">
         <i class="fas fa-file-pdf"></i> Rapport PDF
         <span *ngIf="validCount > 0" class="btn-count">{{ validCount }}</span>
       </button>
@@ -470,21 +470,50 @@
       <button class="close-btn" (click)="closeReportModal()" [disabled]="reportGenerating"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
-      <ng-container *ngIf="!reportError">
-        <p class="report-status">
-          <i class="fas" [ngClass]="reportProgress >= 100 ? 'fa-check-circle report-done' : 'fa-spinner fa-spin'"></i>
-          {{ reportProgress >= 100 ? 'Rapport généré avec succès.' : 'Génération du rapport en cours…' }}
-        </p>
-        <div class="progress-track"><div class="progress-fill" [class.done]="reportProgress >= 100" [style.width.%]="reportProgress"></div></div>
-        <div class="progress-label">{{ reportProgress }}%</div>
-        <p class="report-filename" *ngIf="reportProgress >= 100 && reportFilename"><i class="fas fa-file-pdf"></i> {{ reportFilename }}</p>
+      <!-- Étape 1 : configuration (choix du mode d'impression) -->
+      <ng-container *ngIf="!reportStarted">
+        <p class="report-mode-hint">Choisissez le mode d'impression avant de générer le rapport :</p>
+        <div class="report-mode-choice" role="radiogroup" aria-label="Mode d'impression">
+          <button type="button" class="mode-card" [class.selected]="reportDuplex" role="radio" [attr.aria-checked]="reportDuplex" (click)="reportDuplex = true">
+            <i class="fas fa-book-open mode-icon"></i>
+            <span class="mode-title">Recto-verso</span>
+            <span class="mode-desc">Pages de garde à droite, pied de page en miroir. Pour reliure.</span>
+          </button>
+          <button type="button" class="mode-card" [class.selected]="!reportDuplex" role="radio" [attr.aria-checked]="!reportDuplex" (click)="reportDuplex = false">
+            <i class="fas fa-file mode-icon"></i>
+            <span class="mode-title">Recto seul</span>
+            <span class="mode-desc">Identification à droite, pagination à gauche du pied de page.</span>
+          </button>
+        </div>
       </ng-container>
-      <p class="report-error" *ngIf="reportError"><i class="fas fa-exclamation-triangle"></i> {{ reportError }}</p>
+
+      <!-- Étape 2 : génération / résultat -->
+      <ng-container *ngIf="reportStarted">
+        <ng-container *ngIf="!reportError">
+          <p class="report-status">
+            <i class="fas" [ngClass]="reportProgress >= 100 ? 'fa-check-circle report-done' : 'fa-spinner fa-spin'"></i>
+            {{ reportProgress >= 100 ? 'Rapport généré avec succès.' : 'Génération du rapport en cours…' }}
+          </p>
+          <div class="progress-track"><div class="progress-fill" [class.done]="reportProgress >= 100" [style.width.%]="reportProgress"></div></div>
+          <div class="progress-label">{{ reportProgress }}%</div>
+          <p class="report-filename" *ngIf="reportProgress >= 100 && reportFilename"><i class="fas fa-file-pdf"></i> {{ reportFilename }}</p>
+        </ng-container>
+        <p class="report-error" *ngIf="reportError"><i class="fas fa-exclamation-triangle"></i> {{ reportError }}</p>
+      </ng-container>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" (click)="closeReportModal()" [disabled]="reportGenerating">Fermer</button>
-      <button class="btn btn-report" *ngIf="reportProgress >= 100 && !reportError" (click)="downloadReportFile()">
-        <i class="fas fa-download"></i> Télécharger
+      <!-- Config : lancer la génération -->
+      <button class="btn btn-report" *ngIf="!reportStarted" (click)="generateReport()">
+        <i class="fas fa-file-pdf"></i> Générer le rapport
+      </button>
+      <!-- Résultat : revenir au choix du mode / télécharger -->
+      <button class="btn btn-secondary" *ngIf="reportStarted && reportProgress >= 100 && !reportError" (click)="backToReportConfig()">
+        <i class="fas fa-arrow-left"></i> Changer de mode
+      </button>
+      <button class="btn btn-report" *ngIf="reportStarted && ((reportProgress >= 100 && !reportError) || reportError)"
+              (click)="reportError ? generateReport() : downloadReportFile()">
+        <i class="fas" [ngClass]="reportError ? 'fa-rotate-right' : 'fa-download'"></i> {{ reportError ? 'Réessayer' : 'Télécharger' }}
       </button>
     </div>
   </div>

@@ -10,6 +10,10 @@ export interface MenuItem {
   description?: string;
   children?: MenuItem[];
   roles?: string[];
+  /** Correspondance EXACTE pour l'état actif (routerLinkActiveOptions). À activer pour les
+   * routes « racine » qui préfixent d'autres entrées (ex. « Tableau de bord » = /home,
+   * à ne pas garder actif sur /projets…) afin de ne pas rester actives partout. */
+  exact?: boolean;
   badge?: {
     text: string;
     color: string;
@@ -23,6 +27,10 @@ export interface BreadcrumbItem {
   label: string;
   route?: string;
   isActive?: boolean;
+  /** Icône FontAwesome optionnelle (ex. 'fa-house' pour l'accueil). */
+  icon?: string;
+  /** Query params à propager dans le routerLink (ex. restauration d'un niveau de l'explorateur). */
+  queryParams?: Record<string, any>;
 }
 
 /**

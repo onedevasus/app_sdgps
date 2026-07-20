@@ -139,6 +139,8 @@ class ProjetViewSet(BaseOrgScopedViewSet):
                     proprietes__affaires__ssdgps_set__is_deleted=False,
                 ),
                 distinct=True),
+            # Seuls les SSDGPS multi-session ont des sessions : les mono-session sont exclus
+            # (leur session implicite ne compte pas comme une « vraie » session).
             nbr_total_sessions=Count(
                 'proprietes__affaires__ssdgps_set__sessions',
                 filter=Q(
@@ -146,6 +148,16 @@ class ProjetViewSet(BaseOrgScopedViewSet):
                     proprietes__affaires__is_deleted=False,
                     proprietes__affaires__ssdgps_set__is_deleted=False,
                     proprietes__affaires__ssdgps_set__sessions__is_deleted=False,
+                    proprietes__affaires__ssdgps_set__type_ssdgps=Ssdgps.TypeSSDGPS.MULTI,
+                ),
+                distinct=True),
+            nbr_total_pieces=Count(
+                'proprietes__affaires__ssdgps_set__pieces',
+                filter=Q(
+                    proprietes__is_deleted=False,
+                    proprietes__affaires__is_deleted=False,
+                    proprietes__affaires__ssdgps_set__is_deleted=False,
+                    proprietes__affaires__ssdgps_set__pieces__is_deleted=False,
                 ),
                 distinct=True),
         )
@@ -175,6 +187,7 @@ class ProprieteViewSet(BaseOrgScopedViewSet):
                     affaires__is_deleted=False,
                     affaires__ssdgps_set__is_deleted=False,
                     affaires__ssdgps_set__sessions__is_deleted=False,
+                    affaires__ssdgps_set__type_ssdgps=Ssdgps.TypeSSDGPS.MULTI,
                 ),
                 distinct=True),
         )
@@ -195,7 +208,11 @@ class AffaireViewSet(BaseOrgScopedViewSet):
                 'ssdgps_set', filter=Q(ssdgps_set__is_deleted=False), distinct=True),
             nbr_total_sessions=Count(
                 'ssdgps_set__sessions',
-                filter=Q(ssdgps_set__is_deleted=False, ssdgps_set__sessions__is_deleted=False),
+                filter=Q(
+                    ssdgps_set__is_deleted=False,
+                    ssdgps_set__sessions__is_deleted=False,
+                    ssdgps_set__type_ssdgps=Ssdgps.TypeSSDGPS.MULTI,
+                ),
                 distinct=True),
         )
 
@@ -224,8 +241,11 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
 
     def _annotate_counts(self, qs):
         return qs.annotate(
+            # Mono-session : pas de sessions (la session implicite ne compte pas) → 0.
             nbr_total_sessions=Count(
-                'sessions', filter=Q(sessions__is_deleted=False), distinct=True),
+                'sessions',
+                filter=Q(sessions__is_deleted=False, type_ssdgps=Ssdgps.TypeSSDGPS.MULTI),
+                distinct=True),
             nbr_total_pieces=Count(
                 'pieces', filter=Q(pieces__is_deleted=False), distinct=True),
         )

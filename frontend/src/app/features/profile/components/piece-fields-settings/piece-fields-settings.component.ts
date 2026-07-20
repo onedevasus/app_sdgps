@@ -2,6 +2,7 @@ import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { forkJoin, Subscription } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { PiecesService } from '../../../../core/services/pieces.service';
+import { AuthService } from '../../../../core/auth/auth.service';
 import {
   PieceFieldsConfig, PieceFieldsConfigService, PieceFieldsVersion, PieceFieldsView,
 } from '../../../../core/services/piece-fields-config.service';
@@ -64,17 +65,24 @@ export class PieceFieldsSettingsComponent implements OnInit, OnDestroy {
     import: 'fas fa-file-import', app: 'fas fa-table-cells', pdf: 'fas fa-file-pdf',
   };
 
+  /** Vrai pour un super-admin / App Admin : peut définir les champs OBLIGATOIRES (réglage
+   * commun du catalogue) dans la vue « Import des données ». Sinon, les requis sont en lecture
+   * seule (verrouillés). La vraie barrière est côté backend. */
+  isAdmin = false;
+
   private saveTimer: any;
+  private reqSaveTimer: any;
   private subscriptions = new Subscription();
 
   constructor(
     private piecesService: PiecesService,
     private fieldsConfigService: PieceFieldsConfigService,
     private toastr: ToastrService,
+    private auth: AuthService,
   ) {}
 
-  ngOnInit(): void { this.load(); }
-  ngOnDestroy(): void { clearTimeout(this.saveTimer); this.subscriptions.unsubscribe(); }
+  ngOnInit(): void { this.isAdmin = this.auth.isPlatformAdmin(); this.load(); }
+  ngOnDestroy(): void { clearTimeout(this.saveTimer); clearTimeout(this.reqSaveTimer); this.subscriptions.unsubscribe(); }
 
   /** Charge le catalogue (types tabulaires) + la config de colonnes de l'opérateur. */
   private load(): void {
@@ -227,6 +235,32 @@ export class PieceFieldsSettingsComponent implements OnInit, OnDestroy {
     // Désactivation à l'import → cascade sur app/pdf (le champ y devient inaccessible).
     if (view === 'import' && v === 'brut' && !item.visible) this.applyCascade(t);
     this.queueAutoSave();
+  }
+
+  // --- Champs OBLIGATOIRES (réglage COMMUN, App Admin uniquement) ---
+  /** (Dé)marque un champ comme obligatoire dans la vue « Import des données ». Un champ requis
+   * est forcément importé (visible). Réglage commun persisté via l'endpoint dédié. */
+  toggleRequired(t: FieldsTypeRow, item: FieldItem): void {
+    if (!this.isAdmin) return;
+    item.required = !item.required;
+    if (item.required) item.visible = true;                 // un champ requis est toujours importé
+    const src = t.champsBrut.find(c => c.name === item.name);
+    if (src) src.required = item.required;                   // cohérence de la source (isDefault…)
+    this.queueSaveRequired(t);
+  }
+  private queueSaveRequired(t: FieldsTypeRow): void {
+    clearTimeout(this.reqSaveTimer);
+    this.reqSaveTimer = setTimeout(() => this.saveRequired(t), 500);
+  }
+  /** Persiste l'ensemble EXACT des champs obligatoires (bruts) du type. */
+  private saveRequired(t: FieldsTypeRow): void {
+    const names = t.import.brut.filter(i => i.required).map(i => i.name);
+    this.subscriptions.add(
+      this.piecesService.saveRequiredFields({ [t.code]: names }).subscribe({
+        next: () => { this.savedFlash = true; setTimeout(() => { this.savedFlash = false; }, 2500); },
+        error: (e) => this.toastr.error(e?.error?.detail || 'Enregistrement des champs obligatoires impossible', 'Erreur'),
+      })
+    );
   }
 
   moveUp(t: FieldsTypeRow, view: PieceFieldsView, v: PieceFieldsVersion, i: number): void {

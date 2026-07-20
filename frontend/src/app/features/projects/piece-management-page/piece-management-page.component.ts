@@ -5,8 +5,10 @@ import { catchError, map } from 'rxjs/operators';
 import { ProjectsService } from '../../../core/services/projects.service';
 import { PiecesService } from '../../../core/services/pieces.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.service';
+import { BreadcrumbItem } from '../../../core/layout/interfaces/menu.interface';
 import { Piece, PieceTypeDef } from '../../../core/models/piece.model';
-import { Ssdgps, Session } from '../../../core/models/project.model';
+import { Ssdgps, Session, Projet } from '../../../core/models/project.model';
 
 interface ColumnConfig {
   field: string;
@@ -137,7 +139,10 @@ export class PieceManagementPageComponent implements OnInit {
     private toast: ToastService,
     private router: Router,
     private route: ActivatedRoute,
+    private breadcrumb: BreadcrumbService,
   ) {}
+
+  private projet: Projet | null = null;
 
   ngOnInit(): void {
     this.viewMode = (localStorage.getItem(VIEW_MODE_KEY) as 'cards' | 'table') || 'table';
@@ -159,15 +164,73 @@ export class PieceManagementPageComponent implements OnInit {
         this.ssdgps = ssdgps;
         this.sessions = sessions;
         this.catalog = catalog;
+        this.updateTopbarBreadcrumb();
         this.loadPieces();
       },
       error: () => { this.toast.error('Erreur', 'SSDGPS introuvable'); this.goBack(); },
     });
+
+    // Nom du projet pour le fil d'Ariane (fetch séparé : son échec ne casse pas la page).
+    this.projectsService.getProjet(this.projectId).subscribe({
+      next: (p) => { this.projet = p; this.updateTopbarBreadcrumb(); },
+      error: () => {},
+    });
   }
 
   ngOnDestroy(): void {
+    this.breadcrumb.clear();
     if (this.boundHandleClickOutside) document.removeEventListener('click', this.boundHandleClickOutside);
     this.stopReportTimer();
+  }
+
+  /**
+   * Fil d'Ariane métier : Accueil › Projets › <Projet> › <Propriété> › <Affaire> ›
+   * <SSDGPS N°x> › [Session N°y si multi-session] › Pièces. Les crumps Affaire / SSDGPS
+   * ramènent à l'explorateur au bon niveau (via queryParams de restauration) quand le
+   * contexte parent (propriété/affaire) est connu ; Propriété et Session sont affichés.
+   */
+  private updateTopbarBreadcrumb(): void {
+    if (!this.ssdgps) return;
+    const base = this.router.url.startsWith('/admin') ? '/admin/projets' : '/projets';
+    const projRoute = `${base}/${this.projectId}`;
+    const s = this.ssdgps as any;
+    const hasParents = !!(this.proprieteId && this.affaireId);
+
+    const trail: BreadcrumbItem[] = [
+      { label: 'Accueil', route: '/home', icon: 'fa-house' },
+      { label: 'Projets', route: base, icon: 'fa-folder-open' },
+      { label: this.projet?.nom_projet || this.projet?.code_projet || 'Projet', route: projRoute, icon: 'fa-diagram-project' },
+    ];
+    // Propriété : TOUJOURS l'identifiant (titre foncier, sinon réquisition), jamais la
+    // propriété-dite — cohérent avec le fil interne de l'explorateur (proprieteBreadcrumbLabel).
+    // Cliquable → explorateur au niveau Affaire de cette propriété (restoreToAffaireLevel).
+    const proprieteLabel = s.propriete_id_titre || s.propriete_id_requisition || s.propriete_nom;
+    if (proprieteLabel) {
+      trail.push({
+        label: proprieteLabel, icon: 'fa-map-marker-alt',
+        ...(this.proprieteId ? { route: projRoute, queryParams: { proprieteId: this.proprieteId } } : {}),
+      });
+    }
+    if (s.affaire_numero != null) {
+      trail.push({
+        label: `SD ${s.affaire_numero}`, icon: 'fa-file-signature',
+        ...(hasParents ? { route: projRoute, queryParams: { proprieteId: this.proprieteId, affaireId: this.affaireId } } : {}),
+      });
+    }
+    trail.push({
+      label: `SSDGPS ${this.ssdgps.numero_ssdgps}`, icon: 'fa-satellite-dish',
+      ...(hasParents ? {
+        route: projRoute,
+        queryParams: this.isMultiSession
+          ? { proprieteId: this.proprieteId, affaireId: this.affaireId, ssdgpsId: this.ssdgps.id }
+          : { proprieteId: this.proprieteId, affaireId: this.affaireId },
+      } : {}),
+    });
+    if (this.isMultiSession && this.currentSession) {
+      trail.push({ label: `Session ${this.currentSession.numero_session}`, icon: 'fa-clock' });
+    }
+    trail.push({ label: 'Pièces', icon: 'fa-paperclip', isActive: true });
+    this.breadcrumb.set(trail);
   }
 
   loadPieces(): void {
@@ -191,18 +254,18 @@ export class PieceManagementPageComponent implements OnInit {
     const base = { proprieteId: this.proprieteId, affaireId: this.affaireId };
     if (this.ssdgps?.type_ssdgps === 'multi-session' && this.currentSessionId) {
       // Multi-session : retour à la liste des sessions du SSDGPS
-      this.router.navigate(['/dashboard/projets', this.projectId], {
+      this.router.navigate(['/projets', this.projectId], {
         queryParams: { ...base, ssdgpsId: this.ssdgps!.id },
       });
     } else {
       // Mono-session ou pas de contexte session : retour au niveau SSDGPS
-      this.router.navigate(['/dashboard/projets', this.projectId], { queryParams: base });
+      this.router.navigate(['/projets', this.projectId], { queryParams: base });
     }
   }
 
   /** Remonte au niveau SSDGPS depuis le segment SSDGPS du fil d'Ariane (multi-session). */
   goBackToSsdgps(): void {
-    this.router.navigate(['/dashboard/projets', this.projectId], {
+    this.router.navigate(['/projets', this.projectId], {
       queryParams: { proprieteId: this.proprieteId, affaireId: this.affaireId },
     });
   }
@@ -254,7 +317,7 @@ export class PieceManagementPageComponent implements OnInit {
   }
   formatDate(value: any): string {
     if (!value) return '—';
-    return new Date(value).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return new Date(value).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   changeScope(piece: Piece, sessionId: string): void {
@@ -588,6 +651,10 @@ export class PieceManagementPageComponent implements OnInit {
   reportProgress = 0;
   reportError = '';
   reportFilename = '';
+  /** Mode d'impression choisi dans la modale : recto-verso (défaut) ou recto seul. */
+  reportDuplex = true;
+  /** false = écran de configuration (choix du mode) ; true = génération lancée. */
+  reportStarted = false;
   private reportBlob: Blob | null = null;
   private reportTimer: any = null;
 
@@ -596,12 +663,33 @@ export class PieceManagementPageComponent implements OnInit {
     return this.scopeBySession(this.activePieces).filter(p => p.statut === 'valide').length;
   }
 
-  /** Ouvre la modale et lance la génération. Le backend produit le PDF en une seule
+  /** Ouvre la modale en état « configuration » (choix du mode d'impression), sans générer. */
+  openReportModal(): void {
+    if (this.reportGenerating) return;
+    this.showReportModal = true;
+    this.reportStarted = false;
+    this.reportError = '';
+    this.reportBlob = null;
+    this.reportFilename = '';
+    this.reportProgress = 0;
+  }
+
+  /** Revient à l'écran de configuration (pour changer de mode et régénérer). */
+  backToReportConfig(): void {
+    if (this.reportGenerating) return;
+    this.stopReportTimer();
+    this.reportStarted = false;
+    this.reportError = '';
+    this.reportBlob = null;
+    this.reportProgress = 0;
+  }
+
+  /** Lance la génération avec le mode choisi. Le backend produit le PDF en une seule
    * requête (pas de progression serveur) : la barre est donc simulée — elle progresse
    * jusqu'à ~90 % pendant l'attente, puis saute à 100 % à la réception du fichier. */
   generateReport(): void {
     if (this.reportGenerating) return;
-    this.showReportModal = true;
+    this.reportStarted = true;
     this.reportError = '';
     this.reportBlob = null;
     this.reportFilename = '';
@@ -614,7 +702,7 @@ export class PieceManagementPageComponent implements OnInit {
       }
     }, 200);
 
-    this.piecesService.downloadReport(this.ssdgps.id, this.currentSessionId || undefined).subscribe({
+    this.piecesService.downloadReport(this.ssdgps.id, this.currentSessionId || undefined, this.reportDuplex).subscribe({
       next: (res) => {
         this.stopReportTimer();
         this.reportBlob = this.base64ToBlob(res.data, res.content_type || 'application/pdf');
@@ -659,6 +747,7 @@ export class PieceManagementPageComponent implements OnInit {
     if (this.reportGenerating) return;
     this.stopReportTimer();
     this.showReportModal = false;
+    this.reportStarted = false;
     this.reportBlob = null;
   }
 
@@ -683,7 +772,7 @@ export class PieceManagementPageComponent implements OnInit {
     return { proprieteId: this.proprieteId, affaireId: this.affaireId, session: this.currentSessionId };
   }
   private pieceBase(): any[] {
-    return ['/dashboard/projets', this.projectId, 'pieces', this.ssdgps.id];
+    return ['/projets', this.projectId, 'pieces', this.ssdgps.id];
   }
   goToAddPage(): void {
     this.router.navigate([...this.pieceBase(), 'ajouter'], { queryParams: this.pieceQueryParams() });

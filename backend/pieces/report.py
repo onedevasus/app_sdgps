@@ -90,8 +90,14 @@ def resolve_orientation(piece, ssdgps) -> str:
 
 
 def _fmt_date(value) -> str:
+    """Formate un horodatage complet : jj/mm/aaaa hh:mm:ss.
+
+    Accepte un `datetime` (date_bornage / date_session, désormais horodatés) ou un
+    simple `date` (repli : l'heure est alors omise)."""
     if not value:
         return ''
+    if hasattr(value, 'hour'):
+        return value.strftime('%d/%m/%Y %H:%M:%S')
     return value.strftime('%d/%m/%Y')
 
 
@@ -688,7 +694,8 @@ def build_report_context(ssdgps, session, pieces, sort_config=None, fields_confi
     }
 
 
-def render_report_pdf(ssdgps, session, pieces, sort_config=None, fields_config=None):
+def render_report_pdf(ssdgps, session, pieces, sort_config=None, fields_config=None,
+                      duplex=False):
     """Rend le rapport en PDF (bytes). Lève `RuntimeError` si WeasyPrint (ou ses
     bibliothèques natives) n'est pas disponible sur l'environnement d'exécution.
 
@@ -696,7 +703,12 @@ def render_report_pdf(ssdgps, session, pieces, sort_config=None, fields_config=N
     comme un document WeasyPrint indépendant, puis les pages sont fusionnées en un seul
     PDF. Ce découpage est indispensable pour que la numérotation « PAGE N°k » du bas de
     page reparte de 1 au contenu de chaque pièce (le compteur `page` de WeasyPrint est
-    global à un document et ne peut être réinitialisé par `counter-reset`)."""
+    global à un document et ne peut être réinitialisé par `counter-reset`).
+
+    `duplex` (recto-verso) : chaque page de garde de pièce est calée sur une page DROITE
+    (impaire) par insertion d'une page blanche si nécessaire ; l'identification du pied de
+    page bascule côté extérieur via `@page :left/:right`. La pagination globale « Page i/n »
+    est superposée après fusion (le compteur global n'existe pas en CSS entre documents)."""
     try:
         from weasyprint import HTML
     except (ImportError, OSError) as exc:  # OSError : bibliothèques GTK absentes
@@ -717,7 +729,8 @@ def render_report_pdf(ssdgps, session, pieces, sort_config=None, fields_config=N
 
     def _render(mode, foot_prefix, extra):
         html = render_to_string('pieces/report.html',
-                                {**base, 'mode': mode, 'foot_prefix': foot_prefix, **extra})
+                                {**base, 'mode': mode, 'foot_prefix': foot_prefix,
+                                 'duplex': duplex, **extra})
         return HTML(string=html).render()
 
     def _probe_row_pages(doc):
@@ -766,5 +779,124 @@ def render_report_pdf(ssdgps, session, pieces, sort_config=None, fields_config=N
         foot_prefix = f"{foot_base} PIÈCE N°{piece['index']}"
         documents.append(_piece_doc(piece, foot_prefix))
 
-    all_pages = [page for doc in documents for page in doc.pages]
-    return documents[0].copy(all_pages).write_pdf()
+    # Assemblage final. En recto-verso, on cale chaque UNITÉ « pièce » (séparateur + contenu)
+    # sur une page DROITE (impaire) : si le cumul courant est impair, on insère une page
+    # blanche. La page de garde du SDGPS (unité 0) démarre naturellement page 1 (droite).
+    # Chaque sous-document démarrant alors sur une page globale impaire, sa parité interne
+    # (page 1 = right) coïncide avec la parité globale → le `@page :left/:right` du template
+    # place l'identification du bon côté sur toutes les pages.
+    final_pages, pages_meta = [], []
+
+    def _add(page, blank=False):
+        final_pages.append(page)
+        pages_meta.append({'blank': blank, 'width': page.width, 'height': page.height})
+
+    def _blank_page():
+        return HTML(string='<style>@page{size:A4;margin:0}</style><body></body>').render().pages[0]
+
+    for page in documents[0].pages:          # unité 0 : page de garde du SDGPS
+        _add(page)
+    for doc in documents[1:]:                 # unités « pièce »
+        if duplex and len(final_pages) % 2 == 1:
+            _add(_blank_page(), blank=True)
+        for page in doc.pages:
+            _add(page)
+
+    pdf_bytes = documents[0].copy(final_pages).write_pdf()
+    return _overlay_global_pagination(pdf_bytes, pages_meta, duplex)
+
+
+# Conversion pixels CSS (96 dpi, unité des boîtes WeasyPrint) → points PDF (72 dpi).
+_PX_TO_PT = 72.0 / 96.0
+_MM_TO_PT = 72.0 / 25.4
+
+# Police de la pagination globale : résolue paresseusement (cf. _pagination_font).
+_PAGINATION_FONT = None
+
+
+def _pagination_font():
+    """Nom de police reportlab pour le numéro global « Page i/n ». Embarque URW Bookman
+    Demi (le « gras » de Bookman, exactement la police du reste du rapport PDF) depuis les
+    fichiers Type1 du système, afin d'harmoniser la pagination avec l'identification du pied
+    de page. Repli sur Times-Bold si les fichiers de police sont introuvables. Enregistrement
+    effectué une seule fois (cache module)."""
+    global _PAGINATION_FONT
+    if _PAGINATION_FONT is not None:
+        return _PAGINATION_FONT
+    import os
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.pdfmetrics import EmbeddedType1Face, registerTypeFace, Font
+    afm = '/usr/share/fonts/type1/urw-base35/URWBookman-Demi.afm'
+    for pfb in ('/usr/share/fonts/X11/Type1/URWBookman-Demi.pfb',
+                '/usr/share/fonts/type1/urw-base35/URWBookman-Demi.t1'):
+        if os.path.exists(afm) and os.path.exists(pfb):
+            try:
+                face = EmbeddedType1Face(afm, pfb)
+                registerTypeFace(face)
+                pdfmetrics.registerFont(Font('ReportBookman', face.name, 'WinAnsiEncoding'))
+                _PAGINATION_FONT = 'ReportBookman'
+                return _PAGINATION_FONT
+            except Exception:
+                break
+    _PAGINATION_FONT = 'Times-Bold'
+    return _PAGINATION_FONT
+
+
+def _overlay_global_pagination(pdf_bytes, pages_meta, duplex):
+    """Superpose « Page i/n » (pagination GLOBALE du rapport) au bas de chaque page non
+    blanche, du côté OPPOSÉ à l'identification :
+    - recto seul   : identification à droite → pagination à GAUCHE ;
+    - recto-verso  : identification côté extérieur → pagination côté intérieur, soit à
+      DROITE sur une page gauche (i pair) et à GAUCHE sur une page droite (i impair).
+    `n` = nombre total de pages finales (blanches comprises) ; sur une page blanche de
+    calage, aucun numéro n'est imprimé (convention d'impression recto-verso)."""
+    from io import BytesIO
+    from pypdf import PdfReader, PdfWriter
+    from reportlab.pdfgen import canvas
+
+    n = len(pages_meta)
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for idx, meta in enumerate(pages_meta):
+        page = reader.pages[idx]
+        if meta['blank']:
+            writer.add_page(page)
+            continue
+
+        # Normalise une éventuelle rotation dans le contenu (dimensions visuelles = mediabox).
+        if page.rotation:
+            page.transfer_rotation_to_content()
+        w_pt = float(page.mediabox.width)
+        h_pt = float(page.mediabox.height)
+
+        i = idx + 1
+        # Côté de la pagination (voir docstring). Recto seul → gauche.
+        on_left_page = duplex and i % 2 == 0      # page gauche = page paire
+        side_left = (not on_left_page) if duplex else True
+
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=(w_pt, h_pt))
+        c.setFont(_pagination_font(), 8)
+        text = f"Page {i}/{n}"
+        x_margin = 10 * _MM_TO_PT
+        y = 5 * _MM_TO_PT                          # ~5 mm du bord bas, aligné sur le pied
+        if side_left:
+            c.drawString(x_margin, y, text)
+        else:
+            c.drawRightString(w_pt - x_margin, y, text)
+        c.showPage()
+        c.save()
+        buf.seek(0)
+
+        # Le tampon (CTM propre) sert de BASE, la page du rapport est fusionnée PAR-DESSUS :
+        # le fond des pages WeasyPrint est transparent → le numéro reste visible, et on évite
+        # que le CTM résiduel du flux de contenu WeasyPrint ne déplace le tampon (bug observé :
+        # numéro projeté en (0,0) sur les pages de contenu).
+        stamp = PdfReader(buf).pages[0]
+        stamp.merge_page(page)
+        writer.add_page(stamp)
+
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()

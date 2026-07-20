@@ -382,6 +382,28 @@
   .context-menu-divider { height: 1px; background: var(--border-color); margin: 4px 0; }
 }
 
+/* ---------- Modale rapport PDF : choix du mode d'impression ---------- */
+.report-mode-hint { margin: 0 0 14px; font-size: 13.5px; color: var(--text-muted); }
+.report-mode-choice {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  .mode-card {
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px;
+    padding: 16px 14px; cursor: pointer; border-radius: 10px;
+    background: var(--primary-color); border: 1.5px solid var(--border-color);
+    color: var(--text-color); transition: all 0.18s ease;
+    .mode-icon { font-size: 22px; color: var(--text-muted); transition: color 0.18s ease; }
+    .mode-title { font-size: 14px; font-weight: 600; }
+    .mode-desc { font-size: 11.5px; line-height: 1.4; color: var(--text-muted); }
+    &:hover { border-color: var(--accent-color); }
+    &.selected {
+      border-color: var(--accent-color); background: rgba(204, 88, 88, 0.10);
+      box-shadow: 0 0 0 1px var(--accent-color) inset;
+      .mode-icon, .mode-title { color: var(--accent-color); }
+    }
+    &:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+  }
+}
+
 /* ---------- Modale rapport PDF : barre de progression ---------- */
 .report-status {
   display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; color: var(--text-color);

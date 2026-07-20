@@ -2,11 +2,21 @@
   
   <!-- Header -->
   <div class="page-header">
-    <h1>
-      <i class="fas fa-user-cog"></i>
-      Gestion de mon Profil
-    </h1>
-    <p class="subtitle">Consultez et modifiez vos informations personnelles et paramètres de sécurité</p>
+    <div class="page-header-text">
+      <h1>
+        <i class="fas fa-user-cog"></i>
+        Gestion de mon Profil
+      </h1>
+      <p class="subtitle">Consultez et modifiez vos informations personnelles et paramètres de sécurité</p>
+    </div>
+
+    <!-- Indicateur GLOBAL : toutes les modifications de cette page (infos, photo) sont
+         enregistrées automatiquement. Placé au niveau de la page, pas d'une section. -->
+    <div class="profile-autosave" *ngIf="userProfile">
+      <span class="saving" *ngIf="savingProfile"><i class="fas fa-spinner fa-spin"></i> Enregistrement…</span>
+      <span class="saved" *ngIf="!savingProfile && profileSavedFlash"><i class="fas fa-check-circle"></i> Modifications enregistrées</span>
+      <span class="idle" *ngIf="!savingProfile && !profileSavedFlash"><i class="fas fa-bolt"></i> Enregistrement automatique de toutes les modifications</span>
+    </div>
   </div>
   
   <!-- Loading Spinner -->
@@ -42,9 +52,9 @@
             <button (click)="triggerFileInput()" class="btn-icon" title="Changer la photo">
               <i class="fas fa-camera"></i>
             </button>
-            <button *ngIf="userProfile.profile_picture_url" 
-                    (click)="deleteProfilePicture()" 
-                    class="btn-icon btn-delete" 
+            <button *ngIf="userProfile.profile_picture_url"
+                    (click)="openDeletePhotoModal()"
+                    class="btn-icon btn-delete"
                     title="Supprimer la photo">
               <i class="fas fa-trash"></i>
             </button>
@@ -52,16 +62,19 @@
         </div>
         
         <!-- Input file caché -->
-        <input #fileInput 
-               type="file" 
-               accept="image/*" 
+        <input #fileInput
+               type="file"
+               accept="image/jpeg,image/png,image/gif,image/tiff,image/webp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.webp"
                (change)="onFileSelected($event)"
                style="display: none;">
         
         <!-- Informations -->
         <div class="avatar-info">
           <h3>{{ userProfile.full_name }}</h3>
-          <p class="role-badge">{{ userProfile.role_display }}</p>
+          <div class="role-badge">
+            <i class="fas" [ngClass]="roleIcon(userProfile.role)"></i>
+            <span>{{ roleLabel(userProfile.role) }}</span>
+          </div>
           <p class="help-text" *ngIf="!userProfile.profile_picture_url">
             <i class="fas fa-info-circle"></i>
             Cliquez sur l'icône caméra pour ajouter une photo
@@ -71,7 +84,7 @@
             Photo de profil active
           </p>
           <p class="upload-hint">
-            Formats acceptés: JPG, PNG, GIF • Taille max: 5MB
+            Formats acceptés : {{ allowedPhotoLabel }} • Taille max : 5 Mo
           </p>
         </div>
       </div>
@@ -81,7 +94,7 @@
     <div class="personal-info-section card">
       <h2><i class="fas fa-id-card"></i> Informations Personnelles</h2>
       
-      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+      <form [formGroup]="profileForm">
         <div class="form-grid">
           
           <!-- Prénom -->
@@ -141,43 +154,25 @@
               <i class="fas fa-lock"></i> Email non modifiable
             </p>
           </div>
-          
-          <!-- Nom de Société -->
+
+          <!-- Organisation de rattachement (Lecture seule) -->
           <div class="form-group">
-            <label for="nom_societe">
-              <i class="fas fa-building"></i> Nom de Société
+            <label>
+              <i class="fas fa-sitemap"></i> Organisation
             </label>
-            <input 
-              type="text" 
-              id="nom_societe"
-              formControlName="nom_societe"
-              placeholder="Nom de votre organisation">
-            
-            <div class="error-message" *ngIf="profileForm.get('nom_societe')?.errors?.['minlength'] && profileForm.get('nom_societe')?.touched">
-              Minimum 2 caractères
-            </div>
+            <input
+              type="text"
+              [value]="userProfile.organization_name || 'Aucune organisation de rattachement'"
+              readonly
+              class="readonly-field">
+            <p class="field-help">
+              <i class="fas fa-lock"></i> Organisation de rattachement (non modifiable)
+            </p>
           </div>
-          
+
         </div>
-        
-        <!-- Bouton Sauvegarder -->
-        <div class="form-actions">
-          <button 
-            type="submit"
-            [disabled]="profileForm.invalid || isLoading"
-            class="btn btn-primary btn-lg">
-            <i class="fas fa-save" *ngIf="!isLoading"></i>
-            <div class="spinner-small" *ngIf="isLoading"></div>
-            {{ isLoading ? 'Sauvegarde...' : 'Sauvegarder les modifications' }}
-          </button>
-        </div>
-        
       </form>
     </div>
-
-    <!-- Tri par défaut des tableaux de pièces (composant dédié, aussi accessible via son
-         entrée de menu / page dédiée « /admin/profile/tri-pieces »). -->
-    <app-piece-sort-settings [embedded]="true"></app-piece-sort-settings>
 
     <!-- Section Sécurité -->
     <div class="security-section card">
@@ -188,7 +183,7 @@
           <i class="fas fa-calendar-alt"></i>
           <div>
             <strong>Membre depuis</strong>
-            <p>{{ userProfile.date_joined | date:'dd MMMM yyyy à HH:mm' }}</p>
+            <p>{{ userProfile.date_joined | date:'dd/MM/yyyy HH:mm:ss' }}</p>
           </div>
         </div>
         
@@ -196,7 +191,7 @@
           <i class="fas fa-clock"></i>
           <div>
             <strong>Dernière connexion</strong>
-            <p>{{ userProfile.last_connection_at | date:'dd/MM/yyyy à HH:mm:ss' }}</p>
+            <p>{{ userProfile.last_connection_at | date:'dd/MM/yyyy HH:mm:ss' }}</p>
           </div>
         </div>
         
@@ -212,7 +207,7 @@
           <i class="fas fa-key"></i>
           <div>
             <strong>Dernière modification du mot de passe</strong>
-            <p>{{ userProfile.password_changed_at | date:'dd/MM/yyyy à HH:mm:ss' }}</p>
+            <p>{{ userProfile.password_changed_at | date:'dd/MM/yyyy HH:mm:ss' }}</p>
           </div>
         </div>
         
@@ -398,6 +393,41 @@
         
       </form>
     </div>
-    
+
+  </div>
+</div>
+
+<!-- Modal Confirmation Suppression Photo de Profil -->
+<div class="modal-overlay" *ngIf="showDeletePhotoModal" (click)="closeDeletePhotoModal()">
+  <div class="modal-content modal-confirm" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <h2><i class="fas fa-trash"></i> Supprimer la photo</h2>
+      <button (click)="closeDeletePhotoModal()" class="close-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <p class="confirm-text">
+        Voulez-vous vraiment supprimer votre photo de profil ?
+      </p>
+      <p class="confirm-hint">
+        Votre avatar affichera de nouveau vos initiales. Cette action est immédiate.
+      </p>
+
+      <div class="modal-actions">
+        <button type="button" (click)="closeDeletePhotoModal()" class="btn btn-secondary">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button type="button" (click)="confirmDeletePhoto()" class="btn btn-danger">
+          <i class="fas fa-trash"></i>
+          Supprimer
+        </button>
+      </div>
+    </div>
+
   </div>
 </div>

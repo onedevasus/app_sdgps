@@ -53,6 +53,15 @@ export class PiecesService {
     return this.http.put<PieceTypeDef[]>(`${this.base}field-descriptions/`, payload);
   }
 
+  /**
+   * Définit les champs OBLIGATOIRES (verrouillés) de la vue « Import des données » par type
+   * de pièce (App Admin uniquement, 403 sinon). Corps : `{ '<TYPE>': ['<field_name>', …] }`
+   * (ensemble exact par type). Renvoie le catalogue mis à jour.
+   */
+  saveRequiredFields(payload: Record<string, string[]>): Observable<PieceTypeDef[]> {
+    return this.http.put<PieceTypeDef[]>(`${this.base}required-fields/`, payload);
+  }
+
   private list(params: Record<string, any>): Observable<Piece[]> {
     let httpParams = new HttpParams();
     Object.keys(params).forEach(k => {
@@ -364,11 +373,14 @@ export class PiecesService {
    * renvoyé encodé en base64 dans un JSON (`{filename, content_type, data}`) — et non en
    * flux binaire — pour éviter qu'un gestionnaire de téléchargement externe (IDM…) ne
    * capture la requête XHR. L'appelant reconstruit le Blob puis le télécharge.
-   * En vue session (multi-session), passer `sessionId` pour cibler cette session. */
-  downloadReport(ssdgpsId: string, sessionId?: string | null):
+   * En vue session (multi-session), passer `sessionId` pour cibler cette session.
+   * `duplex` = true : mise en page recto-verso (pages de garde calées sur page droite,
+   * identification du pied en miroir, pagination globale côté reliure). */
+  downloadReport(ssdgpsId: string, sessionId?: string | null, duplex = false):
       Observable<{ filename: string; content_type: string; data: string }> {
     let params = new HttpParams().set('ssdgps', ssdgpsId);
     if (sessionId) params = params.set('session', sessionId);
+    if (duplex) params = params.set('duplex', '1');
     return this.http.get<{ filename: string; content_type: string; data: string }>(
       `${this.base}report/`, { params });
   }

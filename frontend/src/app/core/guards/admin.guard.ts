@@ -31,7 +31,7 @@ export class AdminGuard implements CanActivate {
     if (userRole !== 'ROLE_SUPER_ADMIN' && userRole !== 'ROLE_ADMIN_SYSTEME' && userRole !== 'ROLE_ORGANISATION_ADMIN') {
       // Utilisateur non autorisé
       console.warn('⚠️ Accès refusé - Rôle insuffisant:', userRole);
-      this.router.navigate(['/dashboard']);
+      this.router.navigate(['/home']);
       return false;
     }
 

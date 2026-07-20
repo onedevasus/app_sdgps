@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import RegisterView, LoginView, ForgotPasswordView, VerifyCodeView, ResetPasswordView, ChangePasswordView, UserProfileView, PieceSortConfigView, PieceSortConfigResetView, PieceFieldsConfigView, PieceFieldsConfigResetView
+from .views import RegisterView, LoginView, ForgotPasswordView, VerifyCodeView, ResetPasswordView, ChangePasswordView, UserProfileView, PieceSortConfigView, PieceSortConfigResetView, PieceFieldsConfigView, PieceFieldsConfigResetView, SsdgpsSortConfigView, SsdgpsSortConfigResetView
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -15,4 +15,6 @@ urlpatterns = [
     path('me/piece-sort-config/reset/', PieceSortConfigResetView.as_view(), name='piece-sort-config-reset'),
     path('me/piece-fields-config/', PieceFieldsConfigView.as_view(), name='piece-fields-config'),
     path('me/piece-fields-config/reset/', PieceFieldsConfigResetView.as_view(), name='piece-fields-config-reset'),
+    path('me/ssdgps-sort-config/', SsdgpsSortConfigView.as_view(), name='ssdgps-sort-config'),
+    path('me/ssdgps-sort-config/reset/', SsdgpsSortConfigResetView.as_view(), name='ssdgps-sort-config-reset'),
 ]

@@ -1,8 +1,10 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ProjectsService } from '../../../core/services/projects.service';
+import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { SsdgpsSortConfigService, SsdgpsSortLevel } from '../../../core/services/ssdgps-sort-config.service';
 import {
   Projet, Ssdgps, proprieteLabel, NATURE_SSDGPS_OPTIONS, TYPE_SSDGPS_OPTIONS,
 } from '../../../core/models/project.model';
@@ -36,6 +38,22 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { field: 'deleted_by_email', label: 'Supprimé par', visible: false, type: 'text' },
 ];
 
+/** Colonnes triables (allowlist alignée sur le backend SSDGPS_SORT_FIELDS), avec libellé. */
+const SORTABLE_FIELDS: { field: string; label: string }[] = [
+  { field: 'numero_ssdgps', label: 'SSDGPS (numéro)' },
+  { field: 'nature_ssdgps', label: 'Nature' },
+  { field: 'type_ssdgps', label: 'Type' },
+  { field: 'propriete_label', label: 'Propriété' },
+  { field: 'affaire_numero', label: 'Affaire (SD)' },
+  { field: 'nbr_total_sessions', label: 'Sessions' },
+  { field: 'nbr_total_pieces', label: 'Pièces' },
+  { field: 'propriete_nom', label: 'Propriété-dite' },
+  { field: 'propriete_id_titre', label: 'Titre foncier' },
+  { field: 'propriete_id_requisition', label: 'Réquisition' },
+  { field: 'created_at', label: 'Créé le' },
+  { field: 'updated_at', label: 'Modifié le' },
+];
+
 const FIELD_DESCRIPTIONS: Record<string, string> = {
   numero_ssdgps: "Numéro d'ordre du SSDGPS dans l'affaire",
   nature_ssdgps: 'Nature du sous-sous-dossier GPS',
@@ -67,7 +85,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   templateUrl: './project-ssdgps-list.component.html',
   styleUrls: ['./project-ssdgps-list.component.scss'],
 })
-export class ProjectSsdgpsListComponent implements OnInit {
+export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   loading = true;
   projectId!: string;
   projet: Projet | null = null;
@@ -79,9 +97,20 @@ export class ProjectSsdgpsListComponent implements OnInit {
   searchText = '';
   natureFilter = '';
   typeFilter = '';
-  sortColumn = 'numero_ssdgps';
-  sortDirection: 'asc' | 'desc' = 'asc';
   private manualOrder: string[] | null = null;
+
+  // --- Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) ---
+  /** Niveaux de tri appliqués au tableau (niveau 0 = prioritaire). */
+  sortLevels: SsdgpsSortLevel[] = [];
+  /** Champs triables proposés dans le panneau de configuration. */
+  readonly sortableFields = SORTABLE_FIELDS;
+  /** Panneau de configuration du tri (modale dédiée). */
+  showSortConfig = false;
+  savingSort = false;
+  savedSortFlash = false;
+  resettingSort = false;
+  showResetConfirm = false;
+  private sortSaveTimer: any;
 
   pageSize = 25;
   currentPage = 1;
@@ -124,13 +153,39 @@ export class ProjectSsdgpsListComponent implements OnInit {
     private toast: ToastService,
     private route: ActivatedRoute,
     private router: Router,
+    private sortConfigService: SsdgpsSortConfigService,
+    private breadcrumb: BreadcrumbService,
   ) {}
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id')!;
     this.loadColumnPreferences();
     this.load();
-    this.service.getProjet(this.projectId).subscribe({ next: (p) => (this.projet = p), error: () => {} });
+    this.loadSortConfig();
+    this.service.getProjet(this.projectId).subscribe({
+      next: (p) => { this.projet = p; this.updateTopbarBreadcrumb(); },
+      error: () => {},
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.breadcrumb.clear();
+  }
+
+  /** Fil d'Ariane métier : Accueil › Projets › <Projet> › Tous les SSDGPS. */
+  private updateTopbarBreadcrumb(): void {
+    const base = this.router.url.startsWith('/admin') ? '/admin/projets' : '/projets';
+    this.breadcrumb.set([
+      { label: 'Accueil', route: '/home', icon: 'fa-house' },
+      { label: 'Projets', route: base, icon: 'fa-folder-open' },
+      { label: this.projet?.nom_projet || this.projet?.code_projet || 'Projet', route: `${base}/${this.projectId}`, icon: 'fa-diagram-project' },
+      { label: 'Tous les SSDGPS', icon: 'fa-satellite-dish', isActive: true },
+    ]);
+  }
+
+  /** Charge le tri multi-niveaux de l'opérateur (hérité du super admin par défaut). */
+  private loadSortConfig(): void {
+    this.sortConfigService.get().subscribe(levels => { this.sortLevels = levels; });
   }
 
   @HostListener('document:click')
@@ -199,32 +254,135 @@ export class ProjectSsdgpsListComponent implements OnInit {
       rows = [...rows].sort((a, b) =>
         (idx.has(a.id) ? idx.get(a.id)! : Number.MAX_SAFE_INTEGER) -
         (idx.has(b.id) ? idx.get(b.id)! : Number.MAX_SAFE_INTEGER));
-    } else {
-      const dir = this.sortDirection === 'asc' ? 1 : -1;
-      rows = [...rows].sort((a, b) => {
-        const va = this.sortValue(a); const vb = this.sortValue(b);
-        return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
-      });
+    } else if (this.sortLevels.length) {
+      rows = [...rows].sort((a, b) => this.compareByLevels(a, b));
     }
     return rows;
   }
 
-  private sortValue(s: Ssdgps): number | string {
-    if (this.sortColumn === 'propriete_label') return (this.proprieteLabel(s) || '').toLowerCase();
-    const v = (s as any)[this.sortColumn];
+  /** Comparateur multi-niveaux : parcourt les niveaux dans l'ordre, le premier départage. */
+  private compareByLevels(a: Ssdgps, b: Ssdgps): number {
+    for (const lvl of this.sortLevels) {
+      const va = this.fieldSortValue(a, lvl.field);
+      const vb = this.fieldSortValue(b, lvl.field);
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      if (cmp !== 0) return lvl.dir === 'desc' ? -cmp : cmp;
+    }
+    return 0;
+  }
+
+  private fieldSortValue(s: Ssdgps, field: string): number | string {
+    if (field === 'propriete_label') return (this.proprieteLabel(s) || '').toLowerCase();
+    const v = (s as any)[field];
     if (v == null) return '';
     return typeof v === 'string' ? v.toLowerCase() : v;
   }
 
-  sortBy(field: string): void {
-    this.manualOrder = null;
-    if (this.sortColumn === field) this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    else { this.sortColumn = field; this.sortDirection = 'asc'; }
-    this.currentPage = 1;
+  // --- Marqueurs de tri sur les en-têtes de colonnes ---
+  /** Rang (1..n) du champ dans le tri multi-niveaux, ou 0 s'il n'est pas trié. */
+  sortLevelOf(field: string): number {
+    const i = this.sortLevels.findIndex(l => l.field === field);
+    return i < 0 ? 0 : i + 1;
   }
-  getSortIcon(field: string): string {
-    if (this.sortColumn !== field) return 'fas fa-sort';
-    return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  /** Sens de tri du champ ('asc'/'desc') s'il est trié, sinon ''. */
+  sortDirOf(field: string): '' | 'asc' | 'desc' {
+    return this.sortLevels.find(l => l.field === field)?.dir || '';
+  }
+  /** Libellé d'un champ triable (pour les badges / résumé). */
+  fieldLabel(field: string): string {
+    return this.sortableFields.find(f => f.field === field)?.label || field;
+  }
+  /** Résumé court du tri multi-niveaux (en-tête du panneau). */
+  get sortSummary(): string {
+    if (!this.sortLevels.length) return 'Aucun tri';
+    return this.sortLevels
+      .map(l => `${this.fieldLabel(l.field)} ${l.dir === 'desc' ? '↓' : '↑'}`)
+      .join('  ·  ');
+  }
+
+  // ============================================
+  // Panneau de configuration du tri multi-niveaux
+  // ============================================
+  openSortConfig(): void { this.showSortConfig = true; }
+  closeSortConfig(): void { this.showSortConfig = false; }
+
+  /** Champs disponibles pour un niveau donné : tous sauf ceux déjà choisis ailleurs. */
+  fieldsForLevel(current: SsdgpsSortLevel): { field: string; label: string }[] {
+    const used = new Set(this.sortLevels.filter(l => l !== current).map(l => l.field));
+    return this.sortableFields.filter(f => !used.has(f.field));
+  }
+  /** Premier champ triable non encore utilisé (pour l'ajout d'un niveau). */
+  private firstUnusedField(): string | null {
+    const used = new Set(this.sortLevels.map(l => l.field));
+    return this.sortableFields.find(f => !used.has(f.field))?.field || null;
+  }
+  get canAddLevel(): boolean { return this.sortLevels.length < this.sortableFields.length; }
+
+  addLevel(): void {
+    const field = this.firstUnusedField();
+    if (!field) return;
+    this.sortLevels = [...this.sortLevels, { field, dir: 'asc' }];
+    this.queueSaveSort();
+  }
+  removeLevel(i: number): void {
+    this.sortLevels = this.sortLevels.filter((_, k) => k !== i);
+    this.queueSaveSort();
+  }
+  moveLevelUp(i: number): void {
+    if (i <= 0) return;
+    const l = [...this.sortLevels]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; this.sortLevels = l; this.queueSaveSort();
+  }
+  moveLevelDown(i: number): void {
+    if (i >= this.sortLevels.length - 1) return;
+    const l = [...this.sortLevels]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; this.sortLevels = l; this.queueSaveSort();
+  }
+  changeLevelField(i: number, field: string): void {
+    // Empêche les doublons : si le champ est déjà utilisé ailleurs, on ignore.
+    if (this.sortLevels.some((l, k) => k !== i && l.field === field)) return;
+    this.sortLevels[i] = { ...this.sortLevels[i], field };
+    this.sortLevels = [...this.sortLevels];
+    this.queueSaveSort();
+  }
+  changeLevelDir(i: number, dir: 'asc' | 'desc'): void {
+    this.sortLevels[i] = { ...this.sortLevels[i], dir };
+    this.sortLevels = [...this.sortLevels];
+    this.queueSaveSort();
+  }
+
+  /** Enregistrement automatique (anti-rebond) de la config de tri. */
+  private queueSaveSort(): void {
+    this.currentPage = 1;
+    clearTimeout(this.sortSaveTimer);
+    this.sortSaveTimer = setTimeout(() => this.saveSortConfig(), 500);
+  }
+  private saveSortConfig(): void {
+    this.savingSort = true;
+    this.sortConfigService.save(this.sortLevels).subscribe({
+      next: (saved) => {
+        this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
+        setTimeout(() => { this.savedSortFlash = false; }, 2500);
+      },
+      error: () => { this.savingSort = false; this.toast.error('Erreur', 'Enregistrement du tri impossible'); },
+    });
+  }
+
+  // --- Réinitialisation avec la configuration SOURCE (compte administrateur) ---
+  askResetSort(): void { if (!this.resettingSort) this.showResetConfirm = true; }
+  cancelResetSort(): void { this.showResetConfirm = false; }
+  confirmResetSort(): void {
+    if (this.resettingSort) return;
+    this.resettingSort = true;
+    this.sortConfigService.resetToSource().subscribe({
+      next: (levels) => {
+        this.sortLevels = levels; this.resettingSort = false; this.showResetConfirm = false;
+        this.currentPage = 1;
+        this.toast.success('Succès', 'Tri réinitialisé avec la configuration source');
+      },
+      error: (e) => {
+        this.resettingSort = false; this.showResetConfirm = false;
+        this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
+      },
+    });
   }
   clearFilters(): void {
     this.searchText = ''; this.natureFilter = ''; this.typeFilter = '';
@@ -354,7 +512,7 @@ export class ProjectSsdgpsListComponent implements OnInit {
   // --- Valeur de cellule (affichage + CSV + filtre par champ) ---
   formatDate(value: any): string {
     if (!value) return '—';
-    return new Date(value).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    return new Date(value).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
   getCellValue(s: Ssdgps, field: string): string {
     switch (field) {
@@ -402,7 +560,7 @@ export class ProjectSsdgpsListComponent implements OnInit {
   goToLastPage(): void { this.goToPage(this.totalPages); }
 
   // --- Navigation ---
-  /** Base absolue « …/projets » (fonctionne sous /dashboard/projets ET /admin/projets). */
+  /** Base absolue « …/projets » (fonctionne sous /projets ET /admin/projets). */
   private projetsBase(): string[] {
     const segs = this.router.url.split('?')[0].split('/').filter(Boolean);
     const idx = segs.lastIndexOf('projets');

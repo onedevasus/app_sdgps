@@ -14,6 +14,7 @@ class ProjetSerializer(serializers.ModelSerializer):
     nbr_total_affaires = serializers.IntegerField(read_only=True)
     nbr_total_ssdgps = serializers.IntegerField(read_only=True)
     nbr_total_sessions = serializers.IntegerField(read_only=True)
+    nbr_total_pieces = serializers.IntegerField(read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     updated_by_email = serializers.EmailField(source='updated_by.email', read_only=True)
     deleted_by_email = serializers.EmailField(source='deleted_by.email', read_only=True)
@@ -24,6 +25,7 @@ class ProjetSerializer(serializers.ModelSerializer):
             'id', 'nom_projet', 'description_projet', 'code_projet',
             'organization', 'organization_name', 'statut', 'statut_display',
             'nbr_total_proprietes', 'nbr_total_affaires', 'nbr_total_ssdgps', 'nbr_total_sessions',
+            'nbr_total_pieces',
             'created_at', 'updated_at', 'is_deleted', 'deleted_at',
             'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]

@@ -8,15 +8,16 @@ export const USER_MENU: MenuItem[] = [
     id: 'dashboard',
     title: 'Tableau de bord',
     icon: 'fas fa-tachometer-alt',
-    route: '/dashboard',
+    route: '/home', // accueil opérateur servi à la racine (sans préfixe « dashboard »)
     type: 'link',
+    exact: true, // évite de rester actif sur les sous-routes (/projets…)
     description: 'Vue d\'ensemble de vos projets et activités'
   },
   {
     id: 'projets',
     title: 'Projets',
     icon: 'fas fa-project-diagram',
-    route: '/dashboard/projets',
+    route: '/projets',
     type: 'link',
     description: 'Projets, propriétés, affaires, SSDGPS & sessions'
   },
@@ -25,7 +26,7 @@ export const USER_MENU: MenuItem[] = [
     id: 'parametres',
     title: 'Paramètres',
     icon: 'fas fa-sliders-h',
-    route: '/dashboard/profile/parametres',
+    route: '/parametres',
     type: 'submenu',
     description: 'Préférences d\'affichage des pièces (tri + colonnes)',
     children: [
@@ -33,7 +34,7 @@ export const USER_MENU: MenuItem[] = [
         id: 'tri-pieces',
         title: 'Tri des pièces',
         icon: 'fas fa-sort-amount-down',
-        route: '/dashboard/profile/parametres/tri-pieces',
+        route: '/parametres/tri-pieces',
         type: 'link',
         description: 'Champ de tri par défaut des tableaux de pièces (affichage + rapport PDF)'
       },
@@ -41,7 +42,7 @@ export const USER_MENU: MenuItem[] = [
         id: 'champs-pieces',
         title: 'Champs par défaut',
         icon: 'fas fa-table-columns',
-        route: '/dashboard/profile/parametres/champs-pieces',
+        route: '/parametres/champs-pieces',
         type: 'link',
         description: 'Colonnes affichées par type de pièce (vues app + rapport PDF)'
       }
@@ -62,6 +63,7 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-tachometer-alt',
     route: '/admin/dashboard',
     type: 'link',
+    exact: true, // correspondance exacte (cohérence avec le menu opérateur)
     description: 'Vue d\'ensemble système',
     roles: ALL_ADMIN_ROLES,
   },
@@ -136,7 +138,7 @@ export const ADMIN_MENU: MenuItem[] = [
     id: 'parametres',
     title: 'Paramètres',
     icon: 'fas fa-sliders-h',
-    route: '/admin/profile/parametres',
+    route: '/admin/parametres',
     type: 'submenu',
     description: 'Préférences d\'affichage des pièces (tri + colonnes)',
     roles: ALL_ADMIN_ROLES,
@@ -145,7 +147,7 @@ export const ADMIN_MENU: MenuItem[] = [
         id: 'tri-pieces',
         title: 'Tri des pièces',
         icon: 'fas fa-sort-amount-down',
-        route: '/admin/profile/parametres/tri-pieces',
+        route: '/admin/parametres/tri-pieces',
         type: 'link',
         description: 'Champ de tri par défaut des tableaux de pièces (affichage + rapport PDF)',
         roles: ALL_ADMIN_ROLES,
@@ -154,7 +156,7 @@ export const ADMIN_MENU: MenuItem[] = [
         id: 'champs-pieces',
         title: 'Champs par défaut',
         icon: 'fas fa-table-columns',
-        route: '/admin/profile/parametres/champs-pieces',
+        route: '/admin/parametres/champs-pieces',
         type: 'link',
         description: 'Colonnes affichées par type de pièce (vues app + rapport PDF)',
         roles: ALL_ADMIN_ROLES,

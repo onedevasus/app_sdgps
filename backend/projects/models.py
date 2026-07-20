@@ -167,9 +167,10 @@ class Affaire(BaseModel):
     nature_affaire = models.CharField(
         max_length=10, choices=Nature.choices, verbose_name="Nature d'affaire",
     )
-    date_bornage = models.DateField(
-        null=True, blank=True, verbose_name="Date de bornage / recollement",
-        help_text="Requise pour IFF/AS/PS_* ; non définie pour IFE/IFR",
+    date_bornage = models.DateTimeField(
+        null=True, blank=True, verbose_name="Date et heure de bornage / recollement",
+        help_text="Requise pour IFF/AS/PS_* ; non définie pour IFE/IFR. "
+                  "Horodatage complet (jj/mm/aaaa hh:mm:ss).",
     )
     propriete = models.ForeignKey(
         Propriete, on_delete=models.CASCADE, related_name='affaires',
@@ -248,7 +249,10 @@ class Session(BaseModel):
         verbose_name="SSDGPS",
     )
     numero_session = models.PositiveIntegerField(verbose_name="Numéro de session")
-    date_session = models.DateField(null=True, blank=True, verbose_name="Date de la session")
+    date_session = models.DateTimeField(
+        null=True, blank=True, verbose_name="Date et heure de la session",
+        help_text="Horodatage complet (jj/mm/aaaa hh:mm:ss).",
+    )
 
     class Meta:
         ordering = ['numero_session']
