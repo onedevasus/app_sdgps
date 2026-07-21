@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from accounts.models import Organization, Membership
+from accounts.seeding import forbid_in_production
 
 User = get_user_model()
 
@@ -9,6 +10,7 @@ class Command(BaseCommand):
     help = 'Crée des utilisateurs de test pour le développement : super admins, app admins, org admins et agents'
 
     def handle(self, *args, **options):
+        forbid_in_production()  # comptes de test interdits en production
         created_users = []
         created_orgs = []
 

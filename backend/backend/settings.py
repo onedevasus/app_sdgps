@@ -10,9 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 import sys
 from pathlib import Path
-from decouple import config  # Charger les variables d'environnement depuis .env
+from decouple import Config, RepositoryEnv, config as _autoconfig
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,6 +22,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # l'auto-seed des données de référence déclenché par le signal post_migrate (cf.
 # accounts/apps.py) : les tests doivent partir d'une base vierge.
 TESTING = 'test' in sys.argv
+
+# ============================================
+# Sélection du fichier de configuration par ENVIRONNEMENT
+# ============================================
+# Le sélecteur ENVIRONMENT vient de l'OS/shell/docker-compose (JAMAIS d'un fichier .env,
+# sinon problème de l'œuf et la poule). On charge alors backend/.env.<environnement> :
+#   - development (défaut) → .env.development  (SQLite, base locale)
+#   - production           → .env.production   (PostgreSQL)
+# Repli sur l'AutoConfig de decouple (lit os.environ + éventuel .env) si le fichier est absent
+# (ex. CI, où la config vient des variables d'environnement du job).
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
+_env_file = BASE_DIR / f'.env.{ENVIRONMENT}'
+config = Config(RepositoryEnv(str(_env_file))) if _env_file.exists() else _autoconfig
 
 
 # Quick-start development settings - unsuitable for production
@@ -90,12 +104,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# Environnement d'exécution : 'development' (défaut), 'staging' ou 'production'.
-# Pilote à la fois le filtrage des données de test (accounts/managers.py) et le choix du
-# moteur de base de données ci-dessous.
-ENVIRONMENT = config('ENVIRONMENT', default='development')
-
-# Moteur DB selon l'environnement : SQLite en développement (base existante `db.sqlite3`),
+# Moteur DB selon l'environnement (ENVIRONMENT est défini plus haut, depuis l'OS) :
+# SQLite en développement (base existante `db.sqlite3`),
 # PostgreSQL en production. Surchargeable explicitement via `DB_ENGINE` (utile pour la
 # migration ponctuelle des données ou pour tester Postgres en local).
 _default_engine = 'postgresql' if ENVIRONMENT == 'production' else 'sqlite'

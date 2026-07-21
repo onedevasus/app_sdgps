@@ -1,6 +1,7 @@
 
 from django.core.management.base import BaseCommand
 from accounts.models import Organization
+from accounts.seeding import forbid_in_production
 from django.utils import timezone
 
 
@@ -8,6 +9,7 @@ class Command(BaseCommand):
     help = 'Crée 20 organisations de démo avec des profils variés'
 
     def handle(self, *args, **options):
+        forbid_in_production()  # données de démo interdites en production
         Organization.objects.test_data_only().delete()
 
         orgs = [

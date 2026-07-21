@@ -30,9 +30,12 @@ build/
 # Logs
 *.log
 
-# Environment variables
+# Environment variables — vrais fichiers ignorés, templates *.example versionnés.
 .env
 .env.local
+.env.development
+.env.production
+!.env*.example
 
 # Angular cache
 frontend/.angular/

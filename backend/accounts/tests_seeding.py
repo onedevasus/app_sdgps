@@ -9,10 +9,14 @@ import os
 
 from decouple import config
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase, override_settings
 
 from accounts.models import Organization
-from accounts.seeding import run_seed, PREDEFINED_ORGANIZATIONS, PREDEFINED_ORGANISMES_N2
+from accounts.seeding import (
+    run_seed, forbid_in_production, PREDEFINED_ORGANIZATIONS, PREDEFINED_ORGANISMES_N2,
+)
 from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 
 User = get_user_model()
@@ -91,3 +95,27 @@ class RunSeedTests(TestCase):
         # Premier passage : les 2 app-admins et les organisations/organismes prédéfinis créés.
         self.assertGreaterEqual(summary['users_created'], 2)
         self.assertEqual(summary['organizations_created'], len(PREDEFINED_ORGANIZATIONS))
+
+
+class ProductionGuardTests(TestCase):
+    """Garde-fou : les données de démo/test sont interdites en production."""
+
+    @override_settings(ENVIRONMENT='development')
+    def test_autorise_en_developpement(self):
+        # N'émet aucune exception hors production.
+        self.assertIsNone(forbid_in_production())
+
+    @override_settings(ENVIRONMENT='production')
+    def test_bloque_en_production(self):
+        with self.assertRaises(CommandError):
+            forbid_in_production()
+
+    @override_settings(ENVIRONMENT='production')
+    def test_commande_seed_demo_orgs_bloquee_en_production(self):
+        with self.assertRaises(CommandError):
+            call_command('seed_demo_orgs')
+
+    @override_settings(ENVIRONMENT='production')
+    def test_commande_seed_test_users_bloquee_en_production(self):
+        with self.assertRaises(CommandError):
+            call_command('seed_test_users')

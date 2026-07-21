@@ -4,7 +4,7 @@ services:
     container_name: sdgps-db
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - ./backend/.env.production
     environment:
       # Alimente l'initialisation du serveur Postgres depuis les variables POSTGRES_* du .env.
       POSTGRES_DB: ${POSTGRES_DB:-sdgps}
@@ -28,7 +28,7 @@ services:
     ports:
       - "8085:8000"
     env_file:
-      - ./backend/.env
+      - ./backend/.env.production
     environment:
       # Déploiement = production → PostgreSQL (indépendamment du .env versionné).
       ENVIRONMENT: production
