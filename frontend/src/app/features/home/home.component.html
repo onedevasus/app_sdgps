@@ -1,0 +1,151 @@
+<div class="home">
+
+  <!-- ===================== En-tête personnalisé ===================== -->
+  <header class="home-hero">
+    <div class="hero-text">
+      <p class="hero-eyebrow"><i class="fas fa-hand-sparkles"></i> Espace de travail</p>
+      <h1 class="hero-title">
+        {{ greeting }}<ng-container *ngIf="firstName">, {{ firstName }}</ng-container>
+      </h1>
+      <p class="hero-subtitle">
+        <span *ngIf="user?.organization_name" class="hero-org">
+          <i class="fas fa-building"></i> {{ user?.organization_name }}
+        </span>
+        <span *ngIf="user?.last_connection_at" class="hero-since">
+          <i class="fas fa-clock-rotate-left"></i> Dernière connexion&nbsp;: {{ formatDate(user?.last_connection_at) }}
+        </span>
+      </p>
+    </div>
+    <button class="hero-cta" (click)="openProjets()">
+      <i class="fas fa-diagram-project"></i>
+      <span>Explorer mes projets</span>
+      <i class="fas fa-arrow-right"></i>
+    </button>
+  </header>
+
+  <!-- ===================== Tuiles KPI ===================== -->
+  <section class="kpi-grid" aria-label="Indicateurs clés">
+    <ng-container *ngIf="!loading; else kpiSkeleton">
+      <button *ngFor="let k of kpis" class="kpi-card" (click)="openProjets()" [attr.aria-label]="k.label">
+        <span class="kpi-icon"><i class="fas" [ngClass]="k.icon"></i></span>
+        <span class="kpi-body">
+          <span class="kpi-value">{{ k.value }}</span>
+          <span class="kpi-label">{{ k.label }}</span>
+        </span>
+      </button>
+    </ng-container>
+    <ng-template #kpiSkeleton>
+      <div *ngFor="let s of skeletons" class="kpi-card is-skeleton">
+        <span class="kpi-icon skeleton-box"></span>
+        <span class="kpi-body">
+          <span class="skeleton-line lg"></span>
+          <span class="skeleton-line sm"></span>
+        </span>
+      </div>
+    </ng-template>
+  </section>
+
+  <!-- ===================== Panneaux ===================== -->
+  <section class="panels">
+
+    <!-- Répartition des projets par statut -->
+    <article class="panel">
+      <div class="panel-head">
+        <h2><i class="fas fa-chart-pie"></i> Répartition des projets</h2>
+        <span class="panel-total" *ngIf="!loading">{{ totalProjets }} au total</span>
+      </div>
+
+      <ng-container *ngIf="!loading; else distSkeleton">
+        <ng-container *ngIf="totalProjets > 0; else noProjets">
+          <div class="dist-bar" role="img" aria-label="Répartition des projets par statut">
+            <span *ngFor="let seg of segments"
+                  class="dist-seg"
+                  [style.width.%]="seg.pct"
+                  [style.background]="seg.color"
+                  [title]="seg.label + ' : ' + seg.count"></span>
+          </div>
+          <ul class="dist-legend">
+            <li *ngFor="let seg of segments">
+              <span class="legend-dot" [style.background]="seg.color"></span>
+              <span class="legend-label">{{ seg.label }}</span>
+              <span class="legend-count">{{ seg.count }}</span>
+              <span class="legend-pct">{{ seg.pct }}%</span>
+            </li>
+          </ul>
+        </ng-container>
+        <ng-template #noProjets>
+          <div class="empty-mini">
+            <i class="fas fa-folder-open"></i>
+            <p>Aucun projet pour le moment.</p>
+            <button class="link-btn" (click)="openProjets()">Créer un projet</button>
+          </div>
+        </ng-template>
+      </ng-container>
+      <ng-template #distSkeleton>
+        <div class="skeleton-line" style="height:16px;border-radius:8px;"></div>
+        <div class="skeleton-line" style="height:12px;width:70%;margin-top:16px;"></div>
+        <div class="skeleton-line" style="height:12px;width:55%;margin-top:10px;"></div>
+      </ng-template>
+    </article>
+
+    <!-- Projets récents -->
+    <article class="panel">
+      <div class="panel-head">
+        <h2><i class="fas fa-clock-rotate-left"></i> Projets récents</h2>
+        <button class="panel-link" (click)="openProjets()" *ngIf="!loading && recentProjets.length">
+          Tout voir <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+
+      <ng-container *ngIf="!loading; else recentSkeleton">
+        <ul class="recent-list" *ngIf="recentProjets.length; else noRecent">
+          <li *ngFor="let p of recentProjets" class="recent-item" (click)="openProjet(p)" tabindex="0"
+              (keyup.enter)="openProjet(p)">
+            <span class="recent-icon"><i class="fas fa-diagram-project"></i></span>
+            <span class="recent-main">
+              <span class="recent-name">{{ p.nom_projet }}</span>
+              <span class="recent-meta">
+                <span class="recent-code">{{ p.code_projet }}</span>
+                <span class="dot-sep">•</span>
+                <span>{{ p.nbr_total_pieces || 0 }} pièce(s)</span>
+              </span>
+            </span>
+            <span class="recent-side">
+              <span class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ statutLabel(p.statut) }}</span>
+              <span class="recent-date">{{ formatDate(p.updated_at) }}</span>
+            </span>
+          </li>
+        </ul>
+        <ng-template #noRecent>
+          <div class="empty-mini">
+            <i class="fas fa-folder-open"></i>
+            <p>Aucun projet récent.</p>
+            <button class="link-btn" (click)="openProjets()">Aller aux projets</button>
+          </div>
+        </ng-template>
+      </ng-container>
+      <ng-template #recentSkeleton>
+        <div *ngFor="let s of [0,1,2,3]" class="recent-item is-skeleton">
+          <span class="recent-icon skeleton-box"></span>
+          <span class="recent-main">
+            <span class="skeleton-line lg"></span>
+            <span class="skeleton-line sm"></span>
+          </span>
+        </div>
+      </ng-template>
+    </article>
+  </section>
+
+  <!-- ===================== Actions rapides ===================== -->
+  <section class="quick-actions" aria-label="Actions rapides">
+    <button *ngFor="let a of quickActions" class="action-card" (click)="go(a.route)">
+      <span class="action-icon"><i class="fas" [ngClass]="a.icon"></i></span>
+      <span class="action-text">
+        <span class="action-label">{{ a.label }}</span>
+        <span class="action-hint">{{ a.hint }}</span>
+      </span>
+      <i class="fas fa-chevron-right action-chevron"></i>
+    </button>
+  </section>
+
+</div>

@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/v1/users/', include('accounts.users_urls')),  # ← AJOUT: Gestion utilisateurs
     path('api/v1/', include('projects.urls')),  # ← AJOUT: Domaine métier (projets, propriétés, affaires, ssdgps, sessions)
     path('api/v1/', include('pieces.urls')),  # ← AJOUT: Pièces SSDGPS/Session (Phase 6.5)
+    path('api/v1/analytics/', include('analytics.urls')),  # ← AJOUT: Analytique de stockage (admin)
 ]
 
 # Servir les fichiers médias en développement

@@ -4,6 +4,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -55,83 +57,39 @@
       - [Detail des pieces.](#detail-des-pieces)
 
 # Taches a faire
-  - Divers
-    - Personnaliser les messages des commites du watcher en passant par opencode.
-    - Configurer le compte git Blmerio2022 pour qu'il soit utilise toujours et par defaut dans ce projet. (fait)
-  - gestion des utilisateurs
-    - correction + refonte frontend tableau de la liste des utilisateurs. (fait)
-    - Protection des roles des utilisateurs.  (fait)
-    - tester toutes les fonctionnalites du tableau (fait)
-    - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs  (fait)
-
-    - implementer les tests backend + frontend de la gestion des utilisateurs
-  - gestion (CRUD) des projets/proprietes/affaires/ssd-gps/sessions
-     - 
-  - configuration des pieces du ssdgps
-  - import des donneees des pieces 
-    - gestion des ssd-gps mono-session
-    - gestion des ssd-gps multi-sessions
-
-
-  - Personnalisation pieces d'un sdgps monosession
-    - ajout des outils des tableaux dans les tableaux de donnees des pieces (fait)
-    - gestion des colonnes de tri des tables des donnees des pieces  (fait).
-    - Personnaliser les templates des champs affichees dans chaque piece qui contient un tableau de donnees.   (fait).
-    - suppression des sessions des sdgps monosessions   (fait)
-    - supprime colonne portee dans tableau de la liste des pieces pour ssdgps monosession   (fait)
-    - ajout enregistrement automatique des donnees lors creation/modification des pieces   (fait)
-
-    - possibilite de masquage de la colonne "N" dans tableau des pieces et l'afficher sous le nom de la piece  (fait)
-    - edition en masse du statut des pieces dans la liste des pieces.  (fait)
-    - restyler les outils modification/reimportation/remplacement des donnees des tables de donnees des pieces dans la page modification/creation en les mettant dans un style et design élégant, pro et conforme au design System de l'app.  (fait)
-    - definir le catalogue source des champs pour l'import des donnees pour les pieces.    (fait)
-    - donner la possibilite a l'utilisateur de personnaliser les champs  (fait)
-
-  - Personnalisation du tableau de la liste des ssdgps
-    - ajoute fonctionnalite tri multi-niveau dans le tableau de la liste des ssdgps        (fait)
-       - tri pardefaut herite/reinitialisee depuis celui du compte superadmin              (fait)
-       - possibilite a l'utilisateur connectee de modifier la config du tri multi-niveau   (fait)
-       - marquer les niveaux + le sens du tri multi-niveau  dans les colonnes du tableau   (fait)
-
 
   - Preparation des sdgps multisession exemples
     - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
     - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
     - 
 
-
   - Divers:
-    - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees 
-    - ajouter la colonne ID si manquantes dans les tables des donnnees des pieces.
+    - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees.
     - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
+    - Finaliser l'interface graphique UI/UX
+
+  
+
+  - Ajouter le modale de tri des lignes d'un tableau pour tous tableaux de l'app : projets/proprietes/affaires/ssdgps/sessions/pieces.
+  - Fonctionnalite espace stockage utilisee par les donnees de l'app dans l'espace admin.
 
 
-  - Finaliser l'interface grphique UI/UX
-    - Page de profile de l'utilisateur connectee (fait)
-    - Pages de connexion + reinitialisation des mdp + creation du compte  (fait)
-    - breadcrumb dans topbar   (fait)
-    - corriger fil d'arian et url de l'entree parametres et ces sous entrees. (fait)
-    - Implementation de la page accueil "/home" pour les utilisateurs dont role est agent d'organisation (operateur)
-
-
-
-  - Plan de deployement
+  - Plan de deployement : developement + tests + production
     - Generer plan de deployement dans "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps\docs\plans\plans_claude_code"
+      - inclure une phase pour ecrire tous les tests de toutes les fonctionnalites de l'app.
       - inclure phase de resolution les problemes de securite
-      - 
-      - inclure phase de maj de l'app web apres deploiement et production
+      - inclure l'automatisation du process d'integration et deployement des maj via les outiles DevOps.
       
     - executer plan de deployement
-
-
-
-    - 
 
  
 
 
 
 Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
+
+- Fonctionnalites futures:
+  - Fonctionnalite gestion stockage des fichiers de l'app avec un fournisseur du service stockage.
 
 
 # Rôles de l'application
@@ -236,7 +194,9 @@ Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour
 
 ### Prompte pour commit des modifs et synchronisation avec depot distant configure dans le projet
 
-commit les changements dans le dépôt local et synchronise ces commites  avec le dépôt distant global de l'app. quand le watcher a deja commiter maj le message du dernier commit dans le depot local et distant.
+commit les changements dans le dépôt local et synchronise ces commites  avec le dépôt distant global de l'app.
+
+Quand le watcher a deja commiter maj le message du dernier commit dans le depot local et distant.
 Squaser les derniers commits watcher en un seul commit avec un message pertinent.
 
 

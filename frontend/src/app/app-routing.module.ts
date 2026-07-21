@@ -9,6 +9,7 @@ import { UserDetailComponent } from './features/admin/users/user-detail/user-det
 import { RolesPermissionsComponent } from './features/admin/users/roles-permissions/roles-permissions.component';
 import { OrganismeListComponent } from './features/admin/organismes/organisme-list/organisme-list.component';
 import { PieceFieldDescriptionsComponent } from './features/admin/piece-field-descriptions/piece-field-descriptions.component';
+import { StorageDashboardComponent } from './features/admin/storage/storage-dashboard.component';
 
 // Composant placeholder temporaire (à remplacer par vos vrais composants)
 @Component({
@@ -145,7 +146,7 @@ const routes: Routes = [
       },
       {
         path: 'quotas/stockage',
-        component: PlaceholderComponent,
+        component: StorageDashboardComponent,
         data: { title: 'Espace de stockage' }
       },
       {
@@ -187,8 +188,9 @@ const routes: Routes = [
         pathMatch: 'full'
       },
       {
+        // Accueil opérateur : tableau de bord synthétique (KPI + projets récents).
         path: 'home',
-        component: PlaceholderComponent,
+        loadChildren: () => import('./features/home/home.module').then(m => m.HomeModule),
         data: { title: 'Tableau de bord' }
       },
       {

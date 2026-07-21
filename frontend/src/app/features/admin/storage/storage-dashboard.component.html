@@ -1,0 +1,121 @@
+<div class="storage-dashboard">
+
+  <!-- En-tête -->
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1><i class="fas fa-database"></i> Espace de stockage</h1>
+      <p class="subtitle">Volumétrie des fichiers importés — par organisation, projet, utilisateur et nature</p>
+    </div>
+    <div class="header-actions">
+      <div class="org-filter">
+        <label for="orgSelect"><i class="fas fa-filter"></i></label>
+        <select id="orgSelect" [(ngModel)]="selectedOrg" (ngModelChange)="onOrgChange()">
+          <option [ngValue]="null">Toutes les organisations</option>
+          <option *ngFor="let o of organizations" [ngValue]="o.id">{{ o.name }}</option>
+        </select>
+      </div>
+      <button type="button" class="refresh-btn" (click)="refresh()" [disabled]="loading"
+              title="Rafraîchir les statistiques">
+        <i class="fas fa-rotate" [class.fa-spin]="loading"></i>
+        <span>Rafraîchir</span>
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="storage-alert error"><i class="fas fa-triangle-exclamation"></i> {{ error }}</div>
+
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon accent"><i class="fas fa-hard-drive"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Stockage total</div>
+        <div class="kpi-value">{{ formatBytes(overview?.total_bytes || 0) }}</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-file"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Fichiers</div>
+        <div class="kpi-value">{{ overview?.total_files || 0 }}</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-image"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Nature principale</div>
+        <div class="kpi-value">{{ topType }}</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-building"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-label">Organisations</div>
+        <div class="kpi-value">{{ orgCount }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graphiques haut : répartition par type + évolution -->
+  <div class="charts-row">
+    <div class="card chart-card">
+      <div class="card-head"><h2><i class="fas fa-chart-pie"></i> Par nature de fichier</h2></div>
+      <div class="chart-wrap donut">
+        <canvas #typeCanvas></canvas>
+        <div *ngIf="overview && !overview.total_bytes" class="chart-empty">Aucune donnée</div>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="card-head">
+        <h2><i class="fas fa-chart-area"></i> Évolution dans le temps</h2>
+        <div class="rank-tabs evo-tabs">
+          <button *ngFor="let d of evoDims" [class.active]="evoDim===d.key" (click)="setEvoDim(d.key)"
+                  [title]="d.label"><i class="fas" [ngClass]="d.icon"></i> {{ d.label }}</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas #evoCanvas></canvas>
+        <div *ngIf="!evolution.length" class="chart-empty">
+          Aucun instantané. Lancez <code>snapshot_storage</code> pour tracer l'évolution.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Classement par organisation / projet / utilisateur -->
+  <div class="card rank-card">
+    <div class="card-head">
+      <h2><i class="fas fa-ranking-star"></i> Répartition détaillée</h2>
+      <div class="rank-tabs">
+        <button [class.active]="rankTab==='by_organization'" (click)="setRankTab('by_organization')"><i class="fas fa-building"></i> Organisations</button>
+        <button [class.active]="rankTab==='by_project'" (click)="setRankTab('by_project')"><i class="fas fa-diagram-project"></i> Projets</button>
+        <button [class.active]="rankTab==='by_user'" (click)="setRankTab('by_user')"><i class="fas fa-user"></i> Utilisateurs</button>
+      </div>
+    </div>
+
+    <div class="rank-body">
+      <div class="chart-wrap rank-chart">
+        <canvas #rankCanvas></canvas>
+        <div *ngIf="!currentRank.length" class="chart-empty">Aucune donnée</div>
+      </div>
+
+      <div class="rank-table" *ngIf="currentRank.length">
+        <div class="rank-row head">
+          <span class="rk-name">Nom</span>
+          <span class="rk-bar"></span>
+          <span class="rk-size">Taille</span>
+          <span class="rk-pct">%</span>
+        </div>
+        <div class="rank-row" *ngFor="let it of currentRank">
+          <span class="rk-name" [title]="it.label">{{ it.label }}</span>
+          <span class="rk-bar"><span class="rk-fill" [style.width.%]="percent(it.bytes)"></span></span>
+          <span class="rk-size">{{ formatBytes(it.bytes) }}</span>
+          <span class="rk-pct">{{ percent(it.bytes) }}%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="storage-loading"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+</div>
