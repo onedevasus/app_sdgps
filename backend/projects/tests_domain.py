@@ -6,6 +6,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import Organization, Membership
+from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 from projects.models import Projet, Propriete, Affaire, Ssdgps, Session
 
 User = get_user_model()
@@ -25,6 +26,9 @@ class DomainBaseTest(TestCase):
         self.agent1 = make_agent('a1@example.com', self.org1)
         self.agent2 = make_agent('a2@example.com', self.org2)
         self.client.force_authenticate(self.agent1)
+        # Organismes (obligatoires à la création d'une propriété via l'API).
+        self.on1 = OrganismeNiveau1.objects.create(code='ON1', nom='Organisme N1')
+        self.on2 = OrganismeNiveau2.objects.create(code='ON2', nom='Organisme N2', niveau1=self.on1)
 
     def _projet(self, org=None, code='P-1', created_by=None):
         return Projet.objects.create(
@@ -70,6 +74,7 @@ class ProprieteValidationTests(DomainBaseTest):
         projet = self._projet()
         resp = self.client.post('/api/v1/proprietes/', {
             'nom_propriete': 'AMADLE 0', 'id_requisition': 'R19000/55', 'projet': str(projet.id),
+            'organisme_niveau1': str(self.on1.id), 'organisme_niveau2': str(self.on2.id),
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.content)
 
@@ -327,6 +332,7 @@ class AuditFieldsTests(DomainBaseTest):
         projet = self._projet()
         resp = self.client.post('/api/v1/proprietes/', {
             'nom_propriete': 'AMADLE 0', 'id_requisition': 'R19000/55', 'projet': str(projet.id),
+            'organisme_niveau1': str(self.on1.id), 'organisme_niveau2': str(self.on2.id),
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.content)
         self.assertEqual(resp.json()['created_by_email'], 'a1@example.com')

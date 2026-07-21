@@ -47,7 +47,7 @@ class CatalogTests(PieceBaseTest):
     def test_catalog_has_17_effective_entries(self):
         resp = self.client.get('/api/v1/pieces/catalog/')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.json()), 17)  # 17 codes (RDN factorise N°1/2/3)
+        self.assertEqual(len(resp.json()), 18)  # codes du catalogue (RDN factorise N°1/2/3)
 
 
 class CoherenceTests(PieceBaseTest):
@@ -55,7 +55,7 @@ class CoherenceTests(PieceBaseTest):
         # RC est niveau SSDGPS par défaut (catalogue), mais l'utilisateur peut
         # librement le rattacher à une session : ce n'est plus une contrainte figée.
         resp = self.client.post('/api/v1/pieces/', {
-            'type_piece': 'RC', 'ssdgps': str(self.ssdgps1.id), 'session': str(self.session1.id),
+            'type_piece': 'FTR', 'ssdgps': str(self.ssdgps1.id), 'session': str(self.session1.id),
             'source_saisie': 'manuel', 'payload': {'rows': []},
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.content)
@@ -121,7 +121,7 @@ class CoherenceTests(PieceBaseTest):
         self.assertEqual(resp.status_code, 400)
 
     def test_duplicate_non_repeatable_rejected(self):
-        payload = {'type_piece': 'RC', 'ssdgps': str(self.ssdgps1.id),
+        payload = {'type_piece': 'FTR', 'ssdgps': str(self.ssdgps1.id),
                    'source_saisie': 'manuel', 'payload': {'rows': [{'contenu': 'ok'}]}}
         self.assertEqual(self.client.post('/api/v1/pieces/', payload, format='json').status_code, 201)
         self.assertEqual(self.client.post('/api/v1/pieces/', payload, format='json').status_code, 400)
@@ -136,7 +136,7 @@ class CoherenceTests(PieceBaseTest):
 
     def test_new_piece_appended_at_end_of_ordre(self):
         r1 = self.client.post('/api/v1/pieces/', {
-            'type_piece': 'RC', 'ssdgps': str(self.ssdgps1.id), 'source_saisie': 'manuel',
+            'type_piece': 'LPA', 'ssdgps': str(self.ssdgps1.id), 'source_saisie': 'manuel',
             'payload': {'rows': []},
         }, format='json')
         r2 = self.client.post('/api/v1/pieces/', {
@@ -216,7 +216,7 @@ class ImportTests(PieceBaseTest):
 class RbacScopingTests(PieceBaseTest):
     def test_agent_sees_only_own_org_pieces_ssdgps_level(self):
         resp = self.client.post('/api/v1/pieces/', {
-            'type_piece': 'RC', 'ssdgps': str(self.ssdgps1.id), 'source_saisie': 'manuel',
+            'type_piece': 'LPA', 'ssdgps': str(self.ssdgps1.id), 'source_saisie': 'manuel',
             'payload': {'rows': [{'contenu': 'x'}]},
         }, format='json')
         self.assertEqual(resp.status_code, 201)
@@ -248,7 +248,7 @@ class RbacScopingTests(PieceBaseTest):
 class UnifiedFetchTests(PieceBaseTest):
     def test_unified_fetch_returns_ssdgps_and_all_session_pieces(self):
         self.client.post('/api/v1/pieces/', {
-            'type_piece': 'RC', 'ssdgps': str(self.ssdgps1.id), 'source_saisie': 'manuel',
+            'type_piece': 'LPA', 'ssdgps': str(self.ssdgps1.id), 'source_saisie': 'manuel',
             'payload': {'rows': []},
         }, format='json')
         self.client.post('/api/v1/pieces/', {
@@ -273,7 +273,7 @@ class ReorderTests(PieceBaseTest):
         return resp.json()['id']
 
     def test_reorder_endpoint_sets_sequential_ordre(self):
-        id1, id2, id3 = self._create('RC'), self._create('FTR'), self._create('LPA')
+        id1, id2, id3 = self._create('RTLB'), self._create('FTR'), self._create('LPA')
         shuffled = [id3, id1, id2]
         resp = self.client.post('/api/v1/pieces/reorder/', {
             'ssdgps': str(self.ssdgps1.id), 'ordered_ids': shuffled,
@@ -289,14 +289,14 @@ class ReorderTests(PieceBaseTest):
         self.assertEqual([p['id'] for p in listing.json()], shuffled)
 
     def test_reorder_endpoint_rejects_mismatched_id_set(self):
-        id1 = self._create('RC')
+        id1 = self._create('RTLB')
         resp = self.client.post('/api/v1/pieces/reorder/', {
             'ssdgps': str(self.ssdgps1.id), 'ordered_ids': [id1, 'not-a-real-id'],
         }, format='json')
         self.assertEqual(resp.status_code, 400)
 
     def test_reorder_endpoint_scoped_by_organization(self):
-        id1 = self._create('RC')
+        id1 = self._create('RTLB')
         self.client.force_authenticate(self.agent2)
         resp = self.client.post('/api/v1/pieces/reorder/', {
             'ssdgps': str(self.ssdgps1.id), 'ordered_ids': [id1],
@@ -314,7 +314,7 @@ class MoveTests(PieceBaseTest):
         return resp.json()['id']
 
     def test_move_endpoint_reindexes_siblings(self):
-        id1, id2, id3 = self._create('RC'), self._create('FTR'), self._create('LPA')
+        id1, id2, id3 = self._create('RTLB'), self._create('FTR'), self._create('LPA')
         # id1=0, id2=1, id3=2 -> déplace id3 en première position.
         resp = self.client.post(f'/api/v1/pieces/{id3}/move/', {'position': 0}, format='json')
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -323,13 +323,13 @@ class MoveTests(PieceBaseTest):
         self.assertEqual([p['id'] for p in listing.json()], [id3, id1, id2])
 
     def test_move_endpoint_clamps_out_of_range_position(self):
-        id1, id2 = self._create('RC'), self._create('FTR')
+        id1, id2 = self._create('RTLB'), self._create('FTR')
         resp = self.client.post(f'/api/v1/pieces/{id1}/move/', {'position': 999}, format='json')
         self.assertEqual(resp.status_code, 200, resp.content)
         self.assertEqual(resp.json()['ordre'], 1)  # clampé à la dernière position possible
 
     def test_move_endpoint_scoped_by_organization(self):
-        id1 = self._create('RC')
+        id1 = self._create('RTLB')
         self.client.force_authenticate(self.agent2)
         resp = self.client.post(f'/api/v1/pieces/{id1}/move/', {'position': 0}, format='json')
         self.assertEqual(resp.status_code, 404)
