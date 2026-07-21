@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   test-backend:
@@ -27,7 +27,7 @@ jobs:
         run: python manage.py migrate
 
       - name: Lancer les tests
-        run: python manage.py test
+        run: python manage.py test --verbosity=2
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -46,6 +46,9 @@ jobs:
 
       - name: Linter le code
         run: npx ng lint
+
+      - name: Lancer les tests unitaires (Karma / Jasmine, headless)
+        run: npm run test:ci
 
       - name: Builder le frontend
         run: npx ng build --configuration production

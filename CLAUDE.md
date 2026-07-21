@@ -132,6 +132,27 @@ Les modules sont importés en eager dans `app.module.ts` (`LayoutModule`, `AuthM
 - **Pillow** est requis (`ImageField` sur les logos/photos) mais absent de
   `requirements.txt` (seulement installé dans le `Dockerfile`).
 
+## Politique de tests (OBLIGATOIRE)
+
+**Toute nouvelle fonctionnalité ou correction de bug DOIT être accompagnée de tests**, dans
+le même changement. C'est une exigence, pas une option — elle s'applique à tous les
+assistants de codage IA comme aux contributeurs humains (cf. `AGENTS.md`).
+
+- **Backend** (Django/DRF) : tests dans `app/tests.py` ou `app/tests_*.py`, exécutés par
+  `python manage.py test`. Couvrir : la règle métier / le happy-path, les cas d'erreur et de
+  validation, et le **scoping RBAC** (permissions par rôle) pour toute vue exposée.
+- **Frontend** (Angular) : specs `*.spec.ts` à côté du code, exécutées par
+  `npm run test:ci` (Karma/Jasmine, headless). Couvrir au minimum les **services** (avec
+  `HttpClientTestingModule`), les **guards/interceptors**, et la logique non triviale des
+  composants.
+- **Definition of Done** : une fonctionnalité n'est « terminée » que si `python manage.py
+  test` **et** `npm run test:ci` passent au vert, en local et en CI
+  (`.github/workflows/ci.yml`).
+- Écrire les tests au fil de l'eau (idéalement avant/pendant l'implémentation), pas « plus
+  tard ». Un correctif de bug commence par un test qui reproduit le bug.
+- Ne jamais désactiver, ignorer (`skip`/`xit`) ou supprimer un test pour faire passer la CI
+  sans justification explicite dans le message de commit.
+
 ## Conventions & notes de workflow
 
 - **Règles d'auto-commit** (`.opencode/instructions.md`) : ce dépôt est configuré pour un
