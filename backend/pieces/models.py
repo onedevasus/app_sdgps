@@ -74,6 +74,9 @@ class Piece(BaseModel):
         validators=[validate_piece_file_extension, validate_piece_file_size],
         verbose_name="Fichier (image ou document source)",
     )
+    # Taille du `fichier` figée à l'upload (comme PieceImage.taille_octets). Évite un HEAD
+    # réseau par fichier lors des statistiques de stockage sur un backend objet (S3…).
+    taille_octets = models.PositiveIntegerField(default=0, verbose_name="Taille du fichier (octets)")
     ordre = models.PositiveIntegerField(default=0, verbose_name="Ordre dans le rapport")
     payload = models.JSONField(default=dict, blank=True, verbose_name="Données structurées")
     source_saisie = models.CharField(max_length=10, choices=SourceSaisie.choices,

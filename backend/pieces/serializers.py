@@ -48,12 +48,38 @@ class PieceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'type_piece', 'type_piece_display', 'numero', 'ssdgps', 'session',
             'session_numero', 'niveau', 'portee', 'ordre',
-            'fichier', 'fichier_url', 'images', 'payload', 'source_saisie', 'statut',
+            'fichier', 'fichier_url', 'taille_octets', 'images', 'payload', 'source_saisie', 'statut',
             'orientation', 'orientation_effective', 'versions_rapport',
             'commentaire', 'organization_id', 'created_at', 'updated_at', 'is_deleted',
             'deleted_at', 'created_by_email', 'updated_by_email', 'deleted_by_email',
         ]
-        read_only_fields = ['id', 'ordre', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
+        read_only_fields = ['id', 'ordre', 'taille_octets', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        self._capture_taille(instance, validated_data.get('fichier'))
+        return instance
+
+    def update(self, instance, validated_data):
+        file_in_request = 'fichier' in validated_data
+        instance = super().update(instance, validated_data)
+        if file_in_request:
+            self._capture_taille(instance, validated_data.get('fichier'))
+        return instance
+
+    @staticmethod
+    def _capture_taille(instance, uploaded):
+        """Fige `taille_octets` depuis le fichier fraîchement uploadé (taille lue localement,
+        donc SANS requête réseau — important sur un backend de stockage objet)."""
+        if uploaded is not None:
+            size = getattr(uploaded, 'size', 0) or 0
+        elif not instance.fichier:
+            size = 0
+        else:
+            return  # Pas de nouveau fichier : on ne relit pas la taille (éviterait un HEAD).
+        if instance.taille_octets != size:
+            instance.taille_octets = size
+            instance.save(update_fields=['taille_octets'])
 
     def get_orientation_effective(self, obj):
         """Orientation réellement appliquée au contenu (résout le mode « auto »)."""
