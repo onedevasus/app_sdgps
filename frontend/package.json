@@ -5,7 +5,9 @@
     "ng": "ng",
     "start": "cd D:\\BOULMANE\\PycharmProjects\\PythonProject\\ancfcc\\app-sdgps\\frontend; ng serve",
     "build": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadlessCI --code-coverage"
   },
   "private": true,
   "dependencies": {
