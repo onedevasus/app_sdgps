@@ -83,52 +83,86 @@ def _resolve(entry, key, default=''):
 
 
 def _seed_users(users, summary, log):
-    """Crée les utilisateurs d'initialisation (idempotent par email).
+    """Crée les utilisateurs d'initialisation + leurs adhésions (idempotent par email).
 
-    `role` : 'super_admin' (is_superuser) ou 'app_admin' (platform_role=ROLE_ADMIN_SYSTEME).
+    Flags supportés par entrée : `is_superuser`, `is_staff`, `platform_role`, `nom_societe`.
+    Raccourci `role` optionnel : 'super_admin' (is_superuser) ou 'app_admin'
+    (platform_role=ROLE_ADMIN_SYSTEME). Les `memberships` (liste de {organization_code, role,
+    is_active}) rattachent l'utilisateur à des organisations existantes (créées au préalable).
     """
+    from accounts.models import Membership
+
     for entry in users:
         email = _resolve(entry, 'email')
         if not email:
             continue
-        if User.objects.filter(email=email).exists():
+
+        user = User.objects.filter(email=email).first()
+        if user is None:
+            # Mot de passe : uniquement via l'environnement (password_env) ; généré si absent.
+            password = _resolve(entry, 'password') or _generate_password()
+            extra = {}
+            role = entry.get('role')
+            if role == 'super_admin':
+                extra.update(is_superuser=True, is_staff=True)
+            elif role == 'app_admin':
+                extra.update(platform_role='ROLE_ADMIN_SYSTEME')
+            # Les flags explicites priment sur le raccourci `role`.
+            if 'is_superuser' in entry:
+                extra['is_superuser'] = entry['is_superuser']
+            if 'is_staff' in entry:
+                extra['is_staff'] = entry['is_staff']
+            if entry.get('platform_role'):
+                extra['platform_role'] = entry['platform_role']
+            if entry.get('nom_societe'):
+                extra['nom_societe'] = entry['nom_societe']
+
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                first_name=entry.get('first_name', ''),
+                last_name=entry.get('last_name', ''),
+                is_active=True,
+                must_change_password=False,
+                **extra,
+            )
+            summary['users_created'] += 1
+            log(f"  Utilisateur créé : {email}")
+        else:
             log(f"  Utilisateur déjà présent : {email}")
-            continue
 
-        role = entry.get('role')
-        # Mot de passe : uniquement via l'environnement (password_env) ; généré si absent.
-        password = _resolve(entry, 'password') or _generate_password()
-        extra = {}
-        if role == 'super_admin':
-            extra.update(is_superuser=True, is_staff=True)
-        elif role == 'app_admin':
-            extra.update(platform_role='ROLE_ADMIN_SYSTEME')
-
-        User.objects.create_user(
-            username=email,
-            email=email,
-            password=password,
-            first_name=entry.get('first_name', ''),
-            last_name=entry.get('last_name', ''),
-            is_active=True,
-            must_change_password=False,
-            **extra,
-        )
-        summary['users_created'] += 1
-        log(f"  Utilisateur créé : {email} ({role})")
+        # Adhésions (idempotentes) — appliquées même si l'utilisateur pré-existe.
+        for m in entry.get('memberships', []):
+            org = Organization.all_objects.filter(code=m['organization_code']).first()
+            if org is None:
+                log(f"    Adhésion ignorée : organisation {m['organization_code']} introuvable")
+                continue
+            Membership.objects.get_or_create(
+                user=user, organization=org,
+                defaults={
+                    'role': m.get('role', 'ROLE_ORGANISATION_AGENT'),
+                    'is_active': m.get('is_active', True),
+                },
+            )
 
 
 def _seed_organizations(organizations, summary, log):
-    """Crée les organisations prédéfinies (données réelles, is_test_data=False)."""
+    """Crée les organisations depuis le fichier (idempotent par code).
+
+    Les attributs présents dans le fichier sont conservés tels quels — notamment `is_test_data`
+    et `is_deleted` — pour reproduire fidèlement l'état de référence. En leur absence, les
+    valeurs par défaut du modèle s'appliquent (`is_test_data=False`).
+    """
     for data in organizations:
+        code = data['code']
         # all_objects : contourne le filtrage is_test_data du manager par défaut.
-        _, created = Organization.all_objects.get_or_create(
-            code=data['code'],
-            defaults={**data, 'is_test_data': False, 'created_by': None},
-        )
+        defaults = {k: v for k, v in data.items() if k != 'code'}
+        defaults['created_by'] = None
+        _, created = Organization.all_objects.get_or_create(code=code, defaults=defaults)
         if created:
             summary['organizations_created'] += 1
-        log(("  Créée" if created else "  Existante") + f" : organisation {data['code']}")
+        log(("  Créée" if created else "  Existante") + f" : organisation {code}")
 
 
 def _seed_organismes(niveau1, niveau2, summary, log):
@@ -179,8 +213,9 @@ def run_seed(stdout=None, data=None):
             stdout.write(message)
 
     log("Amorçage des données de référence SDGPS…")
-    _seed_users(data.get('users', []), summary, log)
+    # Les organisations d'abord : les adhésions des utilisateurs les référencent par code.
     _seed_organizations(data.get('organizations', []), summary, log)
+    _seed_users(data.get('users', []), summary, log)
     _seed_organismes(
         data.get('organismes_niveau1', []), data.get('organismes_niveau2', []), summary, log)
     log(
