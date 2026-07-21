@@ -27,6 +27,40 @@ def user_org_ids(user):
     )
 
 
+def _creator_lookup(org_lookup):
+    """Dérive le chemin vers `created_by` du projet à partir du chemin vers son org.
+
+    Ex. 'projet__organization_id' → 'projet__created_by_id'. Les deux partagent le même
+    préfixe (chemin jusqu'au projet racine) ; seul le champ terminal diffère.
+    """
+    return org_lookup[: -len('organization_id')] + 'created_by_id'
+
+
+def scope_queryset(qs, user, org_lookup):
+    """Filtre `qs` selon la visibilité RBAC.
+
+    Un utilisateur voit une entité si elle appartient à l'une de ses organisations
+    ACTIVES **ou** si elle est rattachée à un projet qu'il a lui-même créé — de sorte
+    que les projets « suivent » leur créateur même après un changement d'organisation.
+    Les admins plateforme / superusers ne sont pas filtrés (voient tout).
+    """
+    ids = user_org_ids(user)
+    if ids is None:
+        return qs
+    return qs.filter(
+        Q(**{f'{org_lookup}__in': ids}) | Q(**{_creator_lookup(org_lookup): user.id})
+    )
+
+
+def is_scope_visible(user, org_id, creator_id):
+    """Version « objet unique » de `scope_queryset` : l'org de l'entité est-elle
+    accessible à l'utilisateur, ou en est-il le créateur du projet ?"""
+    ids = user_org_ids(user)
+    if ids is None:
+        return True
+    return org_id in ids or creator_id == user.id
+
+
 class BaseOrgScopedViewSet(viewsets.ModelViewSet):
     """Base : scoping RBAC, soft-delete, created_by, filtre parent optionnel."""
     permission_classes = [permissions.IsAuthenticated]
@@ -47,9 +81,7 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         show_deleted = self.request.query_params.get('show_deleted', '').lower() in ('true', '1', 'yes')
         qs = self.queryset.filter(is_deleted=True) if show_deleted else self.queryset.filter(is_deleted=False)
-        ids = user_org_ids(self.request.user)
-        if ids is not None:
-            qs = qs.filter(**{f'{self.org_lookup}__in': ids})
+        qs = scope_queryset(qs, self.request.user, self.org_lookup)
         if self.parent_query_param:
             param, field = self.parent_query_param
             value = self.request.query_params.get(param)
@@ -58,24 +90,32 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
         return self._annotate_counts(qs)
 
     def _org_scoped_queryset(self):
-        """Queryset filtré par organisation, SANS filtre is_deleted (pour la restauration)."""
-        qs = self.queryset
-        ids = user_org_ids(self.request.user)
-        if ids is not None:
-            qs = qs.filter(**{f'{self.org_lookup}__in': ids})
+        """Queryset filtré par visibilité RBAC, SANS filtre is_deleted (pour la restauration)."""
+        qs = scope_queryset(self.queryset, self.request.user, self.org_lookup)
         return self._annotate_counts(qs)
 
     def _org_id_of_validated(self, serializer):
         """Org cible d'une création — à surcharger."""
         raise NotImplementedError
 
+    def _project_creator_of_validated(self, serializer):
+        """`created_by` du projet racine de la ressource créée.
+
+        Renvoie None pour un `Projet` neuf (pas de projet parent). Surchargé par les
+        sous-classes enfants pour autoriser le créateur d'un projet à y ajouter des
+        ressources, même après avoir changé d'organisation.
+        """
+        return None
+
     def perform_create(self, serializer):
         ids = user_org_ids(self.request.user)
         if ids is not None:
             target_org = self._org_id_of_validated(serializer)
-            if target_org not in ids:
+            creator = self._project_creator_of_validated(serializer)
+            if target_org not in ids and creator != self.request.user.id:
                 raise PermissionDenied(
-                    "Vous ne pouvez créer une ressource que dans votre organisation."
+                    "Vous ne pouvez créer une ressource que dans votre organisation "
+                    "ou dans un projet que vous avez créé."
                 )
         serializer.save(created_by=self.request.user)
 
@@ -173,6 +213,9 @@ class ProprieteViewSet(BaseOrgScopedViewSet):
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['projet'].organization_id
 
+    def _project_creator_of_validated(self, serializer):
+        return serializer.validated_data['projet'].created_by_id
+
     def _annotate_counts(self, qs):
         return qs.annotate(
             nbr_total_affaires=Count(
@@ -201,6 +244,9 @@ class AffaireViewSet(BaseOrgScopedViewSet):
 
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['propriete'].projet.organization_id
+
+    def _project_creator_of_validated(self, serializer):
+        return serializer.validated_data['propriete'].projet.created_by_id
 
     def _annotate_counts(self, qs):
         return qs.annotate(
@@ -239,6 +285,9 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['affaire'].propriete.projet.organization_id
 
+    def _project_creator_of_validated(self, serializer):
+        return serializer.validated_data['affaire'].propriete.projet.created_by_id
+
     def _annotate_counts(self, qs):
         return qs.annotate(
             # Mono-session : pas de sessions (la session implicite ne compte pas) → 0.
@@ -259,6 +308,9 @@ class SessionViewSet(BaseOrgScopedViewSet):
 
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['ssdgps'].affaire.propriete.projet.organization_id
+
+    def _project_creator_of_validated(self, serializer):
+        return serializer.validated_data['ssdgps'].affaire.propriete.projet.created_by_id
 
     def _annotate_counts(self, qs):
         return qs.annotate(

@@ -26,10 +26,10 @@ class DomainBaseTest(TestCase):
         self.agent2 = make_agent('a2@example.com', self.org2)
         self.client.force_authenticate(self.agent1)
 
-    def _projet(self, org=None, code='P-1'):
+    def _projet(self, org=None, code='P-1', created_by=None):
         return Projet.objects.create(
             nom_projet='Projet', code_projet=code,
-            organization=org or self.org1, created_by=self.agent1,
+            organization=org or self.org1, created_by=created_by or self.agent1,
         )
 
     def _propriete(self, projet=None):
@@ -136,7 +136,8 @@ class SsdgpsSessionTests(DomainBaseTest):
 class RbacScopingTests(DomainBaseTest):
     def test_agent_sees_only_own_org_projects(self):
         self._projet(org=self.org1, code='P-ORG1')
-        self._projet(org=self.org2, code='P-ORG2')
+        # Projet d'une autre org créé par un AUTRE utilisateur → invisible.
+        self._projet(org=self.org2, code='P-ORG2', created_by=self.agent2)
         resp = self.client.get('/api/v1/projets/')
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -144,6 +145,18 @@ class RbacScopingTests(DomainBaseTest):
         codes = {p['code_projet'] for p in data}
         self.assertIn('P-ORG1', codes)
         self.assertNotIn('P-ORG2', codes)
+
+    def test_agent_sees_own_projects_even_in_foreign_org(self):
+        """Les projets « suivent » leur créateur : agent1 voit un projet qu'il a créé,
+        même s'il est rattaché à une organisation dont il n'est pas (ou plus) membre —
+        cas d'un changement d'organisation."""
+        self._projet(org=self.org2, code='P-MINE', created_by=self.agent1)
+        resp = self.client.get('/api/v1/projets/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        data = data.get('results', data) if isinstance(data, dict) else data
+        codes = {p['code_projet'] for p in data}
+        self.assertIn('P-MINE', codes)
 
     def test_agent_cannot_create_project_in_foreign_org(self):
         resp = self.client.post('/api/v1/projets/', {
@@ -200,7 +213,8 @@ class RestoreTests(DomainBaseTest):
         self.assertFalse(p2.is_deleted)
 
     def test_cannot_restore_project_of_foreign_org(self):
-        foreign = self._projet(org=self.org2, code='P-FOREIGN')
+        # Projet d'une autre org créé par un AUTRE utilisateur → hors périmètre : 404.
+        foreign = self._projet(org=self.org2, code='P-FOREIGN', created_by=self.agent2)
         foreign.is_deleted = True
         foreign.save(update_fields=['is_deleted'])
 

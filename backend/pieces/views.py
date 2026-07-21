@@ -20,7 +20,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from projects.models import Session, Ssdgps
-from projects.views import user_org_ids
+from projects.views import scope_queryset, is_scope_visible
 from .catalog import (serialize_catalog, get_piece_def, champs_with_meta, valid_field_names,
                       import_visible_names)
 from .report import (EXCLUDED_TYPES, PHOTO_TYPES, render_report_pdf, report_filename,
@@ -43,10 +43,10 @@ class PieceViewSet(viewsets.ModelViewSet):
         'ssdgps__affaire__propriete__projet', 'session').prefetch_related('images')
 
     def _scope(self, qs):
-        ids = user_org_ids(self.request.user)
-        if ids is not None:
-            qs = qs.filter(ssdgps__affaire__propriete__projet__organization_id__in=ids)
-        return qs
+        # Visibilité RBAC : pièces des organisations actives de l'utilisateur OU rattachées
+        # à un projet qu'il a créé (les projets « suivent » leur créateur — cf. projects.views).
+        return scope_queryset(
+            qs, self.request.user, 'ssdgps__affaire__propriete__projet__organization_id')
 
     def get_queryset(self):
         show_deleted = self.request.query_params.get('show_deleted', '').lower() in ('true', '1', 'yes')
@@ -67,11 +67,11 @@ class PieceViewSet(viewsets.ModelViewSet):
         return self._scope(self.queryset)
 
     def _check_scope(self, ssdgps):
-        ids = user_org_ids(self.request.user)
-        if ids is None:
-            return
-        if ssdgps.affaire.propriete.projet.organization_id not in ids:
-            raise PermissionDenied("Vous ne pouvez créer une pièce que dans votre organisation.")
+        projet = ssdgps.affaire.propriete.projet
+        if not is_scope_visible(self.request.user, projet.organization_id, projet.created_by_id):
+            raise PermissionDenied(
+                "Vous ne pouvez créer une pièce que dans votre organisation "
+                "ou dans un projet que vous avez créé.")
 
     def perform_create(self, serializer):
         ssdgps = serializer.validated_data.get('ssdgps')
@@ -1172,8 +1172,8 @@ class PieceViewSet(viewsets.ModelViewSet):
             'affaire__propriete__projet__organization').filter(pk=ssdgps_id).first()
         if ssdgps is None:
             return Response({'detail': 'SSDGPS introuvable.'}, status=status.HTTP_404_NOT_FOUND)
-        ids = user_org_ids(request.user)
-        if ids is not None and ssdgps.affaire.propriete.projet.organization_id not in ids:
+        projet = ssdgps.affaire.propriete.projet
+        if not is_scope_visible(request.user, projet.organization_id, projet.created_by_id):
             raise PermissionDenied("Ce SSDGPS n'appartient pas à votre organisation.")
 
         session_id = request.query_params.get('session') or None
