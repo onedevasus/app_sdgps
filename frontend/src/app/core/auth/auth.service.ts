@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {BehaviorSubject, Observable, throwError} from 'rxjs';
-import {catchError, tap} from 'rxjs/operators';
+import {catchError, map, tap} from 'rxjs/operators';
 import {AuthResponse, RegisterPayload, UserRole} from '../../features/auth/models/user.model'; // Assurez-vous que le chemin est correct
 
 /**
@@ -50,9 +50,11 @@ export class AuthService {
         // Pourquoi: Appel HTTP POST pour envoyer les données d'inscription au backend.
         return this.http.post<AuthResponse>(`${API_URL}/register/`, payload).pipe(
             tap(response => {
-                // Pourquoi: Si l'API renvoie un token après l'inscription, l'utilisateur est connecté.
                 if (response && response.token) {
                     this.storeAuthToken(response.token);
+                    if (response.refresh_token) {
+                        localStorage.setItem('refreshToken', response.refresh_token);
+                    }
                     this.extractOrganizationInfo(response.token);
                     this.isAuthenticatedSubject.next(true);
                 }
@@ -72,20 +74,37 @@ export class AuthService {
      *              Vérifie si l'utilisateur doit changer son mot de passe.
      */
     login(credentials: any): Observable<AuthResponse> {
-        // Pourquoi: Appel HTTP POST pour envoyer les identifiants de connexion au backend.
         return this.http.post<AuthResponse>(`${API_URL}/login/`, credentials).pipe(
             tap(response => {
-                // Pourquoi: Stocker le token reçu et marquer l'utilisateur comme authentifié.
                 if (response && response.token) {
                     this.storeAuthToken(response.token);
+                    if (response.refresh_token) {
+                        localStorage.setItem('refreshToken', response.refresh_token);
+                    }
                     this.extractOrganizationInfo(response.token);
                     this.isAuthenticatedSubject.next(true);
-
-                    // Vérifier si l'utilisateur doit changer son mot de passe
                     this.checkPasswordChangeRequired(response.token);
                 }
             }),
             catchError(this.handleError)
+        );
+    }
+
+    refreshToken(): Observable<string> {
+        const refresh = localStorage.getItem('refreshToken');
+        if (!refresh) {
+            return throwError(() => new Error('Aucun refresh token disponible'));
+        }
+        return this.http.post<{access: string}>(`${API_URL}/token/refresh/`, {refresh}).pipe(
+            map(response => {
+                this.storeAuthToken(response.access);
+                this.extractOrganizationInfo(response.access);
+                return response.access;
+            }),
+            catchError(err => {
+                this.logout();
+                return throwError(() => err);
+            })
         );
     }
 
@@ -175,8 +194,8 @@ export class AuthService {
     logout(): void {
         console.log('🚪 AuthService: Déconnexion utilisateur...');
         
-        // Supprimer le token JWT du localStorage
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         
@@ -262,6 +281,27 @@ export class AuthService {
      */
     isAdmin(): boolean {
         return this.hasRole('ADMIN');
+    }
+
+    /**
+     * @method isPlatformAdmin
+     * @returns boolean Vrai pour un super-admin ou un App Admin (ROLE_ADMIN_SYSTEME).
+     * @description Décode le JWT pour lire `platform_role` / `is_superuser` (le rôle
+     *              plateforme n'est pas stocké dans `userRole`). Sert à autoriser l'édition
+     *              des réglages COMMUNS (ex. champs obligatoires du catalogue). La vraie
+     *              barrière reste côté backend.
+     */
+    isPlatformAdmin(): boolean {
+        const token = localStorage.getItem('authToken');
+        if (!token) return false;
+        try {
+            const p = JSON.parse(atob(token.split('.')[1]));
+            return p.is_superuser === true
+                || p.platform_role === 'ROLE_SUPER_ADMIN'
+                || p.platform_role === 'ROLE_ADMIN_SYSTEME';
+        } catch {
+            return false;
+        }
     }
 
     /**
@@ -372,27 +412,28 @@ export class AuthService {
                         window.location.href = '/auth/change-password?reason=first_login';
                     }, 100);
                 } else {
-                    // Redirection uniquement depuis les pages d'auth (post-login)
-                    // Ne pas rediriger si déjà sur une page de l'application (dashboard, admin, etc.)
-                    if (currentPath.includes('/dashboard') || currentPath.includes('/admin')) {
+                    // Redirection uniquement depuis les pages d'auth (post-login). Si on est
+                    // déjà sur une page de l'application (toute page hors /auth), ne pas rediriger
+                    // — sinon un rafraîchissement sur /projets, /home… renverrait à l'accueil.
+                    if (!currentPath.startsWith('/auth')) {
                         console.log('✅ Déjà sur une page de l\'application - Pas de redirection');
                         return;
                     }
 
-                    // Si aucun changement requis, rediriger vers le dashboard
-                    console.log('✅ Connexion réussie - Redirection vers dashboard...');
+                    // Si aucun changement requis, rediriger vers l'accueil de l'application
+                    console.log('✅ Connexion réussie - Redirection vers l\'accueil...');
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = '/home';
                     }, 100);
                 }
             },
             error: (err) => {
                 console.error('Erreur vérification statut MDP:', err);
 
-                // En cas d'erreur, ne rediriger que si pas déjà sur dashboard ou admin
-                if (!currentPath.includes('/dashboard') && !currentPath.includes('/admin')) {
+                // En cas d'erreur, ne rediriger que depuis une page d'auth (post-login).
+                if (currentPath.startsWith('/auth')) {
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = '/home';
                     }, 100);
                 }
             }

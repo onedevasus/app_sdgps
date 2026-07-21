@@ -1,0 +1,107 @@
+<div class="gallery">
+  <!-- Barre d'action -->
+  <div class="gallery-toolbar">
+    <label class="btn-upload" *ngIf="editable" [class.disabled]="busy"
+           title="Ces images sont affichées en pleine page portrait (A4) dans le rapport PDF. Une orientation portrait proche du A4 (rapport ≈ 3:4) évite les bandes blanches ; résolution conseillée ≥ 1240×1754 px (150 dpi).">
+      <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden
+             [disabled]="busy" (change)="onFilesSelected($event)">
+      <i class="fas" [ngClass]="busy ? 'fa-spinner fa-spin' : 'fa-plus'"></i> Ajouter des images
+    </label>
+    <span class="gallery-count">{{ images.length }} image(s)</span>
+    <div class="view-toggle" *ngIf="images.length">
+      <button class="view-toggle-btn" [class.active]="viewMode==='grid'" title="Vue miniatures" (click)="setViewMode('grid')">
+        <i class="fas fa-th-large"></i>
+      </button>
+      <button class="view-toggle-btn" [class.active]="viewMode==='list'" title="Vue liste" (click)="setViewMode('list')">
+        <i class="fas fa-list"></i>
+      </button>
+    </div>
+  </div>
+
+  <p class="upload-hint" *ngIf="editable">
+    <i class="fas fa-info-circle"></i>
+    <span>Pour un rendu optimal dans le rapport PDF : images en <strong>format portrait</strong>
+      (type A4, rapport largeur/hauteur ≈ 3:4), résolution conseillée <strong>≥ 1240×1754 px</strong>.</span>
+  </p>
+
+  <p class="gallery-empty" *ngIf="!images.length">
+    <i class="fas fa-images"></i> Aucune image.
+  </p>
+
+  <div class="gallery-body" *ngIf="images.length">
+    <!-- Vue miniatures -->
+    <div class="thumbs" *ngIf="viewMode==='grid'">
+      <div class="thumb" *ngFor="let img of images; let i = index"
+           [class.active]="selected?.id === img.id" (click)="select(img)">
+        <div class="thumb-img" (click)="openLightbox(img)">
+          <img *ngIf="isDisplayable(img)" [src]="previewUrl(img)" [alt]="'Image ' + (i+1)">
+          <div class="thumb-fallback" *ngIf="!isDisplayable(img)">
+            <i class="fas fa-file-image"></i><span>{{ img.format || 'IMG' }}</span>
+          </div>
+        </div>
+        <div class="thumb-actions" *ngIf="editable">
+          <button class="thumb-btn" title="Vers la gauche" [disabled]="i===0 || busy" (click)="moveLeft(i, $event)">
+            <i class="fas fa-arrow-left"></i>
+          </button>
+          <button class="thumb-btn" title="Vers la droite" [disabled]="i===images.length-1 || busy" (click)="moveRight(i, $event)">
+            <i class="fas fa-arrow-right"></i>
+          </button>
+          <button class="thumb-btn danger" title="Supprimer" [disabled]="busy" (click)="confirmRemove(img, $event)">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+        <span class="thumb-index">{{ i + 1 }}</span>
+      </div>
+    </div>
+
+    <!-- Vue liste -->
+    <div class="img-list" *ngIf="viewMode==='list'">
+      <div class="img-list-row" *ngFor="let img of images; let i = index"
+           [class.active]="selected?.id === img.id" (click)="select(img)">
+        <span class="img-list-index">{{ i + 1 }}</span>
+        <div class="img-list-thumb" (click)="openLightbox(img)">
+          <img *ngIf="isDisplayable(img)" [src]="previewUrl(img)" [alt]="'Image ' + (i+1)">
+          <div class="thumb-fallback mini" *ngIf="!isDisplayable(img)"><i class="fas fa-file-image"></i></div>
+        </div>
+        <div class="img-list-meta">
+          <span class="img-list-format">{{ img.format || 'IMG' }} · {{ img.mode_couleur || '—' }}</span>
+          <span class="img-list-sub">{{ img.largeur }}×{{ img.hauteur }} px · {{ humanSize(img.taille_octets) }}</span>
+        </div>
+        <div class="img-list-actions" *ngIf="editable">
+          <button class="thumb-btn" title="Monter" [disabled]="i===0 || busy" (click)="moveLeft(i, $event)"><i class="fas fa-arrow-up"></i></button>
+          <button class="thumb-btn" title="Descendre" [disabled]="i===images.length-1 || busy" (click)="moveRight(i, $event)"><i class="fas fa-arrow-down"></i></button>
+          <button class="thumb-btn danger" title="Supprimer" [disabled]="busy" (click)="confirmRemove(img, $event)"><i class="fas fa-trash-alt"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Volet de visualisation / détails techniques (toujours à droite) -->
+    <div class="details" *ngIf="selected as sel">
+      <div class="details-preview" (click)="openLightbox(sel)">
+        <img *ngIf="isDisplayable(sel)" [src]="previewUrl(sel)" alt="Aperçu">
+        <div class="thumb-fallback big" *ngIf="!isDisplayable(sel)">
+          <i class="fas fa-file-image"></i><span>{{ sel.format }} — non prévisualisable</span>
+        </div>
+      </div>
+      <h4><i class="fas fa-circle-info"></i> Détails techniques</h4>
+      <dl class="details-grid">
+        <dt>Format</dt><dd>{{ sel.format || '—' }}</dd>
+        <dt>Taille</dt><dd>{{ humanSize(sel.taille_octets) }}</dd>
+        <dt>Dimensions</dt><dd>{{ sel.largeur }} × {{ sel.hauteur }} px</dd>
+        <dt>Type d'image</dt><dd>{{ sel.mode_couleur || '—' }}</dd>
+        <dt>Compression</dt><dd>{{ sel.compression || '—' }}</dd>
+        <dt>Date de création</dt><dd>{{ formatDate(sel.date_creation) }}</dd>
+        <dt>Dernière modification</dt><dd>{{ formatDate(sel.date_modification) }}</dd>
+      </dl>
+      <a class="details-open" [href]="sel.fichier_url" target="_blank">
+        <i class="fas fa-external-link-alt"></i> Ouvrir dans un nouvel onglet
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" *ngIf="lightboxOpen && selected" (click)="closeLightbox()">
+  <button class="lightbox-close" (click)="closeLightbox()"><i class="fas fa-times"></i></button>
+  <img [src]="previewUrl(selected)" alt="Image agrandie" (click)="$event.stopPropagation()">
+</div>

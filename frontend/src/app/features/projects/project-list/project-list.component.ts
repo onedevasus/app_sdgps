@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, forkJoin } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ProjectsService } from '../../../core/services/projects.service';
+import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.service';
 import { ProfileService } from '../../profile/services/profile.service';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -54,6 +55,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     { field: 'nbr_total_affaires', label: 'Affaires', visible: true, type: 'number' },
     { field: 'nbr_total_ssdgps', label: 'SSDGPS', visible: true, type: 'number' },
     { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
+    { field: 'nbr_total_pieces', label: 'Nb Pièces', visible: true, type: 'number' },
     { field: 'created_at', label: 'Date de création', visible: false, type: 'date' },
     { field: 'updated_at', label: 'Dernière modification', visible: false, type: 'date' },
     { field: 'is_deleted', label: 'Supprimé', visible: false, type: 'boolean' },
@@ -140,6 +142,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private router: Router,
     private route: ActivatedRoute,
+    private breadcrumb: BreadcrumbService,
   ) {
     this.form = this.fb.group({
       nom_projet: ['', Validators.required],
@@ -151,6 +154,13 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Fil d'Ariane métier du topbar : Accueil › Projets.
+    const base = this.router.url.startsWith('/admin') ? '/admin/projets' : '/projets';
+    this.breadcrumb.set([
+      { label: 'Accueil', route: '/home', icon: 'fa-house' },
+      { label: 'Projets', route: base, icon: 'fa-folder-open', isActive: true },
+    ]);
+
     this.viewMode = (localStorage.getItem(VIEW_MODE_KEY) as 'cards' | 'table') || 'table';
     this.loadPreferences();
     this.load();
@@ -170,6 +180,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.breadcrumb.clear();
     this.destroy$.next();
     this.destroy$.complete();
     if (this.boundHandleClickOutside) {
@@ -296,6 +307,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
           case 'nbr_total_affaires': valA = a.nbr_total_affaires ?? 0; valB = b.nbr_total_affaires ?? 0; break;
           case 'nbr_total_ssdgps': valA = a.nbr_total_ssdgps ?? 0; valB = b.nbr_total_ssdgps ?? 0; break;
           case 'nbr_total_sessions': valA = a.nbr_total_sessions ?? 0; valB = b.nbr_total_sessions ?? 0; break;
+          case 'nbr_total_pieces': valA = a.nbr_total_pieces ?? 0; valB = b.nbr_total_pieces ?? 0; break;
           case 'updated_at': valA = a.updated_at; valB = b.updated_at; break;
           default: valA = a.created_at; valB = b.created_at; break;
         }
@@ -378,7 +390,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
 
   formatDate(value: any): string {
     if (!value) return '—';
-    return new Date(value).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return new Date(value).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   // ============================================
@@ -525,6 +537,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       nbr_total_affaires: 'Nombre total d\'affaires (SD) rattachées au projet',
       nbr_total_ssdgps: 'Nombre total de SSDGPS rattachés au projet',
       nbr_total_sessions: 'Nombre total de sessions rattachées au projet',
+      nbr_total_pieces: 'Nombre total de pièces rattachées au projet',
       created_at: 'Date de création du projet',
       updated_at: 'Date de dernière modification',
       is_deleted: 'Indique si le projet a été supprimé (logique)',
@@ -568,6 +581,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   // ============================================
 
   open(projet: Projet): void { this.router.navigate([projet.id], { relativeTo: this.route }); }
+
+  /** Accès direct à la liste à plat de tous les SSDGPS du projet (sans parcourir la hiérarchie). */
+  openAllSsdgps(projet: Projet, ev?: Event): void {
+    ev?.stopPropagation();
+    this.router.navigate([projet.id, 'ssdgps'], { relativeTo: this.route });
+  }
 
   // ============================================
   // CRUD — Créer / Modifier

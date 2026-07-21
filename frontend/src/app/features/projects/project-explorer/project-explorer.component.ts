@@ -1,9 +1,14 @@
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Observable, forkJoin } from 'rxjs';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Observable, forkJoin, Subscription } from 'rxjs';
+import { skip } from 'rxjs/operators';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { ProjectsService } from '../../../core/services/projects.service';
+import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.service';
+import { BreadcrumbItem } from '../../../core/layout/interfaces/menu.interface';
+import { OrganismeService } from '../../../core/services/organisme.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { OrganismeNiveau1, OrganismeNiveau2 } from '../../../core/models/organisme.model';
 import {
   Projet, Propriete, Affaire, Ssdgps, Session,
   PROCEDURE_OPTIONS, PROCEDURE_NATURES, PROCEDURES_SANS_DATE_BORNAGE,
@@ -57,6 +62,7 @@ const COLUMNS_BY_LEVEL: Record<Level, ColumnConfig[]> = {
     { field: 'numero_ssdgps', label: 'Numéro', visible: true, type: 'number' },
     { field: 'type_ssdgps', label: 'Type', visible: true, type: 'text' },
     { field: 'nbr_total_sessions', label: 'Sessions', visible: true, type: 'number' },
+    { field: 'nbr_total_pieces', label: 'Pièces', visible: true, type: 'number' },
     { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
     { field: 'updated_at', label: 'Modifié le', visible: false, type: 'date' },
     { field: 'is_deleted', label: 'Supprimé', visible: false, type: 'boolean' },
@@ -68,6 +74,7 @@ const COLUMNS_BY_LEVEL: Record<Level, ColumnConfig[]> = {
   session: [
     { field: 'numero_session', label: 'N° Session', visible: true, type: 'number' },
     { field: 'date_session', label: 'Date session', visible: true, type: 'date' },
+    { field: 'nbr_total_pieces', label: 'Pièces', visible: true, type: 'number' },
     { field: 'created_at', label: 'Créé le', visible: false, type: 'date' },
     { field: 'updated_at', label: 'Modifié le', visible: false, type: 'date' },
     { field: 'is_deleted', label: 'Supprimé', visible: false, type: 'boolean' },
@@ -96,6 +103,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   nbr_total_affaires: 'Nombre total d\'affaires (SD) rattachées',
   nbr_total_ssdgps: 'Nombre total de SSDGPS rattachés',
   nbr_total_sessions: 'Nombre total de sessions rattachées',
+  nbr_total_pieces: 'Nombre total de pièces rattachées au rapport',
   numero_session: "Numéro d'ordre de la session",
   date_session: "Date de l'observation",
   created_at: "Date de création de l'enregistrement",
@@ -118,6 +126,7 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   readonly typeSsdgpsOptions = TYPE_SSDGPS_OPTIONS;
 
   private boundHandleClickOutside!: (event: Event) => void;
+  private qpSub?: Subscription;
 
   projet: Projet | null = null;
   level: Level = 'propriete';
@@ -180,6 +189,32 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   isBulkRestore = false;
   restoring = false;
 
+  /** Vue à plat de tous les SSDGPS du projet (page dédiée `:id/ssdgps`). */
+  viewAllSsdgps(): void {
+    this.router.navigate(['ssdgps'], { relativeTo: this.route });
+  }
+
+  // Pièces (Phase 6.5) — page dédiée par SSDGPS
+  openPieces(item: any, ev: Event): void {
+    ev.stopPropagation();
+    const base = { proprieteId: this.chain.propriete?.id, affaireId: this.chain.affaire?.id };
+    if (this.level === 'ssdgps') {
+      if (item.type_ssdgps === 'mono-session') {
+        // Mono-session : accès direct aux pièces, aucune sélection de session intermédiaire
+        this.router.navigate(['pieces', item.id], { relativeTo: this.route, queryParams: base });
+      } else {
+        // Multi-session : descendre en liste sessions (même effet que clic carte)
+        this.descend(item);
+      }
+    } else if (this.level === 'session') {
+      // Session précise → passer ssdgpsId pour que goBack() revienne ici
+      this.router.navigate(['pieces', this.chain.ssdgps!.id], {
+        relativeTo: this.route,
+        queryParams: { ...base, session: item.id, ssdgpsId: this.chain.ssdgps!.id },
+      });
+    }
+  }
+
   // Modale de saisie
   showModal = false;
   editing: any = null;
@@ -189,6 +224,12 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   // Formulaire Affaire dynamique
   availableNatures: { value: NatureAffaire; label: string }[] = [];
   dateBornageRequired = true;
+
+  // Formulaire Propriété : organismes (le 2e niveau dépend du 1er choisi)
+  organismeN1Options: OrganismeNiveau1[] = [];
+  organismeN2All: OrganismeNiveau2[] = [];
+  availableN2: OrganismeNiveau2[] = [];
+  private organismesLoaded = false;
 
   // Menu contextuel des lignes/cellules
   showContextMenu = false;
@@ -203,10 +244,12 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
   constructor(
     private service: ProjectsService,
+    private organismeService: OrganismeService,
     private route: ActivatedRoute,
     private router: Router,
     private toast: ToastService,
     private fb: FormBuilder,
+    private breadcrumb: BreadcrumbService,
   ) {}
 
   ngOnInit(): void {
@@ -216,12 +259,147 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.getProjet(id).subscribe({
-      next: (p) => { this.projet = p; this.goToLevel('propriete'); },
+      next: (p) => {
+        this.projet = p;
+        // Niveau initial déduit des query params (forcé : on applique même si « vide »).
+        this.applyQueryParams(this.route.snapshot.queryParamMap, true);
+        // Réagir aux CHANGEMENTS de query params sur la MÊME route : c'est ce qui rend
+        // cliquables les crumps du fil du topbar (projet / propriété / affaire / SSDGPS),
+        // l'URL de l'explorateur restant `:id`. `skip(1)` ignore l'émission initiale
+        // (déjà traitée) ; le garde d'idempotence évite tout double chargement.
+        this.qpSub = this.route.queryParamMap.pipe(skip(1)).subscribe(qp => this.applyQueryParams(qp, false));
+      },
       error: () => { this.toast.error('Erreur', 'Projet introuvable'); this.backToList(); },
     });
   }
 
+  /**
+   * Restaure le niveau de l'explorateur d'après les query params (propriété/affaire/SSDGPS).
+   * `force` = true pour l'application initiale ; sinon un garde d'idempotence évite de
+   * recharger quand les params correspondent déjà à l'état courant (ex. URL synchronisée par
+   * nous-mêmes après une navigation par carte / fil interne).
+   */
+  private applyQueryParams(qp: ParamMap, force: boolean): void {
+    const proprieteId = qp.get('proprieteId');
+    const affaireId = qp.get('affaireId');
+    const ssdgpsId = qp.get('ssdgpsId');
+    if (!force && this.matchesCurrentState(proprieteId, affaireId, ssdgpsId)) return;
+    if (proprieteId && affaireId && ssdgpsId) this.restoreToSessionLevel(proprieteId, affaireId, ssdgpsId);
+    else if (proprieteId && affaireId) this.restoreToSsdgpsLevel(proprieteId, affaireId);
+    else if (proprieteId) this.restoreToAffaireLevel(proprieteId);
+    else this.goToLevel('propriete');
+  }
+
+  /** Vrai si les query params correspondent déjà au niveau/chaîne courant. */
+  private matchesCurrentState(proprieteId: string | null, affaireId: string | null, ssdgpsId: string | null): boolean {
+    return (proprieteId || null) === (this.chain.propriete?.id || null)
+        && (affaireId || null) === (this.chain.affaire?.id || null)
+        && (ssdgpsId || null) === (this.chain.ssdgps?.id || null);
+  }
+
+  /**
+   * Aligne l'URL (query params) sur le niveau/chaîne courant. Appelé à CHAQUE changement de
+   * niveau (cartes, fil interne, restauration) → l'URL reflète toujours la position, ce qui
+   * rend TOUS les crumps du fil du topbar réellement navigables quel que soit le niveau.
+   */
+  private syncUrlToState(): void {
+    if (!this.projet) return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        proprieteId: this.chain.propriete?.id ?? null,
+        affaireId: this.chain.affaire?.id ?? null,
+        ssdgpsId: this.chain.ssdgps?.id ?? null,
+      },
+      replaceUrl: true,
+    });
+  }
+
+  /**
+   * Revient directement au niveau SSDGPS d'une affaire donnée (retour depuis la page
+   * dédiée des pièces, qui vit sur une route sœur de `:id` et ne peut donc pas
+   * reconstruire la chaîne propriété/affaire via une navigation relative `..`).
+   */
+  private restoreToSsdgpsLevel(proprieteId: string, affaireId: string): void {
+    this.service.getProprietes(this.projet!.id).subscribe({
+      next: (proprietes) => {
+        const propriete = proprietes.find(p => p.id === proprieteId);
+        if (!propriete) { this.goToLevel('propriete'); return; }
+        this.service.getAffaires(propriete.id).subscribe({
+          next: (affaires) => {
+            const affaire = affaires.find(a => a.id === affaireId);
+            if (!affaire) { this.goToLevel('propriete'); return; }
+            this.chain = { propriete, affaire };
+            this.level = 'ssdgps';
+            this.showDeleted = false;
+            this.resetLevelState();
+            this.loadLevel();
+          },
+          error: () => this.goToLevel('propriete'),
+        });
+      },
+      error: () => this.goToLevel('propriete'),
+    });
+  }
+
+  /**
+   * Restaure la chaîne jusqu'au niveau AFFAIRE (liste des affaires d'une propriété) — utilisé
+   * quand on clique le crumb « propriété » du fil du topbar depuis une page pièces.
+   */
+  private restoreToAffaireLevel(proprieteId: string): void {
+    this.service.getProprietes(this.projet!.id).subscribe({
+      next: (proprietes) => {
+        const propriete = proprietes.find(p => p.id === proprieteId);
+        if (!propriete) { this.goToLevel('propriete'); return; }
+        this.chain = { propriete };
+        this.level = 'affaire';
+        this.showDeleted = false;
+        this.resetLevelState();
+        this.loadLevel();
+      },
+      error: () => this.goToLevel('propriete'),
+    });
+  }
+
+  /** Restaure la chaîne jusqu'au niveau session (retour depuis la page pièces d'un SSDGPS multi-session). */
+  private restoreToSessionLevel(proprieteId: string, affaireId: string, ssdgpsId: string): void {
+    this.service.getProprietes(this.projet!.id).subscribe({
+      next: (proprietes) => {
+        const propriete = proprietes.find(p => p.id === proprieteId);
+        if (!propriete) { this.goToLevel('propriete'); return; }
+        this.service.getAffaires(propriete.id).subscribe({
+          next: (affaires) => {
+            const affaire = affaires.find(a => a.id === affaireId);
+            if (!affaire) { this.goToLevel('propriete'); return; }
+            this.service.getSsdgps(affaire.id).subscribe({
+              next: (ssdgpsList) => {
+                const ssdgps = ssdgpsList.find(s => s.id === ssdgpsId);
+                if (!ssdgps) {
+                  this.chain = { propriete, affaire };
+                  this.level = 'ssdgps';
+                  this.resetLevelState();
+                  this.loadLevel();
+                  return;
+                }
+                this.chain = { propriete, affaire, ssdgps };
+                this.level = 'session';
+                this.showDeleted = false;
+                this.resetLevelState();
+                this.loadLevel();
+              },
+              error: () => this.goToLevel('propriete'),
+            });
+          },
+          error: () => this.goToLevel('propriete'),
+        });
+      },
+      error: () => this.goToLevel('propriete'),
+    });
+  }
+
   ngOnDestroy(): void {
+    this.breadcrumb.clear();
+    this.qpSub?.unsubscribe();
     if (this.boundHandleClickOutside) document.removeEventListener('click', this.boundHandleClickOutside);
   }
 
@@ -245,6 +423,55 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
     this.displayMode = 'all';
     this.clearFieldFilter();
     this.closeAllContextMenus();
+    this.updateTopbarBreadcrumb();
+    // L'URL doit TOUJOURS refléter le niveau/chaîne courant, y compris après une navigation
+    // interne (cartes, fil d'Ariane interne). Sans cela, les crumps du fil du topbar pointant
+    // vers le même état (ex. « projet en cours ») ne déclenchent aucune navigation → clic sans
+    // effet. La synchronisation rend ainsi tous les crumps réellement cliquables quel que soit
+    // le niveau. Idempotent : re-synchroniser vers les mêmes params est un no-op (cf. `qpSub`).
+    this.syncUrlToState();
+  }
+
+  /**
+   * Publie le fil d'Ariane MÉTIER dans le topbar : Accueil › Projets › <Projet> › …chaîne
+   * (Propriété/Affaire/SSDGPS)… › <niveau courant>. Les crumbs de la chaîne sont affichés
+   * (non cliquables) ; la navigation dans l'explorateur reste assurée par son fil interne.
+   */
+  private updateTopbarBreadcrumb(): void {
+    if (!this.projet) return;
+    const base = this.router.url.startsWith('/admin') ? '/admin/projets' : '/projets';
+    const projRoute = `${base}/${this.projet.id}`;
+    const propId = this.chain.propriete?.id;
+    const affId = this.chain.affaire?.id;
+    const ssId = this.chain.ssdgps?.id;
+
+    // Les crumps de niveau pointent vers `:id` + query params : l'explorateur réagit à ces
+    // changements (cf. `applyQueryParams`) et restaure le bon niveau sans quitter la page.
+    const trail: BreadcrumbItem[] = [
+      { label: 'Accueil', route: '/home', icon: 'fa-house' },
+      { label: 'Projets', route: base, icon: 'fa-folder-open' },
+      { label: this.projet.nom_projet || this.projet.code_projet, icon: 'fa-diagram-project', route: projRoute },
+    ];
+    if (this.chain.propriete) {
+      trail.push({
+        label: this.proprieteBreadcrumbLabel(this.chain.propriete), icon: 'fa-map-marker-alt',
+        route: projRoute, queryParams: { proprieteId: propId },
+      });
+    }
+    if (this.chain.affaire) {
+      trail.push({
+        label: `SD ${this.chain.affaire.numero_sd_affaire}`, icon: 'fa-file-signature',
+        route: projRoute, queryParams: { proprieteId: propId, affaireId: affId },
+      });
+    }
+    if (this.chain.ssdgps) {
+      trail.push({
+        label: `SSDGPS ${this.chain.ssdgps.numero_ssdgps}`, icon: 'fa-satellite-dish',
+        route: projRoute, queryParams: { proprieteId: propId, affaireId: affId, ssdgpsId: ssId },
+      });
+    }
+    trail.push({ label: this.levelTitle, icon: this.levelIcon(), isActive: true });
+    this.breadcrumb.set(trail);
   }
 
   goToLevel(level: Level): void {
@@ -298,9 +525,15 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   }
 
   descend(item: any): void {
-    if (item.is_deleted) return; // ne pas naviguer dans un élément supprimé
+    if (item.is_deleted) return;
     const child = this.childOf(this.level);
-    if (!child) return; // session = feuille
+    if (!child) return;
+    // Mono-session : aller directement aux pièces (aucun niveau session intermédiaire)
+    if (this.level === 'ssdgps' && item.type_ssdgps === 'mono-session') {
+      const qp = { proprieteId: this.chain.propriete?.id, affaireId: this.chain.affaire?.id };
+      this.router.navigate(['pieces', item.id], { relativeTo: this.route, queryParams: qp });
+      return;
+    }
     if (this.level === 'propriete') this.chain.propriete = item;
     else if (this.level === 'affaire') this.chain.affaire = item;
     else if (this.level === 'ssdgps') this.chain.ssdgps = item;
@@ -351,12 +584,23 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
   itemLabel(item: any, level: Level = this.level): string {
     switch (level) {
-      case 'propriete': return item.nom_propriete + (item.id_requisition ? ` (${item.id_requisition})` : '');
+      case 'propriete': {
+        // Identifiant affiché : le titre foncier s'il existe, sinon la réquisition.
+        const idPropriete = item.id_titre || item.id_requisition;
+        return item.nom_propriete + (idPropriete ? ` (${idPropriete})` : '');
+      }
+      // Note : le fil d'Ariane utilise `proprieteBreadcrumbLabel` (identifiant seul).
       case 'affaire': return `SD ${item.numero_sd_affaire} — ${item.nature_affaire}`;
       case 'ssdgps': return `SSDGPS ${item.numero_ssdgps} (${item.nature_ssdgps})`;
       case 'session': return `Session ${item.numero_session}`;
       default: return '';
     }
+  }
+
+  /** Libellé de propriété pour le fil d'Ariane : uniquement l'identifiant
+   * (titre foncier s'il existe, sinon réquisition), sans le nom de la propriété. */
+  proprieteBreadcrumbLabel(item: any): string {
+    return item?.id_titre || item?.id_requisition || item?.nom_propriete || '';
   }
 
   natureLabel(v: string): string { return NATURE_AFFAIRE_LABELS[v as NatureAffaire] || v; }
@@ -372,7 +616,21 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
 
   formatDate(value: any): string {
     if (!value) return '—';
-    return new Date(value).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    return new Date(value).toLocaleString('fr-FR', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  }
+
+  /** Convertit une valeur ISO du backend vers le format attendu par un
+   * `<input type="datetime-local" step="1">` (« YYYY-MM-DDTHH:mm:ss », heure locale). */
+  private toDatetimeLocal(value: any): string | null {
+    if (!value) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+      `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
   // --- Recherche, filtre, tri & sélection ---
@@ -629,14 +887,18 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
           nom_propriete: [item?.nom_propriete || '', Validators.required],
           id_requisition: [item?.id_requisition || ''],
           id_titre: [item?.id_titre || ''],
+          organisme_niveau1: [item?.organisme_niveau1 || '', Validators.required],
+          organisme_niveau2: [item?.organisme_niveau2 || '', Validators.required],
         });
+        this.loadOrganismeOptions();
+        this.form.get('organisme_niveau1')!.valueChanges.subscribe(v => this.onOrganismeN1Change(v));
         break;
       case 'affaire':
         this.form = this.fb.group({
           numero_sd_affaire: [item?.numero_sd_affaire ?? null, Validators.required],
           nature_procedure_affaire: [item?.nature_procedure_affaire || '', Validators.required],
           nature_affaire: [item?.nature_affaire || '', Validators.required],
-          date_bornage: [item?.date_bornage || null],
+          date_bornage: [this.toDatetimeLocal(item?.date_bornage)],
         });
         this.onProcedureChange(item?.nature_procedure_affaire || '');
         this.form.get('nature_procedure_affaire')!.valueChanges.subscribe(v => this.onProcedureChange(v));
@@ -651,10 +913,39 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
       case 'session':
         this.form = this.fb.group({
           numero_session: [item?.numero_session ?? null, Validators.required],
-          date_session: [item?.date_session || null],
+          date_session: [this.toDatetimeLocal(item?.date_session)],
         });
         break;
     }
+  }
+
+  /** Charge (une fois) les organismes N1/N2 puis recalcule la liste N2 disponible. */
+  private loadOrganismeOptions(): void {
+    if (this.organismesLoaded) { this.recomputeAvailableN2(); return; }
+    forkJoin({
+      n1: this.organismeService.getNiveau1(),
+      n2: this.organismeService.getNiveau2(),
+    }).subscribe({
+      next: ({ n1, n2 }) => {
+        this.organismeN1Options = n1;
+        this.organismeN2All = n2;
+        this.organismesLoaded = true;
+        this.recomputeAvailableN2();
+      },
+      error: () => { this.organismeN1Options = []; this.organismeN2All = []; },
+    });
+  }
+
+  /** Select dépendant : au changement du 1er niveau, filtre le 2e et le réinitialise si invalide. */
+  onOrganismeN1Change(n1Id: string): void {
+    this.recomputeAvailableN2(n1Id);
+    const n2Ctrl = this.form.get('organisme_niveau2');
+    if (n2Ctrl && !this.availableN2.some(o => o.id === n2Ctrl.value)) n2Ctrl.setValue('');
+  }
+
+  private recomputeAvailableN2(n1Id?: string): void {
+    const id = n1Id ?? this.form?.get('organisme_niveau1')?.value ?? '';
+    this.availableN2 = this.organismeN2All.filter(o => o.niveau1 === id);
   }
 
   /** Met à jour les natures disponibles + l'obligation de date selon la procédure. */

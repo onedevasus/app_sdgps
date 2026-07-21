@@ -8,6 +8,9 @@ import { DashboardLayoutComponent } from './components/dashboard-layout/dashboar
 import { SidebarComponent } from './components/sidebar/sidebar.component';
 import { TopBarComponent } from './components/topbar/topbar.component';
 
+// Directives
+import { ClickOutsideDirective } from './directives/click-outside.directive';
+
 // Services
 import { LayoutService } from './services/layout.service';
 
@@ -15,7 +18,8 @@ import { LayoutService } from './services/layout.service';
   declarations: [
     DashboardLayoutComponent,
     SidebarComponent,
-    TopBarComponent
+    TopBarComponent,
+    ClickOutsideDirective
   ],
   imports: [
     CommonModule,    // ← Nécessaire pour *ngIf, *ngFor, async pipe

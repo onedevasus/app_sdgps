@@ -54,25 +54,43 @@
     - [maj du plan de developpement de l'app](#maj-du-plan-de-developpement-de-lapp)
     - [finalisation liste projets + projet explorer](#finalisation-liste-projets-projet-explorer)
     - [Implementation la saisie et l'import des donnees des pieces](#implementation-la-saisie-et-limport-des-donnees-des-pieces)
+      - [Detail des pieces.](#detail-des-pieces)
 
 # Taches a faire
-  - Divers
-    - Personnaliser les messages des commites du watcher en passant par opencode.
-    - Configurer le compte git Blmerio2022 pour qu'il soit utilise toujours et par defaut dans ce projet. (fait)
-  - gestion des utilisateurs
-    - correction + refonte frontend tableau de la liste des utilisateurs. (fait)
-    - Protection des roles des utilisateurs.  (fait)
-    - tester toutes les fonctionnalites du tableau (fait)
-    - tester les fonctionnalites qu'a chaque role dans la page de gestion des utilisateurs  (fait)
 
-    - implementer les tests backend + frontend de la gestion des utilisateurs
-  - gestion (CRUD) des projets/proprietes/affaires/ssd-gps/sessions
-     - 
-  - configuration des pieces du ssdgps
-  - import des donneees des pieces 
-    - gestion des ssd-gps mono-session
-    - gestion des ssd-gps multi-sessions
+  - Preparation des sdgps multisession exemples
+    - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
+    - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
+    - 
+
+  - Divers:
+    - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees.
+    - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
+    - Finaliser l'interface graphique UI/UX
+
+  
+
+  - Ajouter le modale de tri des lignes d'un tableau pour tous tableaux de l'app : projets/proprietes/affaires/ssdgps/sessions/pieces.
+  - Fonctionnalite espace stockage utilisee par les donnees de l'app dans l'espace admin.
+
+
+  - Plan de deployement : developement + tests + production
+    - Generer plan de deployement dans "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps\docs\plans\plans_claude_code"
+      - inclure une phase pour ecrire tous les tests de toutes les fonctionnalites de l'app.
+      - inclure phase de resolution les problemes de securite
+      - inclure l'automatisation du process d'integration et deployement des maj via les outiles DevOps.
       
+    - executer plan de deployement
+
+ 
+
+
+
+Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
+
+- Fonctionnalites futures:
+  - Fonctionnalite gestion stockage des fichiers de l'app avec un fournisseur du service stockage.
+
 
 # Rôles de l'application
 
@@ -176,7 +194,9 @@ Creer une branche pour la redaction du CPS de l'app (propose un nom parlant pour
 
 ### Prompte pour commit des modifs et synchronisation avec depot distant configure dans le projet
 
-commit les changements dans le depot local et synchronise ces commits  avec le dépôt distant global de l'app. quand le watcher a deja commiter maj le message du dernier commit dans le depot local et distant.
+commit les changements dans le dépôt local et synchronise ces commites  avec le dépôt distant global de l'app.
+
+Quand le watcher a deja commiter maj le message du dernier commit dans le depot local et distant.
 Squaser les derniers commits watcher en un seul commit avec un message pertinent.
 
 
@@ -299,7 +319,7 @@ Je veux maintenant, ajouter les fonctionnalites suivantes dans le tableau de la 
 
 dans le footer du tableau a gauche les outils de filtres (afficher toutes les organisations, Afficher uniquement les organisations selectionnees, filtrer par champs) et dans la partie droite les outils de paginations.
 
-Le tout en s'inspirant tres grandement du tableau deja present dans le code et qui contient toutes ces fonctionnalites (tableau de la "Liste des tranches des grilles tarifaires des corridors" dans la page "/admin/devises-pays" onglet "Grilles Tarifaires") du projet dont le code source est dans le dossier suivant "D:\BOULMANE\SMAHAN BOULMANE\PROJET-ATLAS-OKAN-TRANSFERT" . Le tout dans un style élégant, pro et conforme au design System de l'app.
+Le tout en s'inspirant tres grandement du tableau deja present dans le code et qui contient toutes ces fonctionnalites (tableau de la "Liste des tranches des grilles tarifaires des corridors" dans la page "/admin/devises-pays" onglet "Grilles Tarifaires") du projet dont le code source est dans le dossier suivant "D:\BOULMANE\SMAHAN BOULMANE\PROJET-ATLAS-OKAN-TRANSFERT" . Le tout dans un style et design élégant, pro et conforme au design System de l'app.
 
 #### Prompte n2
 
@@ -395,7 +415,7 @@ passons maintenant a l'implementation de la phase Gestion des Utilisateurs.
 Maintenant je veux corriger les points suivantes dans le tableau de la liste des utilisateurs :
   - correction outil "deplacer vers le haut des lignes selectionnees" dans la barre des outils du tabelau. cette outil ne fonctionne pas.
   -	restyler/redesigner le boutton close (boutton en haut a droite de la fenetre) des modales en le mettant dans un style élégant, pro et conforme au design System de l'app.
-  - mettre les boutons dans la colonne action du tableau dans une seule ligne pas de retour a la ligne entre les bouttons. le tout dans un style élégant, pro et conforme au design System de l'app.
+  - mettre les boutons dans la colonne action du tableau dans une seule ligne pas de retour a la ligne entre les bouttons. le tout dans un style et design élégant, pro et conforme au design System de l'app.
   - restyler/redesigner le toggle activer/desactiver un utilisateur et son modale en les mettant dans un style élégant, pro et conforme au design System de l'app.
   -  restyler/redesigner le boutton confirmer de la modale de Désactiver/Activer le Compte en le mettant dans un style élégant, pro et conforme au design System de l'app.
   - Corrige l'action d'activation/desactivation d'un compte utilisateur dans l'app. l'app affiche un message d'erreur toast "Erreur lors du changement de statut" lors de la desactivation de tout compte.
@@ -531,7 +551,7 @@ Quelle solution propose tu pour ajouter la possibiliter de recuperer les comptes
   - finalisation liste projets + projet explorer:
     - generation des donnees tests pour agents agent1/2/3@sdgps.ma  (fait)
     - separation elements actifs de ceux supprimes dans l'explorateur (Propriété → Affaire → SSDGPS → Session).  (fait)
-    - correction quelques points dans l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session).
+    - correction quelques points dans l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session). (fait)
   - implementation de la section : 6.5 Saisie & import des données des pièces et suivantes
   - implementation de la Phase 6 — Pièces & génération de rapports PDF SSDGPS
 
@@ -685,3 +705,50 @@ Le tout dans un style élégant, pro et conforme au design System de l'app.
 
 
 ### Implementation la saisie et l'import des donnees des pieces
+
+Que pense tu des modifs suivantes :  
+  - modifie la facon d'ajouter les pieces d'un sdgps en utilisant une page dediee au lieu d'un modal. la page d'ajout des pieces d'un sdgps doit avoir en plus de la vue carte une vue tableau. les deux doivent contenir tous les outiles de tableau : outiles deja presentes dans les tableaux de l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session). En plus de ces outiles, les lignes des pieces doivent les fonctionnalites suivantes : 
+  - chaque ligne doit contenir les outils pour changer l'ordre de la piece dans le rapport du sdgps (premier, precedant, suivant, dernier) s'inspire des outiles dans le modale de gestion des colonnes dans les vues tableaux. En plus de ces outiles ajouter l'option de reorganiser par glisser deposer.
+  - Pour chaque piece l'utilisateur doit choisir parmi les sources de donnees disponibles pour cette piece. puis en fonction de la source de donnees, une fenetre s'ouvre pour charger ou saisir les donnees de cette piece.
+  - Ajouter la possibilite de soft-delete des pieces + leur restauration exactement comme dans les autres vues carte/tableau precedantes de l'explorateur (Projet → Propriété → Affaire → SSDGPS → Session).
+  -  Si le sdgps est multi-sessions l'app doit permetre a l'utilisateur d'indiquer pour chaque piece si la piece en cours est commune a toutes les sessions ou bien specifique a la session en cours.
+  - Pour les pieces dont le mapping colonnes → champs est obligatoire, ajoute toutes les outiles necessaires pour faire ce mappage de la facon la plus generique, intuitive, pro, et élégante possible.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige les points suivants : 
+  - corrige le style et design des bouttons : premier, precedant, suivant, dernier dans le tableau de la liste des pieces du rapport.
+  - ajoute la description des colonnes du tableau de la liste des pieces dans la fenetre organiser les colonnes.
+  - corriger la possibilite de retourner dans l'entite session/ssdgps quand on est dans l'entite pieces.
+  - que pense tu de toujours mettre la page de garde en tout debut de la liste des pieces. ou bien ne pas le faire car c'est evident.
+  - Ajouter la possibilite de voir/modifier une piece dans la liste des pieces.
+  - ajouter la possibilite de choisir si une piece est de niveau ssdgps ou bien de niveau session lors de l'ajout/modification.
+  - ajouter une mention quelque part (choisit le bon endroit) pour ajouter dans la liste des pieces si le ssdgps en cours est monosession/multission, si multisesssion le numero + date de la session en cours.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige les points suivants : 
+  - centrer verticalement les bouttons : premier, precedant, suivant, dernier dans le tableau de la liste des pieces du rapport.
+  - toujours la description des colonnes du tableau de la liste des pieces dans la fenetre organiser les colonnes est non ajoutee.
+  - ajouter le nombre de pieces dans l'entitee : ssdgps et session.
+  - Ajouter la possibilite de voir (lecture sans modification dans la fenetre modale) des donnees d'une piece dans la liste des pieces .
+  - ajouter la possibilite - lors de l'ajout/modification d'une piece - de modifier le niveau d'une piece ("niveau ssdgps": piece commune a toutes les sessions. c.a.d meme contenu pour toutes les sessions. ou bien "niveau session": piece differente d'une session a une autre. c.a.d contenu de la piece different d'une session a une autre).
+  - ajouter la possibilite - lors de l'ajout/modification d'une piece - de modifier le numero d'ordre de la piece dans le ssdgps.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Que pense tu des modifs suivantes : 
+  - Ajoute dans le fil d'arian de navigation dans l'explorateur Propriété → Affaire → SSDGPS → Session, ajoute le niveau session entre ssdgps et pieces. si le ssdgps est monosession ce niveau session ne doit pas apparaitre en aucun endroit ni dans le fil d'arian, ni dans les pieces l'utilisateur doit automatiquement etre switcher vers la page d'ajout des pieces et leurs donnees sans passer par l'entitee session.
+Le tout dans un style élégant, pro et conforme au design System de l'app.
+
+
+Corrige le probleme suivant : quand l'app est inactive un certain temps. si l'utilisateur clique apres n'importe ou, l'app se deconnecte et redirige vers la page de login.
+
+Corrige le probleme suivant : 
+  - corrige le nom du ssdgps dans le fil d'arian en "SSDGPS Ni - NATURE_SSDGPS - Mono/Multi" avec i est le numero d'ordre du ssdgps dans le sd d'affaire.
+  - Pourquoi l'avant dernier element du fil d'arian (id du ssdgps pour les ssdgps monosessions et id_session_en_cours si le ssdgps est multisession) est non cliquable.
+
+
+
+
+#### Detail des pieces.

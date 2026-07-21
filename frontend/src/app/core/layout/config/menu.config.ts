@@ -8,17 +8,45 @@ export const USER_MENU: MenuItem[] = [
     id: 'dashboard',
     title: 'Tableau de bord',
     icon: 'fas fa-tachometer-alt',
-    route: '/dashboard',
+    route: '/home', // accueil opérateur servi à la racine (sans préfixe « dashboard »)
     type: 'link',
+    exact: true, // évite de rester actif sur les sous-routes (/projets…)
     description: 'Vue d\'ensemble de vos projets et activités'
   },
   {
     id: 'projets',
     title: 'Projets',
     icon: 'fas fa-project-diagram',
-    route: '/dashboard/projets',
+    route: '/projets',
     type: 'link',
     description: 'Projets, propriétés, affaires, SSDGPS & sessions'
+  },
+  {
+    // Regroupement « Paramètres » (route hors AdminGuard, accessible à l'agent).
+    id: 'parametres',
+    title: 'Paramètres',
+    icon: 'fas fa-sliders-h',
+    route: '/parametres',
+    type: 'submenu',
+    description: 'Préférences d\'affichage des pièces (tri + colonnes)',
+    children: [
+      {
+        id: 'tri-pieces',
+        title: 'Tri des pièces',
+        icon: 'fas fa-sort-amount-down',
+        route: '/parametres/tri-pieces',
+        type: 'link',
+        description: 'Champ de tri par défaut des tableaux de pièces (affichage + rapport PDF)'
+      },
+      {
+        id: 'champs-pieces',
+        title: 'Champs par défaut',
+        icon: 'fas fa-table-columns',
+        route: '/parametres/champs-pieces',
+        type: 'link',
+        description: 'Colonnes affichées par type de pièce (vues app + rapport PDF)'
+      }
+    ]
   }
 ];
 
@@ -35,6 +63,7 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-tachometer-alt',
     route: '/admin/dashboard',
     type: 'link',
+    exact: true, // correspondance exacte (cohérence avec le menu opérateur)
     description: 'Vue d\'ensemble système',
     roles: ALL_ADMIN_ROLES,
   },
@@ -68,6 +97,35 @@ export const ADMIN_MENU: MenuItem[] = [
     ]
   },
   {
+    id: 'organismes',
+    title: 'Organismes',
+    icon: 'fas fa-sitemap',
+    route: '/admin/organismes',
+    type: 'submenu',
+    description: 'Organismes premier & deuxième niveau (en-tête des rapports)',
+    roles: SUPER_OR_SYSTEME,
+    children: [
+      {
+        id: 'organismes-niveau1',
+        title: 'Premier niveau',
+        icon: 'fas fa-landmark',
+        route: '/admin/organismes/niveau1',
+        type: 'link',
+        description: 'Organismes centraux (ex. ANCFCC)',
+        roles: SUPER_OR_SYSTEME,
+      },
+      {
+        id: 'organismes-niveau2',
+        title: 'Deuxième niveau',
+        icon: 'fas fa-building',
+        route: '/admin/organismes/niveau2',
+        type: 'link',
+        description: 'Entités décentralisées rattachées',
+        roles: SUPER_OR_SYSTEME,
+      }
+    ]
+  },
+  {
     id: 'projets',
     title: 'Projets',
     icon: 'fas fa-project-diagram',
@@ -75,6 +133,44 @@ export const ADMIN_MENU: MenuItem[] = [
     type: 'link',
     description: 'Projets, propriétés, affaires, SSDGPS & sessions',
     roles: ALL_ADMIN_ROLES,
+  },
+  {
+    id: 'parametres',
+    title: 'Paramètres',
+    icon: 'fas fa-sliders-h',
+    route: '/admin/parametres',
+    type: 'submenu',
+    description: 'Préférences d\'affichage des pièces (tri + colonnes)',
+    roles: ALL_ADMIN_ROLES,
+    children: [
+      {
+        id: 'tri-pieces',
+        title: 'Tri des pièces',
+        icon: 'fas fa-sort-amount-down',
+        route: '/admin/parametres/tri-pieces',
+        type: 'link',
+        description: 'Champ de tri par défaut des tableaux de pièces (affichage + rapport PDF)',
+        roles: ALL_ADMIN_ROLES,
+      },
+      {
+        id: 'champs-pieces',
+        title: 'Champs par défaut',
+        icon: 'fas fa-table-columns',
+        route: '/admin/parametres/champs-pieces',
+        type: 'link',
+        description: 'Colonnes affichées par type de pièce (vues app + rapport PDF)',
+        roles: ALL_ADMIN_ROLES,
+      },
+      {
+        id: 'descriptions-champs',
+        title: 'Descriptions des champs',
+        icon: 'fas fa-circle-info',
+        route: '/admin/parametres/descriptions-champs',
+        type: 'link',
+        description: 'Descriptions & infobulles des champs (communes, aide à l\'import)',
+        roles: SUPER_OR_SYSTEME,
+      }
+    ]
   },
   {
     id: 'utilisateurs',

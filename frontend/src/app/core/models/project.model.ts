@@ -18,6 +18,7 @@ export interface Projet {
   nbr_total_affaires?: number;
   nbr_total_ssdgps?: number;
   nbr_total_sessions?: number;
+  nbr_total_pieces?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;
@@ -33,6 +34,10 @@ export interface Propriete {
   id_requisition?: string;
   id_titre?: string;
   projet: string;
+  organisme_niveau1?: string;        // UUID organisme de premier niveau (requis à l'écriture)
+  organisme_niveau2?: string;        // UUID organisme de deuxième niveau (requis à l'écriture)
+  organisme_niveau1_nom?: string;    // libellé (lecture)
+  organisme_niveau2_nom?: string;    // libellé (lecture)
   nbr_total_affaires?: number;
   nbr_total_ssdgps?: number;
   nbr_total_sessions?: number;
@@ -80,7 +85,15 @@ export interface Ssdgps {
   numero_ssdgps: number;
   type_ssdgps: TypeSsdgps;
   affaire: string;
+  // Contexte parent dénormalisé (renvoyé par le backend) — utile à la vue « tous les SSDGPS
+  // d'un projet » pour l'affichage et la navigation vers les pièces.
+  propriete?: string;
+  propriete_nom?: string;
+  propriete_id_titre?: string;
+  propriete_id_requisition?: string;
+  affaire_numero?: string;
   nbr_total_sessions?: number;
+  nbr_total_pieces?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;
@@ -90,11 +103,17 @@ export interface Ssdgps {
   deleted_by_email?: string;
 }
 
+/** Libellé d'une propriété : titre foncier si présent, sinon réquisition, sinon nom. */
+export function proprieteLabel(s: Pick<Ssdgps, 'propriete_id_titre' | 'propriete_id_requisition' | 'propriete_nom'>): string {
+  return s.propriete_id_titre || s.propriete_id_requisition || s.propriete_nom || '—';
+}
+
 export interface Session {
   id: string;
   ssdgps: string;
   numero_session: number;
   date_session?: string | null;
+  nbr_total_pieces?: number;
   created_at?: string;
   updated_at?: string;
   is_deleted?: boolean;

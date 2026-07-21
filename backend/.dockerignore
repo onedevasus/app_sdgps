@@ -1,0 +1,17 @@
+# Données runtime — persistées via des volumes Docker, jamais embarquées dans l'image
+db.sqlite3
+media/
+
+# Artefacts Python / venv / caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Divers
+*.log
+.git/
+.idea/

@@ -64,6 +64,9 @@ export class ProjectsService {
 
   // --- SSDGPS ---
   getSsdgps(affaireId: string, params?: Record<string, any>): Observable<Ssdgps[]> { return this.list('ssdgps', { affaire: affaireId, ...params }); }
+  /** Tous les SSDGPS d'un projet (à plat, toutes propriétés/affaires confondues). */
+  getSsdgpsByProjet(projetId: string, params?: Record<string, any>): Observable<Ssdgps[]> { return this.list('ssdgps', { projet: projetId, ...params }); }
+  getSsdgpsById(id: string): Observable<Ssdgps> { return this.http.get<Ssdgps>(`${this.base}ssdgps/${id}/`); }
   createSsdgps(s: Partial<Ssdgps>): Observable<Ssdgps> { return this.http.post<Ssdgps>(`${this.base}ssdgps/`, s); }
   updateSsdgps(id: string, s: Partial<Ssdgps>): Observable<Ssdgps> { return this.http.patch<Ssdgps>(`${this.base}ssdgps/${id}/`, s); }
   deleteSsdgps(id: string): Observable<void> { return this.http.delete<void>(`${this.base}ssdgps/${id}/`); }

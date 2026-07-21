@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import timedelta
 from .managers import OrganizationManager
+from .piece_defaults import default_piece_sort_config, default_piece_fields_config, default_ssdgps_sort_config
 
 
 class Organization(models.Model):
@@ -300,7 +301,44 @@ class CustomUser(AbstractUser):
         verbose_name="Photo de profil",
         help_text="Image de profil de l'utilisateur"
     )
-    
+
+    # Préférences de tri par défaut des tableaux de pièces, PAR TYPE de pièce.
+    # Forme : { '<TYPE_PIECE>': {'field': '<nom_champ>', 'dir': 'asc'|'desc'} }.
+    # Utilisé comme tri par défaut des tableaux (table interactive) ET pour ordonner les
+    # lignes des tableaux dans le rapport PDF généré par cet opérateur.
+    # Défaut = configuration de référence (copiée depuis « agent1@sdgps.ma »), appliquée à TOUT
+    # compte nouvellement créé (opérateur, admin org, admin app, super admin). Cf. piece_defaults.
+    piece_sort_config = models.JSONField(
+        default=default_piece_sort_config, blank=True,
+        verbose_name="Tri par défaut des tableaux de pièces",
+        help_text="Champ de tri par défaut par type de pièce (tableaux de données)."
+    )
+
+    # Champs (colonnes) par défaut à AFFICHER, PAR TYPE de pièce et PAR VUE.
+    # Deux vues distinctes : 'app' (affichage des données dans l'app) et 'pdf'
+    # (rapport PDF généré). Chaque vue comporte une version 'brut' et, pour les
+    # types à écarts (RDL/RDN/RDIA), une version 'ecarts'. Forme :
+    #   { '<TYPE>': { 'app': {'brut': [<noms ordonnés>], 'ecarts': [...]},
+    #                 'pdf': {'brut': [...],            'ecarts': [...]} } }
+    # Une liste = colonnes VISIBLES, dans cet ORDRE. Type / vue / version ABSENT =
+    # tous les champs du catalogue, dans l'ordre du catalogue.
+    # Défaut = configuration de colonnes du super admin (source), appliquée à TOUT compte
+    # nouvellement créé ; repli sur {} si aucune source. Cf. piece_defaults.
+    piece_fields_config = models.JSONField(
+        default=default_piece_fields_config, blank=True,
+        verbose_name="Champs par défaut des tableaux de pièces",
+        help_text="Colonnes affichées (et leur ordre) par type de pièce et par vue (app / rapport PDF)."
+    )
+
+    # Tri MULTI-NIVEAUX par défaut du tableau de la LISTE DES SSDGPS (vue à plat d'un projet).
+    # Forme : liste ordonnée `[{'field': '<colonne>', 'dir': 'asc'|'desc'}, ..]` (niveau 1 =
+    # prioritaire). Défaut = config du super admin (source), repli sur le tri par numéro.
+    ssdgps_sort_config = models.JSONField(
+        default=default_ssdgps_sort_config, blank=True,
+        verbose_name="Tri multi-niveaux de la liste des SSDGPS",
+        help_text="Niveaux de tri (champ + sens) par défaut du tableau de la liste des SSDGPS."
+    )
+
     class Meta:
         verbose_name = "Utilisateur"
         verbose_name_plural = "Utilisateurs"

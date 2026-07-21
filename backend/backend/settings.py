@@ -42,7 +42,10 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'organizations',  # ← AJOUT: Gestion des organisations
+    'organismes',  # ← AJOUT: Registre organismes premier/deuxième niveau (rapport)
     'projects',  # ← AJOUT: Domaine métier (Projet→Propriété→Affaire→SSDGPS→Session)
+    'pieces',  # ← AJOUT: Pièces SSDGPS/Session (Phase 6.5)
+    'analytics',  # ← AJOUT: Analytique de stockage (dashboard admin)
 ]
 
 MIDDLEWARE = [
@@ -84,7 +87,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
+        'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
     }
 }
 
@@ -129,6 +133,45 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# --- Stockage des fichiers (uploads) -----------------------------------------------------
+# Abstraction fournisseur via django-storages : dès qu'un bucket S3 est configuré en
+# variables d'environnement, TOUS les uploads (pièces, images, avatars, logos) y sont
+# stockés ; sinon on reste sur le système de fichiers local (dev). Le backend cible l'API
+# S3, donc le fournisseur (AWS S3, Cloudflare R2, MinIO auto-hébergé…) est un simple choix
+# de configuration : migrer plus tard vers de l'auto-hébergé souverain = changer ces clés.
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
+
+if AWS_STORAGE_BUCKET_NAME:
+    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
+    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
+    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='')
+    # Endpoint explicite requis pour tout stockage S3-compatible non-AWS (R2, MinIO, OVH…).
+    AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default='') or None
+    # Domaine public/CDN optionnel (sinon URLs pré-signées vers le endpoint).
+    AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN', default='') or None
+
+    # Sécurité — données cadastrales sensibles : bucket PRIVÉ + URLs pré-signées à durée
+    # limitée. Pas d'ACL public-read ; on ne réécrit pas un objet existant (noms uniques).
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = config('AWS_QUERYSTRING_EXPIRE', default=3600, cast=int)
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+
+    STORAGES = {
+        'default': {'BACKEND': 'storages.backends.s3.S3Storage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+else:
+    STORAGES = {
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+
+# Pièces (Phase 6.5) — limites d'upload et d'import
+PIECE_MAX_FILE_SIZE_MB = 20
+PIECE_IMPORT_MAX_ROWS = 5000
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -139,8 +182,20 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement seulement
+# Expose Content-Disposition pour que le front (autre origine) puisse lire le nom de
+# fichier proposé lors des téléchargements en AJAX (ex. rapport PDF SSDGPS).
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
 # REST Framework settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': False,
+}
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',

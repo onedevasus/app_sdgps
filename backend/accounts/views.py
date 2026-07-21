@@ -36,6 +36,7 @@ class RegisterView(APIView):
 
                 return Response({
                     'token': access_token,
+                    'refresh_token': str(refresh),
                     'user': {
                         'id': user.id,
                         'email': user.email,
@@ -124,6 +125,7 @@ class LoginView(APIView):
                     
                     return Response({
                         'token': access_token,
+                        'refresh_token': str(refresh),
                         'user': {
                             'id': authenticated_user.id,
                             'email': authenticated_user.email,
@@ -375,5 +377,320 @@ class UserProfileView(APIView):
             'organization_name': organization.name if organization else None,
             'profile_picture_url': profile_picture_url,
             'must_change_password': getattr(user, 'must_change_password', False),
-            'password_changed_at': getattr(user, 'password_changed_at', None)
+            'password_changed_at': getattr(user, 'password_changed_at', None),
+            'piece_sort_config': getattr(user, 'piece_sort_config', None) or {},
+            'piece_fields_config': getattr(user, 'piece_fields_config', None) or {},
         }, status=status.HTTP_200_OK)
+
+
+class PieceSortConfigView(APIView):
+    """Préférences de tri par défaut des tableaux de pièces de l'opérateur connecté.
+
+    GET/PUT /api/auth/me/piece-sort-config/
+    Corps PUT, deux formes acceptées par type de pièce :
+    - liste : `{ '<TYPE>': [ {'field', 'dir'}, … ] }` (version brute uniquement) ;
+    - objet à deux versions (RDL/RDN/RDIA) :
+      `{ '<TYPE>': { 'brut': [ … ], 'ecarts': [ … ] } }`.
+    Plusieurs niveaux ordonnés (niveau 1 prioritaire). L'ancienne forme { type: {field, dir} }
+    reste tolérée (normalisée en liste à un niveau).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(request.user.piece_sort_config or {}, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _clean_levels(raw, valid, type_piece, version_label):
+        """Nettoie/valide une liste de niveaux de tri contre l'ensemble `valid` des champs
+        autorisés. Renvoie (levels, error_response|None)."""
+        levels = raw if isinstance(raw, list) else ([raw] if raw else [])
+        out, seen = [], set()
+        for lv in levels:
+            if not isinstance(lv, dict):
+                return None, Response(
+                    {'detail': f"Niveau de tri invalide pour « {type_piece} »{version_label}."},
+                    status=status.HTTP_400_BAD_REQUEST)
+            field = (lv.get('field') or '').strip()
+            if not field:
+                continue
+            if field not in valid:
+                return None, Response(
+                    {'detail': f"Champ de tri « {field} » invalide pour « {type_piece} »{version_label}."},
+                    status=status.HTTP_400_BAD_REQUEST)
+            if field in seen:
+                continue  # un même champ ne peut apparaître qu'une fois
+            seen.add(field)
+            direction = (lv.get('dir') or 'asc').strip().lower()
+            out.append({'field': field, 'dir': direction if direction in ('asc', 'desc') else 'asc'})
+        return out, None
+
+    def put(self, request):
+        from pieces.catalog import get_piece_def, valid_field_names
+        data = request.data or {}
+        if not isinstance(data, dict):
+            return Response({'detail': 'Un objet { type: [ {field, dir}, … ] } est attendu.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cleaned = {}
+        for type_piece, entry in data.items():
+            if entry in (None, '', {}, []):
+                continue  # type sans tri configuré : on l'omet
+            try:
+                piece_def = get_piece_def(type_piece)
+            except KeyError:
+                return Response({'detail': f"Type de pièce inconnu : « {type_piece} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            # Champs EFFECTIFS (statiques + personnalisés App Admin) → un champ perso est triable.
+            valid_brut = valid_field_names(type_piece, 'brut')
+            has_ecarts = bool(piece_def.get('ecarts'))
+            valid_ecarts = valid_field_names(type_piece, 'ecarts')
+
+            # Forme à deux versions { 'brut': [...], 'ecarts': [...] } (RDL/RDN/RDIA).
+            if isinstance(entry, dict) and ('brut' in entry or 'ecarts' in entry):
+                brut, err = self._clean_levels(entry.get('brut'), valid_brut, type_piece, ' (version brute)')
+                if err:
+                    return err
+                ecarts = []
+                if has_ecarts:
+                    ecarts, err = self._clean_levels(entry.get('ecarts'), valid_ecarts, type_piece, ' (version écarts)')
+                    if err:
+                        return err
+                if brut or ecarts:
+                    cleaned[type_piece] = {'brut': brut, 'ecarts': ecarts} if ecarts else brut
+                continue
+
+            # Forme liste (version brute uniquement) ou ancien objet unique {field, dir}.
+            brut, err = self._clean_levels(entry, valid_brut, type_piece, '')
+            if err:
+                return err
+            if brut:
+                cleaned[type_piece] = brut
+        request.user.piece_sort_config = cleaned
+        request.user.save(update_fields=['piece_sort_config'])
+        return Response(cleaned, status=status.HTTP_200_OK)
+
+
+class PieceSortConfigResetView(APIView):
+    """Réinitialise le tri par défaut de l'opérateur connecté avec la configuration SOURCE
+    (celle du compte super admin, cf. accounts.piece_defaults).
+
+    POST /api/auth/me/piece-sort-config/reset/ → renvoie la configuration appliquée. Erreur
+    400 si aucune configuration source n'est disponible (pour ne pas vider silencieusement le
+    tri de l'utilisateur)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import copy
+        from .piece_defaults import superadmin_piece_sort_config
+        source = superadmin_piece_sort_config()
+        if not source:
+            return Response(
+                {'detail': "Aucune configuration source disponible : le compte administrateur "
+                           "n'a pas encore de tri par défaut configuré."},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.piece_sort_config = copy.deepcopy(source)
+        request.user.save(update_fields=['piece_sort_config'])
+        return Response(request.user.piece_sort_config, status=status.HTTP_200_OK)
+
+
+class PieceFieldsConfigView(APIView):
+    """Champs (colonnes) par défaut à afficher par type de pièce et par vue.
+
+    GET/PUT /api/auth/me/piece-fields-config/
+    Corps PUT :
+      `{ '<TYPE>': { 'app': {'brut': [<noms>], 'ecarts': [<noms>]},
+                     'pdf': {'brut': [<noms>], 'ecarts': [<noms>]} } }`
+    Une liste = colonnes VISIBLES dans cet ORDRE pour la vue/version. Vue/version
+    omise = tous les champs du catalogue (ordre catalogue). Chaque nom est validé
+    contre les champs (`champs` / `ecarts_champs`) du type ; les doublons sont
+    supprimés et la version `ecarts` est ignorée si le type n'en a pas.
+    """
+    permission_classes = [IsAuthenticated]
+
+    # Vues configurables. `import` (version brute) est le FILTRE-MAÎTRE : les champs non
+    # importés ne peuvent apparaître ni dans `app` ni dans `pdf` (cascade appliquée au PUT).
+    VIEWS = ('import', 'app', 'pdf')
+
+    def get(self, request):
+        return Response(request.user.piece_fields_config or {}, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _clean_names(raw, valid_order, type_piece, view, version_label):
+        """Filtre/déduplique une liste de noms de champs contre `valid_order` (ordre
+        catalogue = ensemble des noms autorisés). Renvoie (names, error_response|None).
+        L'ordre retenu est celui fourni par le client (réordonnancement opérateur)."""
+        if raw is None:
+            return None, None  # version non fournie : on l'omet (= tous par défaut)
+        if not isinstance(raw, list):
+            return None, Response(
+                {'detail': f"Liste de champs invalide pour « {type_piece} » (vue {view}{version_label})."},
+                status=status.HTTP_400_BAD_REQUEST)
+        valid = set(valid_order)
+        out, seen = [], set()
+        for name in raw:
+            name = (name or '').strip() if isinstance(name, str) else ''
+            if not name or name in seen:
+                continue
+            if name not in valid:
+                return None, Response(
+                    {'detail': f"Champ « {name} » invalide pour « {type_piece} » (vue {view}{version_label})."},
+                    status=status.HTTP_400_BAD_REQUEST)
+            seen.add(name)
+            out.append(name)
+        return out, None
+
+    def put(self, request):
+        from pieces.catalog import get_piece_def, effective_champs, required_field_names
+        data = request.data or {}
+        if not isinstance(data, dict):
+            return Response({'detail': "Un objet { type: { app|pdf: { brut|ecarts: [...] } } } est attendu."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cleaned = {}
+        for type_piece, entry in data.items():
+            if entry in (None, '', {}, []):
+                continue
+            try:
+                piece_def = get_piece_def(type_piece)
+            except KeyError:
+                return Response({'detail': f"Type de pièce inconnu : « {type_piece} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if not isinstance(entry, dict):
+                return Response({'detail': f"Configuration invalide pour « {type_piece} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            # Champs EFFECTIFS (statiques + personnalisés) pour la version brute → les champs
+            # ajoutés par l'App Admin sont configurables dans « Champs par défaut ».
+            order_brut = [c['name'] for c in effective_champs(type_piece)]
+            has_ecarts = bool(piece_def.get('ecarts'))
+            order_ecarts = [c['name'] for c in (piece_def.get('ecarts_champs') or [])]
+            required = required_field_names(type_piece)
+
+            type_out = {}
+
+            # 1) Vue « import » = FILTRE-MAÎTRE (version brute uniquement). Les champs `required`
+            #    sont toujours réinjectés (verrouillés) ; les vues app/pdf s'y restreignent ensuite.
+            import_names = None
+            import_entry = entry.get('import')
+            if isinstance(import_entry, dict):
+                brut, err = self._clean_names(import_entry.get('brut'), order_brut,
+                                              type_piece, 'import', ' brut')
+                if err:
+                    return err
+                if brut is not None:
+                    missing = [n for n in order_brut if n in required and n not in brut]
+                    import_names = missing + brut
+                    type_out['import'] = {'brut': import_names}
+            # Ensemble autorisé (cascade) : champs importés, ou tous si aucune vue import.
+            import_allowed = set(import_names) if import_names is not None else set(order_brut)
+
+            # 2) Vues app / pdf : sous-ensembles de la vue import (cascade). Un champ non
+            #    importé est retiré silencieusement (il ne peut être affiché/imprimé).
+            for view in ('app', 'pdf'):
+                view_entry = entry.get(view)
+                if not isinstance(view_entry, dict):
+                    continue
+                view_out = {}
+                brut, err = self._clean_names(view_entry.get('brut'), order_brut,
+                                              type_piece, view, ' brut')
+                if err:
+                    return err
+                if brut is not None:
+                    view_out['brut'] = [n for n in brut if n in import_allowed]
+                if has_ecarts:
+                    ecarts, err = self._clean_names(view_entry.get('ecarts'), order_ecarts,
+                                                    type_piece, view, ' écarts')
+                    if err:
+                        return err
+                    if ecarts is not None:
+                        view_out['ecarts'] = ecarts
+                if view_out:
+                    type_out[view] = view_out
+            if type_out:
+                cleaned[type_piece] = type_out
+        request.user.piece_fields_config = cleaned
+        request.user.save(update_fields=['piece_fields_config'])
+        return Response(cleaned, status=status.HTTP_200_OK)
+
+
+class PieceFieldsConfigResetView(APIView):
+    """Réinitialise la config des CHAMPS (colonnes) de l'opérateur connecté avec la
+    configuration SOURCE (celle du compte super admin, cf. accounts.piece_defaults).
+
+    POST /api/auth/me/piece-fields-config/reset/ → renvoie la configuration appliquée. Erreur
+    400 si aucune configuration source n'est disponible (pour ne pas vider silencieusement la
+    config de l'utilisateur). Calqué sur PieceSortConfigResetView."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import copy
+        from .piece_defaults import superadmin_piece_fields_config
+        source = superadmin_piece_fields_config()
+        if not source:
+            return Response(
+                {'detail': "Aucune configuration source disponible : le compte administrateur "
+                           "n'a pas encore de champs par défaut configurés."},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.piece_fields_config = copy.deepcopy(source)
+        request.user.save(update_fields=['piece_fields_config'])
+        return Response(request.user.piece_fields_config, status=status.HTTP_200_OK)
+
+
+# Colonnes triables du tableau de la liste des SSDGPS (allowlist de validation serveur).
+SSDGPS_SORT_FIELDS = {
+    'numero_ssdgps', 'nature_ssdgps', 'type_ssdgps', 'propriete_label', 'affaire_numero',
+    'nbr_total_sessions', 'nbr_total_pieces', 'propriete_nom', 'propriete_id_titre',
+    'propriete_id_requisition', 'created_at', 'updated_at',
+}
+
+
+class SsdgpsSortConfigView(APIView):
+    """Tri MULTI-NIVEAUX par défaut du tableau de la liste des SSDGPS, propre à l'opérateur.
+
+    GET/PUT /api/auth/me/ssdgps-sort-config/
+    Corps PUT : liste ordonnée `[{'field': '<colonne>', 'dir': 'asc'|'desc'}, ..]` (niveau 1 =
+    prioritaire). Champs validés contre `SSDGPS_SORT_FIELDS` ; doublons supprimés ; `dir`
+    normalisé (défaut 'asc')."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(request.user.ssdgps_sort_config or [], status=status.HTTP_200_OK)
+
+    def put(self, request):
+        data = request.data
+        if not isinstance(data, list):
+            return Response({'detail': "Une liste de niveaux [{field, dir}] est attendue."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cleaned, seen = [], set()
+        for level in data:
+            if not isinstance(level, dict):
+                return Response({'detail': "Chaque niveau doit être un objet {field, dir}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            field = (level.get('field') or '').strip()
+            if field not in SSDGPS_SORT_FIELDS:
+                return Response({'detail': f"Champ de tri invalide : « {field} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if field in seen:
+                continue  # un champ ne peut apparaître qu'une fois
+            seen.add(field)
+            cleaned.append({'field': field, 'dir': 'desc' if level.get('dir') == 'desc' else 'asc'})
+        request.user.ssdgps_sort_config = cleaned
+        request.user.save(update_fields=['ssdgps_sort_config'])
+        return Response(cleaned, status=status.HTTP_200_OK)
+
+
+class SsdgpsSortConfigResetView(APIView):
+    """Réinitialise le tri multi-niveaux de la liste des SSDGPS de l'opérateur avec la
+    configuration SOURCE (compte super admin). POST .../reset/ → config appliquée, ou 400 si
+    aucune source disponible."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import copy
+        from .piece_defaults import superadmin_ssdgps_sort_config
+        source = superadmin_ssdgps_sort_config()
+        if not source:
+            return Response(
+                {'detail': "Aucune configuration source disponible : le compte administrateur "
+                           "n'a pas encore de tri des SSDGPS configuré."},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.ssdgps_sort_config = copy.deepcopy(source)
+        request.user.save(update_fields=['ssdgps_sort_config'])
+        return Response(request.user.ssdgps_sort_config, status=status.HTTP_200_OK)

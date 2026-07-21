@@ -120,11 +120,14 @@
             <span *ngIf="p.organization_name">{{ p.organization_name }}</span>
             <span class="tag">{{ p.nbr_total_proprietes ?? 0 }} propriété(s)</span>
             <span class="tag">{{ p.nbr_total_affaires ?? 0 }} affaire(s)</span>
-            <span class="tag">{{ p.nbr_total_ssdgps ?? 0 }} SSDGPS</span>
+            <span class="tag tag-clickable" *ngIf="!p.is_deleted" title="Voir tous les SSDGPS du projet" (click)="openAllSsdgps(p, $event)"><i class="fas fa-satellite-dish"></i> {{ p.nbr_total_ssdgps ?? 0 }} SSDGPS</span>
+            <span class="tag" *ngIf="p.is_deleted">{{ p.nbr_total_ssdgps ?? 0 }} SSDGPS</span>
             <span class="tag">{{ p.nbr_total_sessions ?? 0 }} session(s)</span>
+            <span class="tag"><i class="fas fa-file-lines"></i> {{ p.nbr_total_pieces ?? 0 }} pièce(s)</span>
           </span>
         </div>
         <div class="item-actions" (click)="$event.stopPropagation()">
+          <button class="icon-btn" title="Tous les SSDGPS du projet" *ngIf="!p.is_deleted" (click)="openAllSsdgps(p, $event)"><i class="fas fa-satellite-dish"></i></button>
           <button class="icon-btn" title="Modifier" *ngIf="!p.is_deleted" (click)="openEdit(p, $event)"><i class="fas fa-pen"></i></button>
           <button class="icon-btn danger" title="Supprimer" *ngIf="!p.is_deleted" (click)="openDeleteModal(p, $event)"><i class="fas fa-trash-alt"></i></button>
           <button class="icon-btn restore" title="Restaurer" *ngIf="p.is_deleted" (click)="openRestoreModal(p); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
@@ -175,6 +178,7 @@
                 <span *ngIf="col.field === 'nbr_total_affaires'" class="num-value">{{ p.nbr_total_affaires ?? 0 }}</span>
                 <span *ngIf="col.field === 'nbr_total_ssdgps'" class="num-value">{{ p.nbr_total_ssdgps ?? 0 }}</span>
                 <span *ngIf="col.field === 'nbr_total_sessions'" class="num-value">{{ p.nbr_total_sessions ?? 0 }}</span>
+                <span *ngIf="col.field === 'nbr_total_pieces'" class="num-value">{{ p.nbr_total_pieces ?? 0 }}</span>
                 <span *ngIf="col.field === 'is_deleted'" class="badge" [class.badge-success]="!p.is_deleted" [class.badge-secondary]="p.is_deleted">{{ getCellValue(p, col.field) }}</span>
                 <span *ngIf="col.field === 'created_at' || col.field === 'updated_at' || col.field === 'deleted_at'">{{ formatDate($any(p)[col.field]) }}</span>
                 <span *ngIf="col.field === 'created_by_email' || col.field === 'updated_by_email' || col.field === 'deleted_by_email'">{{ $any(p)[col.field] || '—' }}</span>
@@ -182,6 +186,9 @@
               <td class="actions-col" (click)="$event.stopPropagation()">
                 <button class="btn-icon" (click)="open(p)" title="Ouvrir">
                   <i class="fas fa-folder-open"></i>
+                </button>
+                <button class="btn-icon" *ngIf="!p.is_deleted" (click)="openAllSsdgps(p, $event)" title="Tous les SSDGPS du projet">
+                  <i class="fas fa-satellite-dish"></i>
                 </button>
                 <button class="btn-icon" [class.btn-icon-disabled]="p.is_deleted" [disabled]="p.is_deleted" (click)="!p.is_deleted && openEdit(p, $event)" title="Modifier">
                   <i class="fas fa-edit"></i>

@@ -10,6 +10,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from accounts.models import Organization
+from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 from .validators import (
     REQUISITION_RE, TITRE_RE,
     validate_affaire_coherence,
@@ -103,6 +104,17 @@ class Propriete(BaseModel):
         Projet, on_delete=models.CASCADE, related_name='proprietes',
         verbose_name="Projet",
     )
+    # Organismes affichés dans l'en-tête du rapport. `null=True` en base (migration propre
+    # sur les propriétés existantes) mais REQUIS au niveau de l'API/formulaire (cf.
+    # ProprieteSerializer). Le rapport applique un repli pour les propriétés legacy (null).
+    organisme_niveau1 = models.ForeignKey(
+        OrganismeNiveau1, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='proprietes', verbose_name="Organisme de premier niveau",
+    )
+    organisme_niveau2 = models.ForeignKey(
+        OrganismeNiveau2, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='proprietes', verbose_name="Organisme de deuxième niveau",
+    )
 
     class Meta:
         ordering = ['nom_propriete']
@@ -155,9 +167,10 @@ class Affaire(BaseModel):
     nature_affaire = models.CharField(
         max_length=10, choices=Nature.choices, verbose_name="Nature d'affaire",
     )
-    date_bornage = models.DateField(
-        null=True, blank=True, verbose_name="Date de bornage / recollement",
-        help_text="Requise pour IFF/AS/PS_* ; non définie pour IFE/IFR",
+    date_bornage = models.DateTimeField(
+        null=True, blank=True, verbose_name="Date et heure de bornage / recollement",
+        help_text="Requise pour IFF/AS/PS_* ; non définie pour IFE/IFR. "
+                  "Horodatage complet (jj/mm/aaaa hh:mm:ss).",
     )
     propriete = models.ForeignKey(
         Propriete, on_delete=models.CASCADE, related_name='affaires',
@@ -236,7 +249,10 @@ class Session(BaseModel):
         verbose_name="SSDGPS",
     )
     numero_session = models.PositiveIntegerField(verbose_name="Numéro de session")
-    date_session = models.DateField(null=True, blank=True, verbose_name="Date de la session")
+    date_session = models.DateTimeField(
+        null=True, blank=True, verbose_name="Date et heure de la session",
+        help_text="Horodatage complet (jj/mm/aaaa hh:mm:ss).",
+    )
 
     class Meta:
         ordering = ['numero_session']

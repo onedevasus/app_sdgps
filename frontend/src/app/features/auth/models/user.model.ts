@@ -44,5 +44,6 @@ export interface RegisterPayload {
  */
 export interface AuthResponse {
     token: string;
-    user: User; // Peut contenir des informations partielles ou complètes sur l'utilisateur
+    refresh_token?: string;
+    user: User;
 }

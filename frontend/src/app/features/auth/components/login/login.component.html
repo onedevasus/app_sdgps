@@ -1,59 +1,65 @@
-<div class="login-container">
-    <h2>Connexion</h2>
-    <form (ngSubmit)="onSubmit()" [formGroup]="loginForm">
+<div class="auth-shell">
 
-        <!-- Champ Email -->
-        <div class="form-group">
-            <label for="email">Email :</label>
-            <input formControlName="email" id="email" placeholder="Votre adresse email" type="email">
-            <div *ngIf="shouldShowError('email')" class="error-message">
-                <div *ngIf="loginForm.get('email')?.errors?.['required']">L'email est requis.</div>
-                <div *ngIf="loginForm.get('email')?.errors?.['email']">Veuillez entrer un email valide.</div>
-            </div>
+  <!-- Bascule thème clair / sombre -->
+  <button type="button" class="auth-theme-toggle"
+          (click)="layout.toggleTheme()"
+          [title]="(layout.theme$ | async) === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'">
+    <i class="fas" [ngClass]="(layout.theme$ | async) === 'dark' ? 'fa-sun' : 'fa-moon'"></i>
+  </button>
+
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-logo"><i class="fas fa-map-location-dot"></i></div>
+      <h1 class="auth-title">Connexion</h1>
+      <p class="auth-subtitle">Accédez à votre espace SDGPS</p>
+    </div>
+
+    <form class="auth-form" (ngSubmit)="onSubmit()" [formGroup]="loginForm">
+
+      <!-- Email -->
+      <div class="auth-field">
+        <label for="email"><i class="fas fa-envelope"></i> Email</label>
+        <input class="auth-input" formControlName="email" id="email" type="email"
+               placeholder="votre.email@exemple.com" autocomplete="email">
+        <div *ngIf="shouldShowError('email')" class="auth-error">
+          <span *ngIf="loginForm.get('email')?.errors?.['required']">L'email est requis.</span>
+          <span *ngIf="loginForm.get('email')?.errors?.['email']">Veuillez entrer un email valide.</span>
         </div>
+      </div>
 
-        <!-- Champ Mot de passe -->
-        <div class="form-group">
-            <label for="password">Mot de passe :</label>
-            <div class="password-input-wrapper">
-                <input
-                        [type]="showPassword ? 'text' : 'password'"
-                        formControlName="password"
-                        id="password"
-                        placeholder="Votre mot de passe"
-                >
-                <button
-                        (click)="togglePasswordVisibility()"
-                        [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
-                        class="toggle-password-btn"
-                        tabindex="-1"
-                        type="button"
-                >
-                    <span class="toggle-icon">{{ showPassword ? '🙈' : '👁️' }}</span>
-                </button>
-            </div>
-            <div *ngIf="shouldShowError('password')" class="error-message">
-                <div *ngIf="loginForm.get('password')?.errors?.['required']">Le mot de passe est requis.</div>
-                <div *ngIf="loginForm.get('password')?.errors?.['minlength']">Le mot de passe doit contenir au moins 6
-                    caractères.
-                </div>
-            </div>
+      <!-- Mot de passe -->
+      <div class="auth-field">
+        <label for="password"><i class="fas fa-lock"></i> Mot de passe</label>
+        <div class="auth-input-wrap">
+          <input class="auth-input has-toggle" [type]="showPassword ? 'text' : 'password'"
+                 formControlName="password" id="password" placeholder="Votre mot de passe"
+                 autocomplete="current-password">
+          <button type="button" class="auth-eye" tabindex="-1"
+                  (click)="togglePasswordVisibility()"
+                  [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+            <i class="fas" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+          </button>
         </div>
-
-        <!-- Message d'erreur général du backend -->
-        <div *ngIf="errorMessage" class="error-message-global">
-            {{ errorMessage }}
+        <div *ngIf="shouldShowError('password')" class="auth-error">
+          <span *ngIf="loginForm.get('password')?.errors?.['required']">Le mot de passe est requis.</span>
+          <span *ngIf="loginForm.get('password')?.errors?.['minlength']">Au moins 6 caractères.</span>
         </div>
+      </div>
 
-        <!-- Bouton de soumission -->
-        <button [disabled]="loginForm.invalid || isLoading" type="submit">
-            <span *ngIf="!isLoading">Se connecter</span>
-            <span *ngIf="isLoading">Connexion en cours...</span>
-        </button>
+      <!-- Erreur backend -->
+      <div *ngIf="errorMessage" class="auth-alert error">
+        <i class="fas fa-circle-exclamation"></i> {{ errorMessage }}
+      </div>
+
+      <button class="auth-btn" [disabled]="loginForm.invalid || isLoading" type="submit">
+        <i class="fas" [ngClass]="isLoading ? 'fa-spinner fa-spin' : 'fa-right-to-bracket'"></i>
+        {{ isLoading ? 'Connexion en cours…' : 'Se connecter' }}
+      </button>
     </form>
 
-    <!-- Lien vers la page d'inscription -->
-    <p class="register-link">Pas encore de compte ? <a routerLink="/auth/register">Créer un compte</a></p>
-    <!-- Lien pour mot de passe oublié (à implémenter plus tard) -->
-    <p class="forgot-password-link"><a routerLink="/auth/forgot-password">Mot de passe oublié ?</a></p>
+    <div class="auth-links">
+      <a routerLink="/auth/forgot-password">Mot de passe oublié ?</a>
+      <span>Pas encore de compte ? <a routerLink="/auth/register">Créer un compte</a></span>
+    </div>
+  </div>
 </div>

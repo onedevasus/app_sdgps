@@ -1,0 +1,525 @@
+<div [class.modal-overlay]="!embedded" (click)="!embedded && close()">
+  <div [class.modal-content]="!embedded" [class.embedded-content]="embedded" (click)="$event.stopPropagation()">
+    <div class="modal-header" *ngIf="!embedded">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-plus-circle"></i> Ajouter une pièce</h3>
+      </div>
+      <button class="close-btn" (click)="close()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="wizard-steps">
+      <span class="wizard-step" [class.active]="step==='type'" [class.done]="step!=='type'">1. Type</span>
+      <ng-container *ngIf="isMulti">
+        <i class="fas fa-chevron-right"></i>
+        <span class="wizard-step" [class.active]="step==='scope'" [class.done]="step==='source'">2. Session</span>
+      </ng-container>
+      <i class="fas fa-chevron-right"></i>
+      <span class="wizard-step" [class.active]="step==='source'">{{ isMulti ? '3' : '2' }}. Source</span>
+    </div>
+
+    <div class="modal-body">
+      <!-- Étape 1 : type -->
+      <div class="type-grid" *ngIf="step==='type'">
+        <button *ngFor="let def of applicableTypes" class="type-card" (click)="selectType(def)">
+          <span class="type-code">{{ def.code }}</span>
+          <span class="type-nom">{{ def.nom }}</span>
+        </button>
+      </div>
+
+      <!-- Étape 2 : session (multi-session uniquement) -->
+      <div class="scope-step" *ngIf="step==='scope'">
+        <p class="step-intro">À quelle <strong>session</strong> rattacher cette pièce (<strong>{{ selectedType?.nom }}</strong>) ?</p>
+        <div class="scope-options">
+          <div class="scope-option-sessions">
+            <button *ngFor="let s of sessions" class="scope-session-btn" [class.active]="selectedSessionId===s.id" (click)="chooseNiveauSession(s.id)">
+              <i class="fas fa-clock"></i> Session n°{{ s.numero_session }}
+            </button>
+          </div>
+        </div>
+        <button class="btn-back" (click)="backToType()"><i class="fas fa-arrow-left"></i> Changer de type</button>
+      </div>
+
+      <!-- Étape 3 : source -->
+      <div class="source-step" *ngIf="step==='source'">
+        <p class="step-intro">Source des données pour <strong>{{ selectedType?.nom }}</strong>
+          <span *ngIf="selectedNiveau==='session'"> (Session n°{{ selectedSessionNumero }})</span>
+        </p>
+
+        <div class="position-selector">
+          <label class="position-option">
+            <input type="radio" name="position" [checked]="insertAtEnd" (change)="insertAtEnd=true">
+            <span>Ajouter à la fin du rapport</span>
+          </label>
+          <label class="position-option">
+            <input type="radio" name="position" [checked]="!insertAtEnd" (change)="insertAtEnd=false">
+            <span>Position spécifique :</span>
+            <input type="number" class="position-input" min="1" [max]="maxPosition" [(ngModel)]="customPosition" [disabled]="insertAtEnd" (focus)="insertAtEnd=false">
+            <span class="position-hint">/ {{ maxPosition }}</span>
+          </label>
+        </div>
+
+        <div class="source-options" *ngIf="!selectedSource">
+          <button class="source-option" *ngIf="sourceAllows('image') && !isPhotoPoints" (click)="selectSource('image')">
+            <i class="fas fa-images"></i><span>Importer des images</span>
+          </button>
+          <button class="source-option" *ngIf="sourceAllows('csv')" (click)="selectSource('csv')">
+            <i class="fas fa-file-csv"></i><span>Importer un fichier CSV/Excel</span>
+          </button>
+          <button class="source-option" *ngIf="sourceAllows('manuel')" (click)="selectSource('manuel')">
+            <i class="fas fa-keyboard"></i><span>Saisie manuelle</span>
+          </button>
+          <button class="source-option" *ngIf="selectedType?.html_import" (click)="selectSource('html')">
+            <i class="fas fa-file-code"></i><span>Importer le rapport HTML (TBC)</span>
+          </button>
+          <button class="source-option" *ngIf="supportsBulkHtml" (click)="openBulkModal()">
+            <i class="fas fa-layer-group"></i><span>Créer plusieurs {{ selectedType?.code }} en masse (rapports HTML TBC)</span>
+          </button>
+          <button class="source-option" *ngIf="selectedType?.computed" (click)="selectSource('compute')">
+            <i class="fas fa-calculator"></i><span>Calculer automatiquement (depuis LPA + déterminations)</span>
+          </button>
+          <button class="source-option" *ngIf="supportsAssemble" (click)="selectSource('assemble')">
+            <i class="fas fa-object-group"></i><span>Assembler depuis les déterminations du dossier</span>
+          </button>
+          <button class="source-option" *ngIf="supportsAssemble" (click)="selectSource('assemble-files')">
+            <i class="fas fa-file-import"></i><span>Importer & assembler des fichiers (CSV / Excel / HTML)</span>
+          </button>
+        </div>
+
+        <!-- Sous-formulaire : images (multi) -->
+        <div class="source-form" *ngIf="selectedSource==='image'">
+          <label class="btn-secondary file-label"
+                 title="Ces images sont affichées en pleine page portrait (A4) dans le rapport PDF. Une orientation portrait proche du A4 (rapport ≈ 3:4) évite les bandes blanches ; résolution conseillée ≥ 1240×1754 px (150 dpi).">
+            <input type="file" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp" multiple hidden (change)="onImagesSelected($event)">
+            <i class="fas fa-plus"></i> Sélectionner des images (png/jpg/jpeg/tiff/webp)
+          </label>
+          <p class="upload-hint">
+            <i class="fas fa-info-circle"></i>
+            <span>Pour un rendu optimal dans le rapport PDF : images en <strong>format portrait</strong>
+              (type A4, rapport ≈ 3:4), résolution conseillée <strong>≥ 1240×1754 px</strong>.</span>
+          </p>
+
+          <div class="image-picker" *ngIf="selectedImages.length">
+            <div class="image-picker-item" *ngFor="let f of selectedImages; let i = index">
+              <div class="image-picker-thumb">
+                <img *ngIf="isPreviewable(f)" [src]="selectedImagePreviews[i]" [alt]="f.name">
+                <div class="image-picker-fallback" *ngIf="!isPreviewable(f)"><i class="fas fa-file-image"></i> TIFF</div>
+                <span class="image-picker-index">{{ i + 1 }}</span>
+              </div>
+              <div class="image-picker-name" [title]="f.name">{{ f.name }}</div>
+              <div class="image-picker-actions">
+                <button class="icon-btn" title="Vers la gauche" [disabled]="i===0" (click)="moveLocalImage(i, -1)"><i class="fas fa-arrow-left"></i></button>
+                <button class="icon-btn" title="Vers la droite" [disabled]="i===selectedImages.length-1" (click)="moveLocalImage(i, 1)"><i class="fas fa-arrow-right"></i></button>
+                <button class="icon-btn danger" title="Retirer" (click)="removeLocalImage(i)"><i class="fas fa-trash-alt"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!selectedImages.length || submittingImages" (click)="submitImages()">
+              <i class="fas" [ngClass]="submittingImages ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+              Créer avec {{ selectedImages.length }} image(s)
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : import CSV/Excel -->
+        <div class="source-form" *ngIf="selectedSource==='csv'">
+          <input type="file" accept=".csv,.xlsx" (change)="onImportFileSelected($event)">
+          <app-piece-column-mapper
+            *ngIf="importPreview"
+            [champs]="importPreview.champs"
+            [preview]="importPreview"
+            (mappingChange)="onMappingChange($event)">
+          </app-piece-column-mapper>
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!importPreview || importing" (click)="confirmImport()">
+              <i class="fas" [ngClass]="importing ? 'fa-spinner fa-spin' : 'fa-check'"></i> Confirmer l'import
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : saisie manuelle (tableau éditable) -->
+        <div class="source-form" *ngIf="selectedSource==='manuel' && manualForm">
+          <app-piece-data-table [editable]="true" [champs]="manualChamps" [rows]="wizardRows"
+                                (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="selectedSource=null">Retour</button>
+            <button class="btn-confirm" [disabled]="submittingManual" (click)="submitManual()">
+              <i class="fas" [ngClass]="submittingManual ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : import HTML (RFB — rapport TBC), grille auto-générée éditable -->
+        <div class="source-form" *ngIf="selectedSource==='html'">
+          <!-- Aucune donnée encore importée : inviter à ouvrir la fenêtre d'import -->
+          <div class="html-empty" *ngIf="!manualForm && !htmlPreviewing">
+            <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Importez le rapport HTML (TBC) pour générer automatiquement le tableau de données de la pièce.</p>
+            <button class="btn-secondary" (click)="openHtmlModal()"><i class="fas fa-file-code"></i> Choisir un rapport HTML…</button>
+          </div>
+
+          <p class="step-intro" *ngIf="htmlPreviewing"><i class="fas fa-spinner fa-spin"></i> Analyse du rapport…</p>
+
+          <div class="html-loaded" *ngIf="htmlFile && !htmlPreviewing && manualForm">
+            <p class="step-intro"><i class="fas fa-check-circle"></i> Table générée, vérifiez/complétez puis créez.</p>
+            <button class="btn-back sm" (click)="openHtmlModal()">
+              <i class="fas fa-sync"></i> Changer de rapport
+            </button>
+          </div>
+
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!manualForm || submittingHtml" (click)="submitHtml()">
+              <i class="fas" [ngClass]="submittingHtml ? 'fa-spinner fa-spin' : 'fa-check'"></i> Créer la pièce
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : calcul automatique (RC — depuis LPA + déterminations) -->
+        <div class="source-form" *ngIf="selectedSource==='compute'">
+          <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Le tableau est calculé automatiquement en croisant la « Liste des points anciens » (coordonnées fixes) avec les coordonnées calculées, prises soit dans les « Rapports de la détermination N°k » (RDN), soit dans le « Rapport des déterminations intermédiaires assemblé » (RDIA). Vérifiez/ajustez puis créez.</p>
+
+          <!-- Choix de la source des coordonnées calculées (seulement si RDN ET RDIA disponibles). -->
+          <div class="rc-source-choice" *ngIf="!computing && rcAvailableSources.length > 1">
+            <span class="rc-source-label"><i class="fas fa-layer-group"></i> Source des coordonnées calculées :</span>
+            <div class="rc-source-options">
+              <label *ngFor="let src of rcAvailableSources" class="rc-source-option" [class.active]="rcSource === src">
+                <input type="radio" name="rcSource" [checked]="rcSource === src" (change)="switchRcSource(src)">
+                <span>{{ rcSourceLabel(src) }}</span>
+              </label>
+            </div>
+          </div>
+
+          <p class="step-intro" *ngIf="computing"><i class="fas fa-spinner fa-spin"></i> Calcul du rapport de contrôle…</p>
+
+          <div class="compute-error" *ngIf="computeError && !computing">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div>
+              <p>{{ computeError }}</p>
+              <button class="btn-back sm" (click)="computeRc()"><i class="fas fa-rotate-right"></i> Réessayer</button>
+            </div>
+          </div>
+
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!manualForm || submittingCompute" (click)="submitCompute()">
+              <i class="fas" [ngClass]="submittingCompute ? 'fa-spinner fa-spin' : 'fa-check'"></i> Créer la pièce
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : assemblage RDIA (RDL + RDNₖ → une pièce) -->
+        <div class="source-form" *ngIf="selectedSource==='assemble'">
+          <div class="html-empty" *ngIf="!manualForm && !assembling">
+            <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Assemblez la détermination libre et les déterminations intermédiaires (RDNₖ) déjà présentes dans le dossier en un seul rapport (une colonne « Détermination » : Libre / N°1 / N°2…).</p>
+            <button class="btn-secondary" (click)="openAssembleModal()"><i class="fas fa-object-group"></i> Choisir les déterminations à assembler…</button>
+          </div>
+
+          <p class="step-intro" *ngIf="assembling"><i class="fas fa-spinner fa-spin"></i> Assemblage en cours…</p>
+
+          <div class="html-loaded" *ngIf="manualForm && !assembling">
+            <p class="step-intro"><i class="fas fa-check-circle"></i> Table assemblée, vérifiez/complétez puis créez.</p>
+            <button class="btn-back sm" (click)="openAssembleModal()"><i class="fas fa-object-group"></i> Modifier la sélection</button>
+          </div>
+
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!manualForm || submittingAssemble" (click)="submitAssemble()">
+              <i class="fas" [ngClass]="submittingAssemble ? 'fa-spinner fa-spin' : 'fa-check'"></i> Créer la pièce
+            </button>
+          </div>
+        </div>
+
+        <!-- Sous-formulaire : import & assemblage de FICHIERS de déterminations -->
+        <div class="source-form" *ngIf="selectedSource==='assemble-files'">
+          <div class="html-empty" *ngIf="!manualForm && !assembleFilesParsing">
+            <p class="step-intro subtle"><i class="fas fa-info-circle"></i> Importez les fichiers CSV/Excel/HTML des déterminations séparées, ordonnez-les, puis assemblez-les en un seul rapport (colonne « Détermination » : Libre / N°1 / N°2…).</p>
+            <button class="btn-secondary" (click)="openAssembleFilesModal()"><i class="fas fa-file-import"></i> Importer les fichiers des déterminations…</button>
+          </div>
+
+          <p class="step-intro" *ngIf="assembleFilesParsing"><i class="fas fa-spinner fa-spin"></i> Analyse des fichiers…</p>
+
+          <div class="html-loaded" *ngIf="manualForm && !assembleFilesParsing">
+            <p class="step-intro"><i class="fas fa-check-circle"></i> Table assemblée, vérifiez/complétez puis créez.</p>
+            <button class="btn-back sm" (click)="openAssembleFilesModal()"><i class="fas fa-file-import"></i> Modifier les fichiers</button>
+          </div>
+
+          <app-piece-data-table *ngIf="manualForm" [editable]="true" [champs]="manualChamps"
+                                [rows]="wizardRows" (rowsChange)="wizardRows = $event" [defaultSort]="defaultSort"></app-piece-data-table>
+
+          <div class="source-form-actions">
+            <button class="btn-cancel" (click)="cancelSourceForm()">Retour</button>
+            <button class="btn-confirm" [disabled]="!manualForm || submittingAssembleFiles" (click)="submitAssembleFiles()">
+              <i class="fas" [ngClass]="submittingAssembleFiles ? 'fa-spinner fa-spin' : 'fa-check'"></i> Créer la pièce
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-back" *ngIf="!selectedSource" (click)="backToNiveau()">
+          <i class="fas fa-arrow-left"></i> {{ isMulti ? 'Changer de session' : 'Changer de type' }}
+        </button>
+      </div>
+
+      <!-- Étape photos (PPA/PPN) : rattacher les photos aux points -->
+      <div class="photos-step" *ngIf="step==='photos' && createdPiece">
+        <p class="step-intro">Associez une ou plusieurs <strong>photos</strong> à chaque point de
+          <strong>{{ selectedType?.nom }}</strong>.</p>
+        <app-piece-photo-points
+          [pieceId]="createdPiece.id"
+          [rows]="createdPiece.payload.rows || []"
+          [images]="createdPiece.images || []"
+          [editable]="true"
+          (updated)="onPhotoStepUpdated($event)">
+        </app-piece-photo-points>
+
+        <div class="pp-block-banner" *ngIf="!canFinishPhotos">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span><strong>{{ pointsSansPhoto.length }} point(s) sans photo</strong> ({{ pointsSansPhoto.slice(0, 10).join(', ') }}{{ pointsSansPhoto.length > 10 ? '…' : '' }}).
+            Chaque point doit avoir au moins une photo pour terminer.</span>
+        </div>
+
+        <div class="source-form-actions">
+          <button class="btn-confirm" [disabled]="!canFinishPhotos" (click)="finishPhotos()">
+            <i class="fas fa-check"></i> Terminer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale de confirmation : vider le tableau ========== -->
+<div class="modal-overlay confirm-overlay" *ngIf="showClearConfirm" (click)="cancelClearRows()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left">
+        <span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span>
+        <h3>Vider le tableau</h3>
+      </div>
+      <button class="close-btn" (click)="cancelClearRows()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Supprimer <strong>toutes les lignes</strong> du tableau de données ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> La pièce n'est pas encore créée : les lignes ne seront enregistrées que si vous cliquez sur « Créer ».</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cancelClearRows()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-danger" (click)="confirmClearRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : import d'un rapport HTML (TBC) ========== -->
+<div class="modal-overlay import-overlay" *ngIf="htmlModalOpen" (click)="closeHtmlModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-file-code"></i></span>
+        <h3>Importer un rapport HTML (TBC)</h3>
+      </div>
+      <button class="close-btn" (click)="closeHtmlModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Choisissez le dossier contenant le fichier HTML cadre et son dossier « _files » ; l'app suit le fichier cadre pour trouver le bon fichier de données.</p>
+
+      <label class="btn-secondary file-label">
+        <input type="file" webkitdirectory directory multiple hidden (change)="onHtmlFolderSelected($event)">
+        <i class="fas fa-folder-open"></i> Sélectionner le dossier du rapport TBC
+      </label>
+
+      <p class="tbc-status" *ngIf="htmlPreviewing"><i class="fas fa-spinner fa-spin"></i> Analyse du rapport…</p>
+
+      <!-- Plusieurs rapports détectés dans le dossier → choisir -->
+      <div class="html-choice" *ngIf="htmlCandidates.length > 1 && !htmlPreviewing">
+        <p class="choice-title"><i class="fas fa-list"></i> {{ htmlCandidates.length }} rapports trouvés — choisissez celui à importer :</p>
+        <button class="choice-item" *ngFor="let c of htmlCandidates" (click)="previewCandidate(c.file)">
+          <i class="fas fa-file-code"></i>
+          <span class="choice-label">{{ c.label }}</span>
+          <span class="choice-file">{{ c.source }}</span>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeHtmlModal()"><i class="fas fa-times"></i> Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : création EN MASSE (RDN — déterminations intermédiaires) ========== -->
+<div class="modal-overlay import-overlay" *ngIf="bulkModalOpen" (click)="closeBulkModal()">
+  <div class="modal-content bulk-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-layer-group"></i></span>
+        <h3>Créer plusieurs {{ selectedType?.code }} en masse</h3>
+      </div>
+      <button class="close-btn" (click)="closeBulkModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Sélectionnez le(s) dossier(s) des rapports TBC des déterminations intermédiaires. <strong>L'ordre de la liste ci-dessous fixe les numéros</strong> ({{ selectedType?.code }} n°1, n°2, …) — réordonnez avec les flèches.</p>
+
+      <label class="btn-secondary file-label">
+        <input type="file" webkitdirectory directory multiple hidden (change)="onBulkFolderSelected($event)">
+        <i class="fas fa-folder-open"></i> Ajouter un dossier de rapports TBC
+      </label>
+
+      <p class="tbc-status" *ngIf="bulkPreviewing"><i class="fas fa-spinner fa-spin"></i> Analyse des rapports…</p>
+
+      <div class="bulk-empty" *ngIf="!bulkCandidates.length && !bulkPreviewing">
+        <i class="fas fa-folder-open"></i>
+        <span>Aucun rapport pour l'instant. Ajoutez un dossier contenant les rapports HTML TBC.</span>
+      </div>
+
+      <ol class="bulk-list" *ngIf="bulkCandidates.length">
+        <li class="bulk-item" *ngFor="let c of bulkCandidates; let i = index">
+          <span class="bulk-numero">{{ selectedType?.code }} n°{{ bulkNumeroFor(i) }}</span>
+          <div class="bulk-info">
+            <span class="bulk-label" [title]="c.label">{{ c.label }}</span>
+            <span class="bulk-file">{{ c.source }}</span>
+          </div>
+          <div class="bulk-actions">
+            <button class="icon-btn" title="Monter" [disabled]="i===0" (click)="moveBulk(i, -1)"><i class="fas fa-arrow-up"></i></button>
+            <button class="icon-btn" title="Descendre" [disabled]="i===bulkCandidates.length-1" (click)="moveBulk(i, 1)"><i class="fas fa-arrow-down"></i></button>
+            <button class="icon-btn danger" title="Retirer" (click)="removeBulk(i)"><i class="fas fa-trash-alt"></i></button>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeBulkModal()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!bulkCandidates.length || bulkSubmitting" (click)="submitBulk()">
+        <i class="fas" [ngClass]="bulkSubmitting ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+        Créer {{ bulkCandidates.length }} pièce(s)
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : assemblage des déterminations (RDIA) ========== -->
+<div class="modal-overlay import-overlay" *ngIf="assembleModalOpen" (click)="closeAssembleModal()">
+  <div class="modal-content bulk-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-object-group"></i></span>
+        <h3>Assembler les déterminations</h3>
+      </div>
+      <button class="close-btn" (click)="closeAssembleModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Cochez les déterminations à inclure et ordonnez-les : <strong>l'ordre fixe les blocs</strong> (Libre, N°1, N°2…) dans le tableau assemblé.</p>
+
+      <div class="bulk-empty" *ngIf="!assembleItems.length">
+        <i class="fas fa-folder-open"></i>
+        <span>Aucune détermination (RDL / RDNₖ) dans ce dossier. Ajoutez-les d'abord, ou saisissez le tableau manuellement.</span>
+      </div>
+
+      <ol class="bulk-list" *ngIf="assembleItems.length">
+        <li class="bulk-item" *ngFor="let it of assembleItems; let i = index" [class.excluded]="!it.selected">
+          <label class="bulk-check">
+            <input type="checkbox" [(ngModel)]="it.selected">
+          </label>
+          <span class="bulk-numero">{{ it.label }}</span>
+          <div class="bulk-info">
+            <span class="bulk-label">{{ it.count }} point(s)</span>
+          </div>
+          <div class="bulk-actions">
+            <button class="icon-btn" title="Monter" [disabled]="i===0" (click)="moveAssemble(i, -1)"><i class="fas fa-arrow-up"></i></button>
+            <button class="icon-btn" title="Descendre" [disabled]="i===assembleItems.length-1" (click)="moveAssemble(i, 1)"><i class="fas fa-arrow-down"></i></button>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAssembleModal()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!assembleSelectedIds.length || assembling" (click)="runAssemble()">
+        <i class="fas" [ngClass]="assembling ? 'fa-spinner fa-spin' : 'fa-object-group'"></i>
+        Assembler {{ assembleSelectedIds.length }} détermination(s)
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : import & assemblage de FICHIERS de déterminations ========== -->
+<div class="modal-overlay import-overlay" *ngIf="assembleFilesModalOpen" (click)="closeAssembleFilesModal()">
+  <div class="modal-content assemble-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-file-import"></i></span>
+        <h3>Importer & assembler des déterminations</h3>
+      </div>
+      <button class="close-btn" (click)="closeAssembleFilesModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Ajoutez les fichiers des déterminations, ajustez leur <strong>étiquette</strong> (Libre / N°1 / N°2…) et leur <strong>ordre</strong> : ils formeront les blocs du tableau assemblé.</p>
+
+      <div class="assemble-add">
+        <label class="btn-secondary file-label">
+          <input type="file" accept=".csv,.xlsx" multiple hidden (change)="onAssembleCsvSelected($event)">
+          <i class="fas fa-file-csv"></i> Ajouter des fichiers CSV/Excel
+        </label>
+        <label class="btn-secondary file-label">
+          <input type="file" webkitdirectory directory multiple hidden (change)="onAssembleHtmlFolder($event)">
+          <i class="fas fa-folder-open"></i> Ajouter un dossier HTML (TBC)
+        </label>
+        <button class="btn-reset" *ngIf="assembleFileItems.length" (click)="resetAssembleFiles()"><i class="fas fa-rotate-left"></i> Réinitialiser</button>
+      </div>
+
+      <p class="tbc-status" *ngIf="assembleFilesParsing"><i class="fas fa-spinner fa-spin"></i> Analyse des fichiers…</p>
+
+      <div class="bulk-empty" *ngIf="!assembleFileItems.length && !assembleFilesParsing">
+        <i class="fas fa-file-import"></i>
+        <span>Aucune détermination pour l'instant. Ajoutez des fichiers CSV/Excel ou un dossier de rapports HTML TBC.</span>
+      </div>
+
+      <div class="det-sort" *ngIf="assembleFileItems.length > 1">
+        <span class="det-sort-label"><i class="fas fa-arrow-down-wide-short"></i> Trier :</span>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='name'" (click)="sortAssembleFiles('name')">
+          Nom de fichier <i class="fas" *ngIf="assembleSortKey==='name'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='modified'" (click)="sortAssembleFiles('modified')">
+          Date de modification <i class="fas" *ngIf="assembleSortKey==='modified'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='fixe'" (click)="sortAssembleFiles('fixe')">
+          Point(s) fixe(s) <i class="fas" *ngIf="assembleSortKey==='fixe'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+      </div>
+
+      <ol class="bulk-list" *ngIf="assembleFileItems.length">
+        <li class="bulk-item det-item" *ngFor="let it of assembleFileItems; let i = index">
+          <span class="det-label-badge" [class.libre]="!it.hasFixe">{{ it.label }}</span>
+          <div class="bulk-info">
+            <span class="bulk-label" [title]="it.filename">{{ it.filename }}</span>
+            <span class="det-meta">
+              <span class="det-fixe" [class.libre]="!it.hasFixe"><i class="fas" [ngClass]="it.hasFixe ? 'fa-thumbtack' : 'fa-unlock'"></i> {{ fixesLabel(it) }}</span>
+              <span class="det-count">{{ it.count }} point(s)</span>
+            </span>
+          </div>
+          <div class="bulk-actions">
+            <button class="icon-btn" title="Monter vers le début" [disabled]="i===0" (click)="moveAssembleFileEnd(i, true)"><i class="fas fa-angles-up"></i></button>
+            <button class="icon-btn" title="Monter" [disabled]="i===0" (click)="moveAssembleFile(i, -1)"><i class="fas fa-arrow-up"></i></button>
+            <button class="icon-btn" title="Descendre" [disabled]="i===assembleFileItems.length-1" (click)="moveAssembleFile(i, 1)"><i class="fas fa-arrow-down"></i></button>
+            <button class="icon-btn" title="Descendre vers la fin" [disabled]="i===assembleFileItems.length-1" (click)="moveAssembleFileEnd(i, false)"><i class="fas fa-angles-down"></i></button>
+            <button class="icon-btn danger" title="Retirer" (click)="removeAssembleFile(i)"><i class="fas fa-trash-alt"></i></button>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAssembleFilesModal()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!assembleFileItems.length || assembleFilesParsing" (click)="runAssembleFiles()">
+        <i class="fas fa-object-group"></i> Assembler {{ assembleFileItems.length }} détermination(s)
+      </button>
+    </div>
+  </div>
+</div>

@@ -22,7 +22,8 @@ class SuperAdminProfileSerializer(serializers.ModelSerializer):
     role = serializers.CharField(source='get_primary_role', read_only=True)
     role_display = serializers.CharField(source='get_primary_role_display', read_only=True)
     profile_picture_url = serializers.SerializerMethodField()  # URL complète de la photo
-    
+    organization_name = serializers.SerializerMethodField()  # Organisation de rattachement (lecture seule)
+
     class Meta:
         model = User
         fields = [
@@ -34,6 +35,7 @@ class SuperAdminProfileSerializer(serializers.ModelSerializer):
             'nom_societe',  # Remplace phone par nom_societe
             'role',
             'role_display',
+            'organization_name',  # ← AJOUT: Nom de l'organisation de rattachement
             'date_joined',
             'last_login',
             'last_connection_at',  # ← AJOUT: Dernière connexion personnalisée
@@ -46,6 +48,7 @@ class SuperAdminProfileSerializer(serializers.ModelSerializer):
             'email',
             'role',
             'role_display',
+            'organization_name',  # ← Lecture seule
             'date_joined',
             'last_login',
             'last_connection_at',  # ← Lecture seule
@@ -55,6 +58,12 @@ class SuperAdminProfileSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         """Retourne le nom complet formaté"""
         return f"{obj.first_name} {obj.last_name}".strip() or obj.email
+
+    def get_organization_name(self, obj):
+        """Nom de l'organisation principale de rattachement (None si aucune, ex. Super
+        Admin / Admin Système au niveau plateforme). Même logique que /auth/me/."""
+        org = obj.get_primary_organization()
+        return org.name if org else None
     
     def get_profile_picture_url(self, obj):
         """Retourne l'URL complète de la photo de profil"""

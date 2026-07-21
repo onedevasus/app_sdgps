@@ -1,0 +1,482 @@
+<div [class.modal-overlay]="!embedded" (click)="!embedded && close()">
+  <div [class.modal-content]="!embedded" [class.embedded-content]="embedded" (click)="$event.stopPropagation()">
+    <div class="modal-header" *ngIf="!embedded">
+      <div class="modal-header-left">
+        <h3><i class="fas" [ngClass]="mode==='view' ? 'fa-eye' : 'fa-edit'"></i> {{ piece.type_piece }} — {{ catalogDef?.nom }}</h3>
+      </div>
+      <button class="close-btn" (click)="close()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Barre d'enregistrement (tout en haut) : bascule d'enregistrement automatique +
+           indicateur d'état. Affichée pour TOUTE pièce en édition : l'autosave couvre les
+           champs du formulaire (statut, orientation, versions, commentaire) — présents sur
+           tous les types — et, pour les pièces tabulaires, les données du tableau. Activé par défaut. -->
+      <div class="autosave-bar" *ngIf="mode==='edit'">
+        <label class="autosave-switch" title="Enregistrer automatiquement chaque modification des données et des champs (préférence mémorisée sur ce navigateur)">
+          <input type="checkbox" [checked]="autoSaveData" (change)="toggleAutoSaveData()">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span class="switch-label"><i class="fas fa-bolt"></i> Enregistrement automatique</span>
+        </label>
+        <span class="spacer"></span>
+        <div class="autosave-status" *ngIf="autoSaveData">
+          <span class="saving" *ngIf="autoSaving"><i class="fas fa-spinner fa-spin"></i> Enregistrement…</span>
+          <span class="saved" *ngIf="!autoSaving && autoSavedFlash"><i class="fas fa-check-circle"></i> Modifications enregistrées</span>
+          <span class="idle" *ngIf="!autoSaving && !autoSavedFlash"><i class="fas fa-bolt"></i> Les modifications sont enregistrées automatiquement</span>
+        </div>
+        <span class="autosave-off-hint" *ngIf="!autoSaveData"><i class="fas fa-circle-info"></i> Enregistrement manuel</span>
+      </div>
+
+      <p class="piece-meta">
+        <span class="meta-item"><i class="fas fa-hashtag"></i> Position {{ piece.ordre + 1 }} du rapport</span>
+        <span class="meta-item" *ngIf="piece.numero"><i class="fas fa-list-ol"></i> N° {{ piece.numero }}</span>
+        <span class="mode-badge" [class.edit]="mode==='edit'"><i class="fas" [ngClass]="mode==='view' ? 'fa-eye' : 'fa-edit'"></i> {{ mode==='view' ? 'Lecture seule' : 'Modification' }}</span>
+      </p>
+
+      <!-- Portée / niveau : uniquement en multi-session (une session n'a pas de sens en mono). -->
+      <section class="detail-section" *ngIf="isMultiSession" [class.collapsed]="isCollapsed('niveau')">
+        <button type="button" class="section-header" (click)="toggleSection('niveau')">
+          <span class="section-title"><i class="fas fa-layer-group"></i> Niveau</span>
+          <i class="fas fa-chevron-down section-chevron"></i>
+        </button>
+        <div class="scope-selector" *ngIf="mode==='edit' && showScopeSelector; else niveauStatic">
+          <button class="scope-chip" [class.active]="!piece.session" [disabled]="changingScope" (click)="changeScope('')">
+            <i class="fas fa-globe"></i> Commune à toutes les sessions
+          </button>
+          <button *ngFor="let s of sessions" class="scope-chip" [class.active]="piece.session===s.id" [disabled]="changingScope" (click)="changeScope(s.id)">
+            Session n°{{ s.numero_session }}
+          </button>
+        </div>
+        <ng-template #niveauStatic><p class="niveau-static">{{ niveauLabel }}</p></ng-template>
+      </section>
+
+      <!-- Statut & commentaire -->
+      <section class="detail-section" [class.collapsed]="isCollapsed('statut')">
+        <button type="button" class="section-header" (click)="toggleSection('statut')">
+          <span class="section-title"><i class="fas fa-sliders"></i> Statut &amp; rapport PDF</span>
+          <i class="fas fa-chevron-down section-chevron"></i>
+        </button>
+
+        <div class="view-only" *ngIf="mode==='view'">
+          <span class="badge" [ngClass]="statutBadgeClass(piece.statut)">{{ statutLabel(piece.statut) }}</span>
+          <p class="readonly-text"><i class="fas fa-hashtag"></i> Position dans le rapport : <strong>{{ piece.ordre + 1 }}</strong></p>
+          <p class="readonly-text"><i class="fas fa-file-alt"></i> Orientation (rapport PDF) :
+            <strong>{{ orientationLabel(piece.orientation) }}</strong>
+            <span class="muted" *ngIf="(piece.orientation || 'auto') === 'auto' && piece.orientation_effective">
+              → {{ orientationLabel(piece.orientation_effective) }}</span>
+          </p>
+          <p class="readonly-text" *ngIf="supportsEcarts"><i class="fas fa-layer-group"></i> Version(s) au rapport :
+            <strong>{{ versionsRapportLabel(piece.versions_rapport) }}</strong>
+          </p>
+          <p class="readonly-text" *ngIf="piece.commentaire; else noComment">{{ piece.commentaire }}</p>
+          <ng-template #noComment><p class="readonly-text muted">Aucun commentaire.</p></ng-template>
+        </div>
+
+        <ng-container *ngIf="mode==='edit'" [formGroup]="metaForm">
+          <div class="meta-fields">
+            <!-- Groupe : état de la pièce -->
+            <div class="field">
+              <label>Statut</label>
+              <select formControlName="statut">
+                <option *ngFor="let opt of statutOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+            </div>
+            <div class="field grow">
+              <label>Commentaire</label>
+              <textarea formControlName="commentaire" rows="2" placeholder="Note ou remarque libre…"></textarea>
+            </div>
+
+            <!-- Groupe : options du rapport PDF (position, orientation, versions) -->
+            <div class="field-group-label"><i class="fas fa-file-pdf"></i> Rapport PDF</div>
+            <div class="field">
+              <label>Position dans le rapport</label>
+              <div class="ordre-field">
+                <input type="number" min="1" class="ordre-input" [(ngModel)]="ordreInput" [ngModelOptions]="{ standalone: true }" [disabled]="movingOrdre">
+                <button type="button" class="btn-move" [disabled]="movingOrdre || ordreInput===piece.ordre+1" (click)="moveToPosition()">
+                  <i class="fas" [ngClass]="movingOrdre ? 'fa-spinner fa-spin' : 'fa-arrows-alt-v'"></i> Déplacer
+                </button>
+              </div>
+              <small class="field-hint muted">Position {{ piece.ordre + 1 }} actuellement.</small>
+            </div>
+            <div class="field">
+              <label>Orientation</label>
+              <select formControlName="orientation">
+                <option *ngFor="let opt of orientationOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+              <small class="field-hint muted" *ngIf="metaForm.value.orientation === 'auto' && piece.orientation_effective">
+                Auto → {{ orientationLabel(piece.orientation_effective) }}
+              </small>
+            </div>
+            <div class="field" *ngIf="supportsEcarts">
+              <label>Version(s) incluse(s)</label>
+              <select formControlName="versions_rapport">
+                <option *ngFor="let opt of versionsRapportOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+              <small class="field-hint muted">« Les deux » : chaque version sur sa/ses page(s), avec la mention en en-tête.</small>
+            </div>
+          </div>
+          <div class="pp-block-banner" *ngIf="isPhotoPoints && metaForm.value.statut === 'valide' && pointsWithoutPhoto.length">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span><strong>Validation impossible : {{ pointsWithoutPhoto.length }} point(s) sans photo</strong>
+              ({{ pointsWithoutPhoto.slice(0, 10).join(', ') }}{{ pointsWithoutPhoto.length > 10 ? '…' : '' }}).
+              Chaque point doit avoir au moins une photo.</span>
+          </div>
+          <div class="section-actions" *ngIf="!autoSaveData">
+            <button class="btn-confirm" [disabled]="savingMeta" (click)="saveMeta()">
+              <i class="fas" [ngClass]="savingMeta ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer
+            </button>
+          </div>
+        </ng-container>
+      </section>
+
+      <!-- Données propres à la source -->
+      <section class="detail-section" [class.collapsed]="isCollapsed('donnees')">
+        <button type="button" class="section-header" (click)="toggleSection('donnees')">
+          <span class="section-title"><i class="fas fa-database"></i> Données
+            <span class="section-stats" *ngIf="dataStats">Total {{ dataStats.total }} · Filtrées {{ dataStats.filtered }} · Sélection {{ dataStats.selected }}</span>
+          </span>
+          <i class="fas fa-chevron-down section-chevron"></i>
+        </button>
+
+        <!-- Application du tri par défaut (config opérateur) au tableau STOCKÉ de cette pièce -->
+        <div class="apply-sort-bar" *ngIf="canApplyConfiguredSort">
+          <span class="apply-sort-hint">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            Un tri par défaut est configuré pour ce type de pièce.
+          </span>
+          <button type="button" class="btn-apply-sort" [disabled]="applyingSortConfig" (click)="askApplySort()">
+            <i class="fas" [class.fa-spinner]="applyingSortConfig" [class.fa-spin]="applyingSortConfig" [class.fa-sort-amount-down]="!applyingSortConfig"></i>
+            Appliquer le tri à ce tableau
+          </button>
+        </div>
+
+        <!-- Source : image (galerie multi-images plate — hors PPA/PPN) -->
+        <ng-container *ngIf="piece.source_saisie === 'image' && !isPhotoPoints">
+          <app-piece-image-gallery
+            [images]="piece.images || []"
+            [editable]="mode==='edit'"
+            [busy]="imagesBusy"
+            (add)="onAddImages($event)"
+            (remove)="onRemoveImage($event)"
+            (reorderImages)="onReorderImages($event)">
+          </app-piece-image-gallery>
+        </ng-container>
+
+        <!-- Données tabulaires : saisie/édition manuelle + (types CSV) remplacement par fichier -->
+        <ng-container *ngIf="isTabularData">
+          <!-- RDL/RDN : onglets entre données brutes et écarts / détermination définitive -->
+          <div class="data-view-tabs" *ngIf="supportsEcarts" role="tablist">
+            <button type="button" class="data-view-tab" role="tab" [attr.aria-selected]="dataView==='brut'"
+                    [class.active]="dataView==='brut'" (click)="dataView='brut'">
+              <i class="fas fa-table"></i> Données brutes
+            </button>
+            <button type="button" class="data-view-tab" role="tab" [attr.aria-selected]="dataView==='ecarts'"
+                    [class.active]="dataView==='ecarts'" (click)="dataView='ecarts'">
+              <i class="fas fa-not-equal"></i> Écarts / détermination définitive
+              <span class="tab-badge" *ngIf="hasEcarts">{{ ecartsRows.length }}</span>
+            </button>
+          </div>
+
+          <!-- Vue : tableau de consultation avec barre d'outils (filtres, tri, pagination, export…) -->
+          <div class="source-body" *ngIf="mode==='view' && dataView==='brut'">
+            <app-piece-data-table [champs]="viewChampsBrut" [rows]="previewRows" [showStats]="false"
+                                  [tableKey]="'piece:' + piece.type_piece + ':brut'" [defaultSort]="defaultSort"
+                                  [resetSort]="resetSortSignal"
+                                  (statsChange)="dataStats = $event" (sortChange)="onSortChange($event)"></app-piece-data-table>
+          </div>
+
+          <!-- Édition : tableau de données éditable avec barre d'outils (tri, filtres, pagination,
+               sélection, suppression en masse, export…) -->
+          <div class="source-body" *ngIf="mode==='edit' && dataView==='brut'">
+            <app-piece-data-table [editable]="true" [champs]="visibleChamps" [rows]="editRows" [showStats]="false"
+                                  [busy]="savingManual" [tableKey]="'piece:' + piece.type_piece + ':brut'" [defaultSort]="defaultSort"
+                                  [resetSort]="resetSortSignal"
+                                  (rowsChange)="onEditRowsChange($event)" (persistRequested)="saveManualRows($event)"
+                                  (statsChange)="dataStats = $event" (sortChange)="onSortChange($event)">
+              <!-- Zone séparée dans la barre d'outils du tableau : remplacer les données -->
+              <div pdtToolbarExtra class="replace-tools" *ngIf="supportsImport">
+                <span class="replace-sep"></span>
+                <div class="replace-menu" [class.open]="showReplaceMenu">
+                  <button type="button" class="replace-trigger" [class.active]="showReplaceMenu"
+                          [disabled]="reimportOpen || htmlReimportOpen"
+                          (click)="$event.stopPropagation(); toggleReplaceMenu()"
+                          title="Remplacer les données du tableau">
+                    <i class="fas fa-arrows-rotate"></i> Remplacer <i class="fas fa-chevron-down replace-caret"></i>
+                  </button>
+                  <div class="replace-dropdown" *ngIf="showReplaceMenu" (click)="$event.stopPropagation()">
+                    <div class="replace-dropdown-head">Remplacer les données</div>
+                    <button type="button" class="replace-item" (click)="closeReplaceMenu(); openReimport()">
+                      <span class="replace-item-icon"><i class="fas fa-file-csv"></i></span>
+                      <span class="replace-item-body">
+                        <span class="replace-item-name">Fichier CSV / Excel</span>
+                        <span class="replace-item-desc">Tableur importé et mappé</span>
+                      </span>
+                    </button>
+                    <button type="button" class="replace-item" *ngIf="supportsHtmlImport" (click)="closeReplaceMenu(); openHtmlReimport()">
+                      <span class="replace-item-icon"><i class="fas fa-file-code"></i></span>
+                      <span class="replace-item-body">
+                        <span class="replace-item-name">Rapport HTML (TBC)</span>
+                        <span class="replace-item-desc">Lignes d'un rapport TBC</span>
+                      </span>
+                    </button>
+                    <button type="button" class="replace-item" *ngIf="supportsAssemble" [disabled]="reassembling" (click)="closeReplaceMenu(); reassemble()">
+                      <span class="replace-item-icon"><i class="fas" [ngClass]="reassembling ? 'fa-spinner fa-spin' : 'fa-object-group'"></i></span>
+                      <span class="replace-item-body">
+                        <span class="replace-item-name">Réassembler</span>
+                        <span class="replace-item-desc">Depuis les déterminations</span>
+                      </span>
+                    </button>
+                    <button type="button" class="replace-item" *ngIf="supportsAssemble" (click)="closeReplaceMenu(); openAssembleFilesModal()">
+                      <span class="replace-item-icon"><i class="fas fa-folder-plus"></i></span>
+                      <span class="replace-item-body">
+                        <span class="replace-item-name">Importer &amp; assembler</span>
+                        <span class="replace-item-desc">Fichiers de déterminations</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </app-piece-data-table>
+
+            <div class="data-grid-toolbar" *ngIf="!autoSaveData">
+              <button class="btn-confirm" [disabled]="savingManual" (click)="saveManual()">
+                <i class="fas" [ngClass]="savingManual ? 'fa-spinner fa-spin' : 'fa-check'"></i> Enregistrer les données
+              </button>
+            </div>
+
+            <!-- Ré-import CSV/Excel : formulaire de mapping, affiché sous le tableau -->
+            <div class="reimport-panel" *ngIf="reimportOpen">
+              <div class="reimport-form-head">
+                <span class="reimport-form-title"><i class="fas fa-file-csv"></i> Remplacer par un fichier CSV / Excel</span>
+                <label class="file-picker">
+                  <i class="fas fa-paperclip"></i>
+                  <span>{{ reimportPreview ? 'Changer de fichier' : 'Choisir un fichier…' }}</span>
+                  <input type="file" accept=".csv,.xlsx" (change)="onReimportFileSelected($event)">
+                </label>
+              </div>
+              <app-piece-column-mapper
+                *ngIf="reimportPreview"
+                [champs]="reimportPreview.champs"
+                [preview]="reimportPreview"
+                (mappingChange)="onReimportMappingChange($event)">
+              </app-piece-column-mapper>
+              <div class="section-actions">
+                <button class="btn-cancel" (click)="cancelReimport()">Annuler</button>
+                <button class="btn-confirm" [disabled]="!reimportPreview || reimporting" (click)="confirmReimport()">
+                  <i class="fas" [ngClass]="reimporting ? 'fa-spinner fa-spin' : 'fa-check'"></i> Confirmer le remplacement
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Écarts / détermination définitive : 2ᵉ version calculée (lecture seule) -->
+          <div class="source-body" *ngIf="dataView==='ecarts'">
+            <div class="ecarts-head">
+              <p class="no-file subtle" *ngIf="!hasEcarts">
+                <i class="fas fa-info-circle"></i> Version non encore calculée : elle compare, pour chaque point, les coordonnées de la détermination définitive (fixes, supposées vraies) à celles calculées dans cette pièce. Requiert les données brutes ci-contre et une pièce « détermination définitive » (RDD) renseignée.
+              </p>
+              <p class="ecarts-count" *ngIf="hasEcarts"><i class="fas fa-not-equal"></i> {{ ecartsRows.length }} point(s) — écarts par rapport à la détermination définitive.</p>
+              <button class="btn-secondary" [disabled]="computingEcarts" (click)="computeEcarts()">
+                <i class="fas" [ngClass]="computingEcarts ? 'fa-spinner fa-spin' : (hasEcarts ? 'fa-rotate-right' : 'fa-calculator')"></i>
+                {{ hasEcarts ? 'Recalculer les écarts' : 'Calculer les écarts' }}
+              </button>
+            </div>
+
+            <app-piece-data-table *ngIf="hasEcarts" [champs]="viewChampsEcarts" [rows]="ecartsRows" [showStats]="false"
+                                  [tableKey]="'piece:' + piece.type_piece + ':ecarts'" [defaultSort]="defaultSortEcarts"
+                                  [resetSort]="resetSortSignal"
+                                  (statsChange)="dataStats = $event" (sortChange)="onSortChangeEcarts($event)"></app-piece-data-table>
+          </div>
+        </ng-container>
+
+        <!-- Source : générée automatiquement (page de garde ; pas les rapports calculés tabulaires) -->
+        <p class="no-file" *ngIf="piece.source_saisie === 'ui' && !isTabularData">Cette pièce est générée automatiquement lors de l'assemblage du rapport ; aucune donnée à saisir ici.</p>
+      </section>
+
+      <!-- PPA/PPN : photos rattachées aux points -->
+      <section class="detail-section" *ngIf="isPhotoPoints" [class.collapsed]="isCollapsed('photos')">
+        <button type="button" class="section-header" (click)="toggleSection('photos')">
+          <span class="section-title"><i class="fas fa-images"></i> Photos par point</span>
+          <i class="fas fa-chevron-down section-chevron"></i>
+        </button>
+        <app-piece-photo-points
+          [pieceId]="piece.id"
+          [rows]="previewRows"
+          [images]="piece.images || []"
+          [editable]="mode==='edit'"
+          (updated)="onPhotoPointsUpdated($event)">
+        </app-piece-photo-points>
+      </section>
+    </div>
+
+    <div class="modal-footer" *ngIf="!embedded">
+      <button class="btn-secondary" *ngIf="mode==='view'" (click)="editRequested.emit()">
+        <i class="fas fa-edit"></i> Modifier
+      </button>
+      <button class="btn-cancel" (click)="close()"><i class="fas fa-times"></i> Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale de confirmation : vider le tableau ========== -->
+<div class="modal-overlay confirm-overlay" *ngIf="showClearConfirm" (click)="cancelClearRows()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left">
+        <span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span>
+        <h3>Vider le tableau</h3>
+      </div>
+      <button class="close-btn" (click)="cancelClearRows()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Supprimer <strong>toutes les lignes</strong> du tableau de données ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Effectif seulement après « Enregistrer les données ». Quitter sans enregistrer annule l'opération.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cancelClearRows()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-danger" (click)="confirmClearRows()"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale de confirmation : appliquer le tri configuré à ce tableau ========== -->
+<div class="modal-overlay confirm-overlay" *ngIf="showApplySortConfirm" (click)="cancelApplySort()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left">
+        <span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span>
+        <h3>Appliquer le tri configuré</h3>
+      </div>
+      <button class="close-btn" (click)="cancelApplySort()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Réordonner les lignes de ce tableau selon votre <strong>tri par défaut</strong> ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> L'ordre actuellement stocké de cette pièce sera <strong>écrasé</strong> et la colonne ID renumérotée. Action immédiate et enregistrée.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" [disabled]="applyingSortConfig" (click)="cancelApplySort()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="applyingSortConfig" (click)="confirmApplySort()">
+        <i class="fas" [class.fa-spinner]="applyingSortConfig" [class.fa-spin]="applyingSortConfig" [class.fa-sort-amount-down]="!applyingSortConfig"></i>
+        {{ applyingSortConfig ? 'Application…' : 'Appliquer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : import d'un rapport HTML (TBC) pour remplacer les données ========== -->
+<div class="modal-overlay import-overlay" *ngIf="htmlReimportOpen" (click)="cancelHtmlReimport()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-file-code"></i></span>
+        <h3>Remplacer par un rapport HTML (TBC)</h3>
+      </div>
+      <button class="close-btn" (click)="cancelHtmlReimport()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Choisissez le dossier contenant le fichier HTML cadre et son dossier « _files » ; l'app suit le fichier cadre pour trouver le bon fichier de données.</p>
+
+      <label class="btn-secondary file-label">
+        <input type="file" webkitdirectory directory multiple hidden (change)="onHtmlReimportFolder($event)">
+        <i class="fas fa-folder-open"></i> Sélectionner le dossier du rapport TBC
+      </label>
+
+      <p class="tbc-status" *ngIf="htmlReimportPreviewing"><i class="fas fa-spinner fa-spin"></i> Analyse du rapport…</p>
+
+      <!-- Plusieurs rapports détectés → choisir -->
+      <div class="html-choice" *ngIf="htmlReimportCandidates.length > 1 && !htmlReimportRows && !htmlReimportPreviewing">
+        <p class="choice-title"><i class="fas fa-list"></i> {{ htmlReimportCandidates.length }} rapports trouvés — choisissez celui à importer :</p>
+        <button class="choice-item" *ngFor="let c of htmlReimportCandidates" (click)="previewHtmlReimport(c.file)">
+          <i class="fas fa-file-code"></i>
+          <span class="choice-label">{{ c.label }}</span>
+          <span class="choice-file">{{ c.source }}</span>
+        </button>
+      </div>
+
+      <p class="tbc-status success" *ngIf="htmlReimportRows && !htmlReimportPreviewing">
+        <i class="fas fa-check-circle"></i> {{ htmlReimportRows.length }} ligne(s) générées — elles remplaceront les données actuelles.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cancelHtmlReimport()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!htmlReimportRows || htmlReimporting" (click)="confirmHtmlReimport()">
+        <i class="fas" [ngClass]="htmlReimporting ? 'fa-spinner fa-spin' : 'fa-check'"></i> Confirmer le remplacement
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale : import & assemblage de FICHIERS de déterminations (RDIA) ========== -->
+<div class="modal-overlay import-overlay" *ngIf="assembleFilesModalOpen" (click)="closeAssembleFilesModal()">
+  <div class="modal-content assemble-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="header-icon"><i class="fas fa-file-import"></i></span>
+        <h3>Importer & assembler des déterminations</h3>
+      </div>
+      <button class="close-btn" (click)="closeAssembleFilesModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body tbc-import-body">
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Ajoutez les fichiers des déterminations, ajustez leur <strong>étiquette</strong> (Libre / N°1 / N°2…) et leur <strong>ordre</strong> : ils remplaceront les données brutes de cette pièce (recalculez ensuite les écarts).</p>
+
+      <div class="assemble-add">
+        <label class="btn-secondary file-label">
+          <input type="file" accept=".csv,.xlsx" multiple hidden (change)="onAssembleCsvSelected($event)">
+          <i class="fas fa-file-csv"></i> Ajouter des fichiers CSV/Excel
+        </label>
+        <label class="btn-secondary file-label">
+          <input type="file" webkitdirectory directory multiple hidden (change)="onAssembleHtmlFolder($event)">
+          <i class="fas fa-folder-open"></i> Ajouter un dossier HTML (TBC)
+        </label>
+        <button class="btn-reset" *ngIf="assembleFileItems.length" (click)="resetAssembleFiles()"><i class="fas fa-rotate-left"></i> Réinitialiser</button>
+      </div>
+
+      <p class="tbc-status" *ngIf="assembleFilesParsing"><i class="fas fa-spinner fa-spin"></i> Analyse des fichiers…</p>
+
+      <div class="bulk-empty" *ngIf="!assembleFileItems.length && !assembleFilesParsing">
+        <i class="fas fa-file-import"></i>
+        <span>Aucune détermination pour l'instant. Ajoutez des fichiers CSV/Excel ou un dossier de rapports HTML TBC.</span>
+      </div>
+
+      <div class="det-sort" *ngIf="assembleFileItems.length > 1">
+        <span class="det-sort-label"><i class="fas fa-arrow-down-wide-short"></i> Trier :</span>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='name'" (click)="sortAssembleFiles('name')">
+          Nom de fichier <i class="fas" *ngIf="assembleSortKey==='name'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='modified'" (click)="sortAssembleFiles('modified')">
+          Date de modification <i class="fas" *ngIf="assembleSortKey==='modified'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+        <button class="det-sort-chip" [class.active]="assembleSortKey==='fixe'" (click)="sortAssembleFiles('fixe')">
+          Point(s) fixe(s) <i class="fas" *ngIf="assembleSortKey==='fixe'" [ngClass]="assembleSortDir===1 ? 'fa-caret-up' : 'fa-caret-down'"></i>
+        </button>
+      </div>
+
+      <ol class="bulk-list" *ngIf="assembleFileItems.length">
+        <li class="bulk-item det-item" *ngFor="let it of assembleFileItems; let i = index">
+          <span class="det-label-badge" [class.libre]="!it.hasFixe">{{ it.label }}</span>
+          <div class="bulk-info">
+            <span class="bulk-label" [title]="it.filename">{{ it.filename }}</span>
+            <span class="det-meta">
+              <span class="det-fixe" [class.libre]="!it.hasFixe"><i class="fas" [ngClass]="it.hasFixe ? 'fa-thumbtack' : 'fa-unlock'"></i> {{ fixesLabel(it) }}</span>
+              <span class="det-count">{{ it.count }} point(s)</span>
+            </span>
+          </div>
+          <div class="bulk-actions">
+            <button class="icon-btn" title="Monter vers le début" [disabled]="i===0" (click)="moveAssembleFileEnd(i, true)"><i class="fas fa-angles-up"></i></button>
+            <button class="icon-btn" title="Monter" [disabled]="i===0" (click)="moveAssembleFile(i, -1)"><i class="fas fa-arrow-up"></i></button>
+            <button class="icon-btn" title="Descendre" [disabled]="i===assembleFileItems.length-1" (click)="moveAssembleFile(i, 1)"><i class="fas fa-arrow-down"></i></button>
+            <button class="icon-btn" title="Descendre vers la fin" [disabled]="i===assembleFileItems.length-1" (click)="moveAssembleFileEnd(i, false)"><i class="fas fa-angles-down"></i></button>
+            <button class="icon-btn danger" title="Retirer" (click)="removeAssembleFile(i)"><i class="fas fa-trash-alt"></i></button>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAssembleFilesModal()"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-confirm" [disabled]="!assembleFileItems.length || assembleFilesParsing || assemblingFiles" (click)="runAssembleFiles()">
+        <i class="fas" [ngClass]="assemblingFiles ? 'fa-spinner fa-spin' : 'fa-object-group'"></i>
+        Assembler {{ assembleFileItems.length }} détermination(s)
+      </button>
+    </div>
+  </div>
+</div>

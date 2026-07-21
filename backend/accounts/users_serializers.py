@@ -309,6 +309,25 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                     membership.role = role
                 membership.is_active = True
                 membership.save()
+
+            # Un utilisateur a UNE organisation principale : on désactive ses autres
+            # appartenances actives, sinon `get_primary_organization` (première adhésion
+            # active par `joined_at`) continue de renvoyer l'ANCIENNE organisation — le
+            # changement d'organisation semblait alors sans effet. Garde : ne pas orpheliner
+            # une organisation de son dernier administrateur actif.
+            others = list(instance.memberships.filter(is_active=True).exclude(pk=membership.pk))
+            for other in others:
+                if (other.role == 'ROLE_ORGANISATION_ADMIN'
+                        and count_other_active_org_admins(other.organization, instance) < MIN_ACTIVE_ORG_ADMINS):
+                    raise serializers.ValidationError({
+                        'organization_id': (
+                            f"Impossible de retirer {instance.email} de "
+                            f"{other.organization.name} : il en est le dernier administrateur actif. "
+                            f"Nommez un autre administrateur avant."
+                        )
+                    })
+            if others:
+                instance.memberships.filter(is_active=True).exclude(pk=membership.pk).update(is_active=False)
         elif role and not is_app_admin:
             membership = instance.memberships.filter(is_active=True).first()
             if membership:
