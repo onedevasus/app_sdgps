@@ -1,16 +1,40 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: sdgps-db
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # Alimente l'initialisation du serveur Postgres depuis les variables POSTGRES_* du .env.
+      POSTGRES_DB: ${POSTGRES_DB:-sdgps}
+      POSTGRES_USER: ${POSTGRES_USER:-sdgps}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sdgps}
+    volumes:
+      - backend_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sdgps} -d ${POSTGRES_DB:-sdgps}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     image: ghcr.io/${GITHUB_REPOSITORY:-blmerio2022/app_sdgps}:latest
     container_name: sdgps-backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8085:8000"
     env_file:
       - ./backend/.env
+    environment:
+      # Dans le réseau Docker, la base est joignable via le nom de service `db`.
+      POSTGRES_HOST: db
     volumes:
       - backend_media:/app/media
-      - backend_db:/app
 
 volumes:
   backend_media:
-  backend_db:
+  backend_pgdata:

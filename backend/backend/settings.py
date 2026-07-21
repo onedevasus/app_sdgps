@@ -10,11 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import sys
 from pathlib import Path
 from decouple import config  # Charger les variables d'environnement depuis .env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Vrai pendant l'exécution de la suite de tests (`manage.py test`). Sert à neutraliser
+# l'auto-seed des données de référence déclenché par le signal post_migrate (cf.
+# accounts/apps.py) : les tests doivent partir d'une base vierge.
+TESTING = 'test' in sys.argv
 
 
 # Quick-start development settings - unsuitable for production
@@ -84,18 +90,39 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
-        'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
-        # Base de TEST sur fichier (et non SQLite in-memory partagé `cache=shared`) : ce
-        # dernier a un problème de visibilité transactionnelle inter-connexions en CI, qui
-        # fait échouer les validateurs d'unicité générés par DRF (ex. numéro de SSDGPS
-        # unique par affaire). Le fichier garantit un comportement identique local ↔ CI.
-        'TEST': {'NAME': str(BASE_DIR / 'test_db.sqlite3')},
+# Moteur piloté par l'environnement : PostgreSQL par défaut (runtime + tests + CI),
+# repli SQLite conservé (`DB_ENGINE=sqlite`) pour le développement/legacy.
+DB_ENGINE = config('DB_ENGINE', default='postgresql')
+
+if DB_ENGINE == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
+            'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('POSTGRES_DB', default='sdgps'),
+            'USER': config('POSTGRES_USER', default='sdgps'),
+            'PASSWORD': config('POSTGRES_PASSWORD', default='sdgps'),
+            'HOST': config('POSTGRES_HOST', default='localhost'),
+            'PORT': config('POSTGRES_PORT', default='5432'),
+        }
+    }
+
+# Alias secondaire vers l'ancienne base SQLite, défini UNIQUEMENT lors de la migration
+# ponctuelle des données (cf. commande migrate_sqlite_to_postgres). Renseigner
+# SQLITE_LEGACY_PATH dans l'environnement pour l'activer.
+_SQLITE_LEGACY_PATH = config('SQLITE_LEGACY_PATH', default='')
+if _SQLITE_LEGACY_PATH:
+    DATABASES['sqlite_legacy'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': _SQLITE_LEGACY_PATH,
+    }
 
 
 # Password validation
