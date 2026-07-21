@@ -1,0 +1,102 @@
+{
+  "_comment": "Données d'initialisation de la plateforme SDGPS (fichier par défaut). Surchargeable via la variable d'environnement SEED_DATA_FILE (ex. volume Docker en production). Les mots de passe ne figurent JAMAIS ici : chaque utilisateur référence la variable d'environnement qui le porte (password_env). Les champs *_env sont prioritaires sur la valeur littérale correspondante si la variable est définie.",
+
+  "users": [
+    {
+      "role": "super_admin",
+      "email": "admin@sdgps.com",
+      "email_env": "SUPER_ADMIN_EMAIL",
+      "password_env": "SUPER_ADMIN_PASSWORD",
+      "first_name": "Super",
+      "last_name": "Admin"
+    },
+    {
+      "role": "app_admin",
+      "email": "appadmin1@sdgps.ma",
+      "email_env": "APP_ADMIN1_EMAIL",
+      "password_env": "APP_ADMIN1_PASSWORD",
+      "first_name": "Admin",
+      "last_name": "App 1"
+    },
+    {
+      "role": "app_admin",
+      "email": "appadmin2@sdgps.ma",
+      "email_env": "APP_ADMIN2_EMAIL",
+      "password_env": "APP_ADMIN2_PASSWORD",
+      "first_name": "Admin",
+      "last_name": "App 2"
+    }
+  ],
+
+  "organizations": [
+    {
+      "code": "ANCFCC-SIEGE",
+      "name": "Agence Nationale de la Conservation Foncière du Cadastre et de la Cartographie",
+      "type": "PUBLIC",
+      "legal_id": "Loi n° 58-00",
+      "address": "Avenue Al Araar, Hay Riad, Rabat 10100",
+      "phone": "+212 5 37 57 22 00",
+      "email": "contact@ancfcc.gov.ma",
+      "website": "https://www.ancfcc.gov.ma",
+      "is_active": true
+    },
+    {
+      "code": "DRC-RABAT",
+      "name": "Direction Régionale de la Conservation Foncière de Rabat",
+      "type": "PUBLIC",
+      "legal_id": "Décret n° 2-97-359",
+      "address": "Avenue Mohammed V, Rabat 10000",
+      "phone": "+212 5 37 70 10 20",
+      "email": "dr.rabat@ancfcc.gov.ma",
+      "website": "https://www.ancfcc.gov.ma",
+      "is_active": true
+    },
+    {
+      "code": "DRC-CASA",
+      "name": "Direction Régionale de la Conservation Foncière de Casablanca",
+      "type": "PUBLIC",
+      "legal_id": "Décret n° 2-97-359",
+      "address": "Boulevard Zerktouni, Casablanca 20000",
+      "phone": "+212 5 22 26 10 20",
+      "email": "dr.casablanca@ancfcc.gov.ma",
+      "website": "https://www.ancfcc.gov.ma",
+      "is_active": true
+    },
+    {
+      "code": "CAB-GEOTOP",
+      "name": "Cabinet de Géomètre-Topographe Géotop",
+      "type": "PRIVATE",
+      "legal_id": "RC-45231-RBA",
+      "address": "12 Avenue Fal Ould Oumeir, Agdal, Rabat 10080",
+      "phone": "+212 5 37 68 45 12",
+      "email": "contact@geotop.ma",
+      "website": "https://www.geotop.ma",
+      "is_active": true
+    },
+    {
+      "code": "CAB-TOPOPLAN",
+      "name": "Cabinet TopoPlan Ingénierie",
+      "type": "PRIVATE",
+      "legal_id": "RC-67123-CAS",
+      "address": "34 Rue Ibn Batouta, Maârif, Casablanca 20100",
+      "phone": "+212 5 22 99 33 44",
+      "email": "contact@topoplan.ma",
+      "website": "https://www.topoplan.ma",
+      "is_active": true
+    }
+  ],
+
+  "organismes_niveau1": [
+    {
+      "code": "ANCFCC",
+      "nom": "AGENCE NATIONALE DE LA CONSERVATION FONCIÈRE DU CADASTRE ET DE LA CARTOGRAPHIE",
+      "sigle": "ANCFCC"
+    }
+  ],
+
+  "organismes_niveau2": [
+    { "code": "SCA-AZILAL", "nom": "Service du cadastre d'Azilal", "ville": "Azilal", "niveau1_code": "ANCFCC" },
+    { "code": "SCA-RABAT", "nom": "Service du cadastre de Rabat", "ville": "Rabat", "niveau1_code": "ANCFCC" },
+    { "code": "SCA-CASA", "nom": "Service du cadastre de Casablanca", "ville": "Casablanca", "niveau1_code": "ANCFCC" }
+  ]
+}

@@ -5,7 +5,9 @@ donc appelé explicitement ici. La base de test contient déjà une baseline inj
 migrations de données (super-admin `.env`, organisations T-ORG…) : les tests vérifient donc
 l'EXISTENCE des entités seedées et l'idempotence, sans s'appuyer sur des compteurs absolus.
 """
+import json
 import os
+import tempfile
 
 from decouple import config
 from django.contrib.auth import get_user_model
@@ -14,12 +16,15 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from accounts.models import Organization
-from accounts.seeding import (
-    run_seed, forbid_in_production, PREDEFINED_ORGANIZATIONS, PREDEFINED_ORGANISMES_N2,
-)
+from accounts.seeding import run_seed, forbid_in_production, load_seed_data
 from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 
 User = get_user_model()
+
+# Données attendues = celles du fichier de seed par défaut (accounts/seed_data/initial_data.json).
+SEED_DATA = load_seed_data()
+PREDEFINED_ORGANIZATIONS = SEED_DATA['organizations']
+PREDEFINED_ORGANISMES_N2 = SEED_DATA['organismes_niveau2']
 
 APP_ADMIN1 = config('APP_ADMIN1_EMAIL', default='appadmin1@sdgps.ma')
 APP_ADMIN2 = config('APP_ADMIN2_EMAIL', default='appadmin2@sdgps.ma')
@@ -95,6 +100,35 @@ class RunSeedTests(TestCase):
         # Premier passage : les 2 app-admins et les organisations/organismes prédéfinis créés.
         self.assertGreaterEqual(summary['users_created'], 2)
         self.assertEqual(summary['organizations_created'], len(PREDEFINED_ORGANIZATIONS))
+
+    def test_charge_donnees_depuis_fichier_externe(self):
+        """SEED_DATA_FILE surcharge le fichier par défaut."""
+        payload = {
+            'users': [],
+            'organizations': [{
+                'code': 'EXT-ORG-1', 'name': 'Organisation externe', 'type': 'PRIVATE',
+                'is_active': True,
+            }],
+            'organismes_niveau1': [{'code': 'EXT-N1', 'nom': 'Organisme externe', 'sigle': 'EXT'}],
+            'organismes_niveau2': [{
+                'code': 'EXT-N2', 'nom': 'Service externe', 'ville': 'Rabat', 'niveau1_code': 'EXT-N1',
+            }],
+        }
+        fd, path = tempfile.mkstemp(suffix='.json')
+        os.close(fd)
+        os.environ['SEED_DATA_FILE'] = path
+        try:
+            with open(path, 'w', encoding='utf-8') as fh:
+                json.dump(payload, fh)
+            run_seed()
+            org = Organization.all_objects.get(code='EXT-ORG-1')
+            self.assertFalse(org.is_test_data)
+            self.assertTrue(OrganismeNiveau1.objects.filter(code='EXT-N1').exists())
+            n2 = OrganismeNiveau2.objects.get(code='EXT-N2')
+            self.assertEqual(n2.niveau1.code, 'EXT-N1')
+        finally:
+            del os.environ['SEED_DATA_FILE']
+            os.remove(path)
 
 
 class ProductionGuardTests(TestCase):

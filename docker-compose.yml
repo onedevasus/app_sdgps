@@ -36,6 +36,9 @@ services:
       POSTGRES_HOST: db
     volumes:
       - backend_media:/app/media
+      # Données d'initialisation externes (optionnel) : monter un fichier JSON et pointer
+      # SEED_DATA_FILE dessus dans .env.production pour surcharger le fichier embarqué.
+      # - ./backend/config/initial_data.json:/app/config/initial_data.json:ro
 
 volumes:
   backend_media:
