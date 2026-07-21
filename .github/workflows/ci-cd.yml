@@ -1,0 +1,101 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt Pillow
+      - name: Appliquer les migrations
+        run: python manage.py migrate
+      - name: Lancer les tests
+        run: python manage.py test --verbosity=2
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - name: Installer les dépendances
+        run: npm ci --legacy-peer-deps
+      - name: Linter le code
+        run: npx ng lint
+      - name: Lancer les tests unitaires (Karma / Jasmine, headless)
+        run: npm run test:ci
+      - name: Builder le frontend
+        run: npx ng build --configuration production
+
+  build-and-push:
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Se connecter à GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extraire les métadonnées de l'image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Builder et pousser l'image Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déployer sur le serveur via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVEUR_IP }}
+          username: ${{ secrets.SERVEUR_USER }}
+          key: ${{ secrets.SERVEUR_SSH_KEY }}
+          script: |
+            echo "📦 Récupération de la dernière image depuis GHCR..."
+            cd /home/projets/sdgps
+            docker compose pull backend
+            docker compose up -d --no-deps backend
+            echo "✅ Déploiement terminé"
