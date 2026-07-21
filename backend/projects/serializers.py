@@ -138,6 +138,23 @@ class SsdgpsSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
 
+    def validate(self, attrs):
+        # Unicité (affaire, numero_ssdgps) : garantie en base par une UniqueConstraint. On la
+        # valide explicitement ici pour un 400 DÉTERMINISTE quelle que soit la version de DRF
+        # (la génération auto de validateurs à partir des UniqueConstraint varie selon les
+        # versions ; sans cela, un doublon partirait jusqu'à l'IntegrityError → 500).
+        affaire = attrs.get('affaire', getattr(self.instance, 'affaire', None))
+        numero = attrs.get('numero_ssdgps', getattr(self.instance, 'numero_ssdgps', None))
+        if affaire is not None and numero is not None:
+            qs = Ssdgps.objects.filter(affaire=affaire, numero_ssdgps=numero)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'numero_ssdgps': "Un SSDGPS portant ce numéro existe déjà pour cette affaire."
+                })
+        return attrs
+
 
 class SessionSerializer(serializers.ModelSerializer):
     nbr_total_pieces = serializers.IntegerField(read_only=True)

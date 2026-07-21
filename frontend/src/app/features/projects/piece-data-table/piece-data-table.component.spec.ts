@@ -105,16 +105,16 @@ describe('PieceDataTableComponent — gestion des colonnes', () => {
     expect(names()).toEqual(['a', 'b', 'c']);
   });
 
-  it('émet sortChange {field,dir} sur un tri manuel (pour persistance PDF)', () => {
+  it('émet sortChange [{field,dir}] sur un tri manuel (pour persistance PDF)', () => {
     const events: any[] = [];
     cmp.sortChange.subscribe((e: any) => events.push(e));
     cmp.sortBy('b');            // 1er clic → asc
     cmp.sortBy('b');            // 2e clic → desc
-    cmp.sortBy('a');            // autre colonne → asc
+    cmp.sortBy('a');            // autre colonne → asc (remplace le niveau de tri)
     expect(events).toEqual([
-      { field: 'b', dir: 'asc' },
-      { field: 'b', dir: 'desc' },
-      { field: 'a', dir: 'asc' },
+      [{ field: 'b', dir: 'asc' }],
+      [{ field: 'b', dir: 'desc' }],
+      [{ field: 'a', dir: 'asc' }],
     ]);
   });
 

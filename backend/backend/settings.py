@@ -89,6 +89,11 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
         'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
+        # Base de TEST sur fichier (et non SQLite in-memory partagé `cache=shared`) : ce
+        # dernier a un problème de visibilité transactionnelle inter-connexions en CI, qui
+        # fait échouer les validateurs d'unicité générés par DRF (ex. numéro de SSDGPS
+        # unique par affaire). Le fichier garantit un comportement identique local ↔ CI.
+        'TEST': {'NAME': str(BASE_DIR / 'test_db.sqlite3')},
     }
 }
 
