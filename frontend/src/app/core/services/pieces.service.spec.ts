@@ -1,0 +1,60 @@
+import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+
+import { PiecesService } from './pieces.service';
+import { environment } from '../../../environments/environment';
+
+const BASE = `${environment.apiUrl}/v1/pieces/`;
+
+describe('PiecesService', () => {
+  let service: PiecesService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [PiecesService],
+    });
+    service = TestBed.inject(PiecesService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('getCatalog() GET catalog/', () => {
+    service.getCatalog().subscribe();
+    const req = httpMock.expectOne(`${BASE}catalog/`);
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getById() GET détail', () => {
+    service.getById('7').subscribe();
+    const req = httpMock.expectOne(`${BASE}7/`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ id: '7' });
+  });
+
+  it('createManual() POST avec source_saisie=manuel et payload', () => {
+    service.createManual({
+      type_piece: 'FTR', parent: { ssdgps: 'S1' }, data: { rows: [] },
+    }).subscribe();
+    const req = httpMock.expectOne(r => r.url === BASE && r.method === 'POST');
+    expect(req.request.body.type_piece).toBe('FTR');
+    expect(req.request.body.ssdgps).toBe('S1');
+    expect(req.request.body.source_saisie).toBe('manuel');
+    expect(req.request.body.payload).toEqual({ rows: [] });
+    req.flush({ id: '1' });
+  });
+
+  it('uploadImage() POST multipart (FormData, source_saisie=image)', () => {
+    const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+    service.uploadImage(file, 'RDC', { ssdgps: 'S1' }).subscribe();
+    const req = httpMock.expectOne(r => r.url === BASE && r.method === 'POST');
+    expect(req.request.body instanceof FormData).toBeTrue();
+    const fd = req.request.body as FormData;
+    expect(fd.get('type_piece')).toBe('RDC');
+    expect(fd.get('source_saisie')).toBe('image');
+    req.flush({ id: '1' });
+  });
+});
