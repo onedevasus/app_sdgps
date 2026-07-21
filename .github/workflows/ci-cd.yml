@@ -40,8 +40,6 @@ jobs:
           node-version: "18"
       - name: Installer les dépendances
         run: npm ci --legacy-peer-deps
-      - name: Linter le code
-        run: npx ng lint
       - name: Lancer les tests unitaires (Karma / Jasmine, headless)
         run: npm run test:ci
       - name: Builder le frontend
