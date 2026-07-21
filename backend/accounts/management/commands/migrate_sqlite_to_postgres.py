@@ -4,17 +4,19 @@ Opération PONCTUELLE. Encapsule `dumpdata` (depuis l'alias `sqlite_legacy`) pui
 (vers la base `default` = PostgreSQL), en excluant les tables régénérées par `migrate`
 (contenttypes, permissions, sessions, logs admin).
 
-Procédure complète (base PostgreSQL vide) :
+Procédure complète (base PostgreSQL vide). Le moteur DB étant dérivé de ENVIRONMENT
+(SQLite en dev, PostgreSQL en prod), on cible explicitement PostgreSQL via DB_ENGINE :
 
     # 1. Renseigner l'environnement
-    #    SQLITE_LEGACY_PATH=/chemin/vers/db.sqlite3  (active l'alias sqlite_legacy)
+    #    DB_ENGINE=postgresql  (force PostgreSQL même en dev)
     #    POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_HOST / POSTGRES_PORT
+    #    SQLITE_LEGACY_PATH=/chemin/vers/db.sqlite3  (active l'alias sqlite_legacy)
 
     # 2. Créer le schéma SANS auto-seed (évite les collisions de clés uniques)
-    SEED_INITIAL_DATA=0 python manage.py migrate
+    DB_ENGINE=postgresql SEED_INITIAL_DATA=0 python manage.py migrate
 
     # 3. Transférer les données existantes
-    python manage.py migrate_sqlite_to_postgres
+    DB_ENGINE=postgresql python manage.py migrate_sqlite_to_postgres
 
 Résultat : la base PostgreSQL contient une copie exacte des données SQLite. Les
 réinitialisations ultérieures (sans SEED_INITIAL_DATA=0) réinjecteront le jeu de référence.

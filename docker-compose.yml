@@ -30,6 +30,8 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      # Déploiement = production → PostgreSQL (indépendamment du .env versionné).
+      ENVIRONMENT: production
       # Dans le réseau Docker, la base est joignable via le nom de service `db`.
       POSTGRES_HOST: db
     volumes:

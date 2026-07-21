@@ -90,19 +90,18 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# Moteur piloté par l'environnement : PostgreSQL par défaut (runtime + tests + CI),
-# repli SQLite conservé (`DB_ENGINE=sqlite`) pour le développement/legacy.
-DB_ENGINE = config('DB_ENGINE', default='postgresql')
+# Environnement d'exécution : 'development' (défaut), 'staging' ou 'production'.
+# Pilote à la fois le filtrage des données de test (accounts/managers.py) et le choix du
+# moteur de base de données ci-dessous.
+ENVIRONMENT = config('ENVIRONMENT', default='development')
 
-if DB_ENGINE == 'sqlite':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
-            'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
-        }
-    }
-else:
+# Moteur DB selon l'environnement : SQLite en développement (base existante `db.sqlite3`),
+# PostgreSQL en production. Surchargeable explicitement via `DB_ENGINE` (utile pour la
+# migration ponctuelle des données ou pour tester Postgres en local).
+_default_engine = 'postgresql' if ENVIRONMENT == 'production' else 'sqlite'
+DB_ENGINE = config('DB_ENGINE', default=_default_engine)
+
+if DB_ENGINE == 'postgresql':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -111,6 +110,19 @@ else:
             'PASSWORD': config('POSTGRES_PASSWORD', default='sdgps'),
             'HOST': config('POSTGRES_HOST', default='localhost'),
             'PORT': config('POSTGRES_PORT', default='5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
+            'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
+            # Base de TEST sur fichier (et non SQLite in-memory partagé `cache=shared`) : ce
+            # dernier a un problème de visibilité transactionnelle inter-connexions en CI, qui
+            # fait échouer les validateurs d'unicité générés par DRF (ex. numéro de SSDGPS
+            # unique par affaire). Le fichier garantit un comportement identique local ↔ CI.
+            'TEST': {'NAME': str(BASE_DIR / 'test_db.sqlite3')},
         }
     }
 
