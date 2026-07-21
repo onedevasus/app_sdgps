@@ -22,6 +22,8 @@ def seed_reference_data(sender, **kwargs):
     - Désactivable via `SEED_INITIAL_DATA=0` (utilisé lors de l'import ponctuel des données
       legacy SQLite → PostgreSQL, pour éviter les collisions de clés uniques).
     """
+    import logging
+
     from django.conf import settings
     from decouple import config
 
@@ -31,4 +33,18 @@ def seed_reference_data(sender, **kwargs):
         return
 
     from accounts.seeding import run_seed
-    run_seed()
+
+    logger = logging.getLogger('accounts.seeding')
+    try:
+        summary = run_seed()
+        logger.info(
+            "Données d'initialisation amorcées : %s utilisateur(s), %s organisation(s), "
+            "%s organisme(s) créés.",
+            summary['users_created'], summary['organizations_created'],
+            summary['organismes_created'],
+        )
+    except Exception:
+        # Échec explicite : on journalise clairement puis on relance pour faire échouer
+        # `migrate` (et donc le démarrage du conteneur via docker-entrypoint.sh).
+        logger.exception("Échec de l'amorçage des données d'initialisation")
+        raise
