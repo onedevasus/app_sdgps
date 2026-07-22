@@ -281,6 +281,14 @@ class OrganizationPermanentDeleteView(APIView):
         if not org.is_deleted:
             return Response({'detail': 'Seule une organisation en corbeille peut être supprimée définitivement.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        # Blocage explicite : Projet.organization est en PROTECT — on refuse tant que des
+        # projets sont rattachés (aucune donnée de projet n'est supprimée automatiquement).
+        projet_count = org.projets.count()
+        if projet_count:
+            return Response(
+                {'detail': f"Suppression définitive impossible : {projet_count} projet(s) "
+                           f"rattaché(s) à cette organisation. Supprimez-les d'abord."},
+                status=status.HTTP_400_BAD_REQUEST)
         name = org.name
         try:
             org.delete()
@@ -308,6 +316,11 @@ class OrganizationBulkPermanentDeleteView(APIView):
         deleted_count = 0
         errors = []
         for org in qs:
+            projet_count = org.projets.count()
+            if projet_count:
+                errors.append({'id': str(org.id), 'name': org.name,
+                               'detail': f"{projet_count} projet(s) rattaché(s)."})
+                continue
             try:
                 org.delete()
                 deleted_count += 1

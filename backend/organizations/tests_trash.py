@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Organization
+from projects.models import Projet
 
 User = get_user_model()
 
@@ -99,3 +100,26 @@ class OrganizationTrashTests(APITestCase):
         self.assertEqual(res.data['deleted_count'], 2)
         self.assertFalse(Organization.all_objects.filter(pk=self.deleted.id).exists())
         self.assertTrue(Organization.all_objects.filter(pk=self.active.id).exists())
+
+    # --- Blocage si des projets sont rattachés (FK PROTECT) ---
+    def test_permanent_delete_bloque_si_projets_lies(self):
+        Projet.objects.create(code_projet='PRJ-1', nom_projet='P1', organization=self.deleted)
+        self.client.force_authenticate(self.admin)
+        res = self.client.delete(f'{LIST_URL}{self.deleted.id}/permanent/')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('projet', res.data['detail'].lower())
+        # L'organisation et son projet sont conservés.
+        self.assertTrue(Organization.all_objects.filter(pk=self.deleted.id).exists())
+        self.assertTrue(Projet.objects.filter(code_projet='PRJ-1').exists())
+
+    def test_bulk_permanent_delete_ignore_orgs_avec_projets(self):
+        d2 = Organization.objects.create(code='DEL-2', name='Supprimée 2', is_deleted=True)
+        Projet.objects.create(code_projet='PRJ-2', nom_projet='P2', organization=self.deleted)
+        self.client.force_authenticate(self.admin)
+        res = self.client.post(f'{LIST_URL}permanent-delete/',
+                               {'organization_ids': [str(self.deleted.id), str(d2.id)]}, format='json')
+        # d2 (sans projet) est purgée ; self.deleted (avec projet) est listée en erreur.
+        self.assertEqual(res.data['deleted_count'], 1)
+        self.assertEqual(len(res.data['errors']), 1)
+        self.assertFalse(Organization.all_objects.filter(pk=d2.id).exists())
+        self.assertTrue(Organization.all_objects.filter(pk=self.deleted.id).exists())

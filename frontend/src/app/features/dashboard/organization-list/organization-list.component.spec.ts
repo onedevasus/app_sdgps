@@ -1,4 +1,4 @@
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { OrganizationListComponent } from './organization-list.component';
 
 /**
@@ -179,7 +179,7 @@ describe('OrganizationListComponent (logique)', () => {
         'getOrganizations', 'restoreOrganization', 'bulkRestoreOrganizations',
         'permanentDeleteOrganization', 'bulkPermanentDeleteOrganizations',
       ]);
-      toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+      toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
       cmp = new OrganizationListComponent(
         orgService, {} as any, {} as any, { markForCheck: () => {} } as any, {} as any, toast,
       );
@@ -227,6 +227,38 @@ describe('OrganizationListComponent (logique)', () => {
       cmp.openPermanentDelete({ id: '2', name: 'X' } as any);
       expect(cmp.showPermanentDeleteModal).toBeTrue();
       expect(cmp.isBulkPermanent).toBeFalse();
+    });
+
+    it('confirmPermanentDelete (unitaire) affiche le message backend en cas de blocage', () => {
+      orgService.permanentDeleteOrganization.and.returnValue(
+        throwError(() => ({ error: { detail: '2 projet(s) rattaché(s).' } }))
+      );
+      cmp.openPermanentDelete({ id: '2', name: 'X' } as any);
+      cmp.confirmPermanentDelete();
+      expect(toast.error).toHaveBeenCalledWith('Suppression impossible', '2 projet(s) rattaché(s).');
+    });
+
+    it('confirmPermanentDelete (masse) : aucune suppression → toast error', () => {
+      orgService.bulkPermanentDeleteOrganizations.and.returnValue(
+        of({ deleted_count: 0, errors: [{ id: 'a', detail: 'projets' }] })
+      );
+      orgService.getOrganizations.and.returnValue(of([]));
+      cmp.selectedOrganizations.add('a');
+      cmp.openBulkPermanentDelete();
+      cmp.confirmPermanentDelete();
+      expect(toast.error).toHaveBeenCalled();
+    });
+
+    it('confirmPermanentDelete (masse) : partiel → toast warning', () => {
+      orgService.bulkPermanentDeleteOrganizations.and.returnValue(
+        of({ deleted_count: 1, errors: [{ id: 'b', detail: 'projets' }] })
+      );
+      orgService.getOrganizations.and.returnValue(of([]));
+      cmp.selectedOrganizations.add('a');
+      cmp.selectedOrganizations.add('b');
+      cmp.openBulkPermanentDelete();
+      cmp.confirmPermanentDelete();
+      expect(toast.warning).toHaveBeenCalled();
     });
   });
 });

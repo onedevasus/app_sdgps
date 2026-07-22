@@ -1739,6 +1739,10 @@
     background: var(--accent-color);
     color: white;
     padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
 
     h3 {
       color: white;
@@ -1746,6 +1750,7 @@
       align-items: center;
       gap: 10px;
       font-size: 20px;
+      margin: 0;
 
       i {
         font-size: 24px;
@@ -1753,11 +1758,30 @@
     }
 
     .close-btn {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.14);
       color: white;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.28);
         color: white;
+        transform: rotate(90deg);
+      }
+
+      &:active {
+        transform: rotate(90deg) scale(0.94);
       }
     }
   }
@@ -1874,6 +1898,13 @@
 
   // Styles spécifiques pour les boutons dans le footer du modal de suppression
   .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px;
+    border-top: 1px solid var(--border-color);
+
     .btn.btn-danger.btn-delete-confirm {
       background: var(--accent-color) !important;
       color: white !important;

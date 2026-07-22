@@ -1745,17 +1745,50 @@ export class OrganizationListComponent implements OnInit {
   confirmPermanentDelete(): void {
     if (this.permanentDeleting) return;
     this.permanentDeleting = true;
-    const done = (n: number) => {
-      this.permanentDeleting = false; this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null;
-      this.selectedOrganizations.clear(); this.loadOrganizations();
-      this.toastService.success('Suppression définitive', `${n} organisation(s) supprimée(s) définitivement`);
+
+    const close = () => {
+      this.permanentDeleting = false;
+      this.showPermanentDeleteModal = false;
+      this.permanentDeleteTarget = null;
     };
-    const fail = () => { this.permanentDeleting = false; this.toastService.error('Erreur', 'Suppression définitive impossible'); };
+    const fail = (error?: any) => {
+      close();
+      const msg = error?.error?.detail || 'Suppression définitive impossible.';
+      this.toastService.error('Suppression impossible', msg);
+    };
+
     if (this.isBulkPermanent) {
+      const total = this.selectedOrganizations.size;
       const ids = Array.from(this.selectedOrganizations);
-      this.organizationService.bulkPermanentDeleteOrganizations(ids).subscribe({ next: (r) => done(r.deleted_count), error: fail });
+      this.organizationService.bulkPermanentDeleteOrganizations(ids).subscribe({
+        next: (res) => {
+          close();
+          this.selectedOrganizations.clear();
+          this.loadOrganizations();
+          const deleted = res.deleted_count || 0;
+          const failed = (res.errors || []).length;
+          if (deleted > 0 && failed === 0) {
+            this.toastService.success('Suppression définitive', `${deleted} organisation(s) supprimée(s) définitivement`);
+          } else if (deleted > 0 && failed > 0) {
+            this.toastService.warning('Suppression partielle',
+              `${deleted} supprimée(s) définitivement ; ${failed} non supprimée(s) (projets rattachés).`);
+          } else {
+            this.toastService.error('Aucune suppression',
+              `${total} organisation(s) non supprimée(s) : des projets y sont rattachés. Supprimez-les d'abord.`);
+          }
+        },
+        error: fail,
+      });
     } else if (this.permanentDeleteTarget) {
-      this.organizationService.permanentDeleteOrganization(this.permanentDeleteTarget.id).subscribe({ next: () => done(1), error: fail });
+      this.organizationService.permanentDeleteOrganization(this.permanentDeleteTarget.id).subscribe({
+        next: () => {
+          close();
+          this.selectedOrganizations.clear();
+          this.loadOrganizations();
+          this.toastService.success('Suppression définitive', 'Organisation supprimée définitivement');
+        },
+        error: fail,
+      });
     }
   }
 }
