@@ -116,3 +116,54 @@ describe('ProjectSsdgpsListComponent (consulter / modifier / supprimer)', () => 
     expect(cmp.deleting).toBeFalse();
   });
 });
+
+describe('ProjectSsdgpsListComponent (suppression définitive)', () => {
+  let cmp: ProjectSsdgpsListComponent;
+  let service: jasmine.SpyObj<any>;
+  let toast: jasmine.SpyObj<any>;
+
+  beforeEach(() => {
+    service = jasmine.createSpyObj('ProjectsService', ['permanentDeleteSsdgps', 'bulkPermanentDeleteSsdgps']);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
+    cmp = new ProjectSsdgpsListComponent(
+      service, toast, {} as any, {} as any, {} as any, {} as any, new FormBuilder());
+    spyOn(cmp, 'load');
+    cmp.showDeleted = true;
+  });
+
+  const del = (over: any = {}) => ({ id: 's1', numero_ssdgps: 3, nature_ssdgps: 'rattachement', is_deleted: true, ...over });
+
+  it('openBulkPermanentDelete refuse sans sélection', () => {
+    cmp.selectedIds.clear();
+    cmp.openBulkPermanentDelete();
+    expect(cmp.showPermanentDeleteModal).toBeFalse();
+  });
+
+  it('confirmPermanentDelete (unitaire) appelle le service', () => {
+    service.permanentDeleteSsdgps.and.returnValue(of(null));
+    cmp.openPermanentDeleteModal(del() as any, new Event('c'));
+    cmp.confirmPermanentDelete();
+    expect(service.permanentDeleteSsdgps).toHaveBeenCalledWith('s1');
+    expect(toast.success).toHaveBeenCalled();
+    expect(cmp.load).toHaveBeenCalled();
+  });
+
+  it('confirmPermanentDelete (unitaire) affiche le message de blocage backend', () => {
+    service.permanentDeleteSsdgps.and.returnValue(throwError(() => ({ error: { detail: 'Sous-données rattachées' } })));
+    cmp.openPermanentDeleteModal(del() as any, new Event('c'));
+    cmp.confirmPermanentDelete();
+    expect(toast.error).toHaveBeenCalledWith('Suppression impossible', 'Sous-données rattachées');
+    expect(cmp.permanentDeleting).toBeFalse();
+  });
+
+  it('confirmPermanentDelete (masse) : partiel → toast warning', () => {
+    service.bulkPermanentDeleteSsdgps.and.returnValue(of({ deleted_count: 1, errors: [{ id: 'b' }] }));
+    (cmp as any).deletedItems = [del({ id: 'a' }), del({ id: 'b' })];
+    cmp.selectedIds.add('a');
+    cmp.selectedIds.add('b');
+    cmp.openBulkPermanentDelete();
+    cmp.confirmPermanentDelete();
+    expect(service.bulkPermanentDeleteSsdgps).toHaveBeenCalled();
+    expect(toast.warning).toHaveBeenCalled();
+  });
+});

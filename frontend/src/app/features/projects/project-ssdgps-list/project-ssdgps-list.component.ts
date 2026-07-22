@@ -160,6 +160,11 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   deleteTarget: Ssdgps | null = null;
   isBulkDelete = false;
   deleting = false;
+  // Suppression définitive (corbeille) : unitaire + masse
+  showPermanentDeleteModal = false;
+  permanentDeleteTarget: Ssdgps | null = null;
+  isBulkPermanent = false;
+  permanentDeleting = false;
 
   constructor(
     private service: ProjectsService,
@@ -663,6 +668,40 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
       forkJoin(ids.map(id => this.service.deleteSsdgps(id))).subscribe({ next: () => finish(ids.length), error: fail });
     } else if (this.deleteTarget) {
       this.service.deleteSsdgps(this.deleteTarget.id).subscribe({ next: () => finish(1), error: fail });
+    }
+  }
+
+  // ============================================
+  // Suppression définitive (corbeille) — unitaire + masse
+  // ============================================
+  openPermanentDeleteModal(s: Ssdgps, ev: Event): void { ev.stopPropagation(); this.permanentDeleteTarget = s; this.isBulkPermanent = false; this.showPermanentDeleteModal = true; }
+  openBulkPermanentDelete(): void { if (this.selectedCount === 0) return; this.permanentDeleteTarget = null; this.isBulkPermanent = true; this.showPermanentDeleteModal = true; }
+  closePermanentDeleteModal(): void { if (!this.permanentDeleting) { this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; } }
+
+  confirmPermanentDelete(): void {
+    if (this.permanentDeleting) return;
+    const close = () => { this.permanentDeleting = false; this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; };
+    if (this.isBulkPermanent) {
+      const ids = this.selectedList().filter(s => s.is_deleted).map(s => s.id);
+      if (!ids.length) { this.showPermanentDeleteModal = false; return; }
+      this.permanentDeleting = true;
+      const total = ids.length;
+      this.service.bulkPermanentDeleteSsdgps(ids).subscribe({
+        next: (res) => {
+          close(); this.selectedIds.clear(); this.load();
+          const d = res.deleted_count || 0, f = (res.errors || []).length;
+          if (d > 0 && f === 0) this.toast.success('Suppression définitive', `${d} SSDGPS supprimé(s) définitivement`);
+          else if (d > 0 && f > 0) this.toast.warning('Suppression partielle', `${d} supprimé(s) ; ${f} conservé(s) (sous-données rattachées).`);
+          else this.toast.error('Aucune suppression', `${total} SSDGPS non supprimé(s) : des sous-données y sont rattachées.`);
+        },
+        error: () => { this.permanentDeleting = false; this.toast.error('Erreur', 'Suppression définitive impossible'); },
+      });
+    } else if (this.permanentDeleteTarget) {
+      this.permanentDeleting = true;
+      this.service.permanentDeleteSsdgps(this.permanentDeleteTarget.id).subscribe({
+        next: () => { close(); this.load(); this.toast.success('Suppression définitive', 'SSDGPS supprimé définitivement'); },
+        error: (e) => { this.permanentDeleting = false; this.toast.error('Suppression impossible', e?.error?.detail || 'Suppression définitive impossible'); },
+      });
     }
   }
 }
