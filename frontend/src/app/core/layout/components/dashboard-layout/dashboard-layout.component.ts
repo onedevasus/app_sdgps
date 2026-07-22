@@ -47,6 +47,7 @@ export class DashboardLayoutComponent implements OnInit {
             first_name: profile.first_name,
             last_name: profile.last_name,
             role: profile.role,
+            organization_name: profile.organization_name,
             avatar: profile.profile_picture_url || undefined // Photo si disponible
           });
         },

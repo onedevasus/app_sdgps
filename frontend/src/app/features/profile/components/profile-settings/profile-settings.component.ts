@@ -409,6 +409,7 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
               first_name: profile.first_name,
               last_name: profile.last_name,
               role: profile.role,
+              organization_name: profile.organization_name,
               avatar: profile.profile_picture_url // ← Photo ou undefined pour fallback avatar
             });
           }
@@ -457,6 +458,7 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
               first_name: this.userProfile.first_name,
               last_name: this.userProfile.last_name,
               role: this.userProfile.role,
+              organization_name: this.userProfile.organization_name,
               avatar: undefined // ← Supprimer photo, fallback sur avatar initiales
             });
           }

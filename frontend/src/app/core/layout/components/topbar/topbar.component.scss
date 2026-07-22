@@ -312,6 +312,32 @@
 
       i { font-size: 0.95em; }
     }
+
+    // Organisation courante : pastille neutre (info secondaire sous le rôle), tronquée si
+    // le nom est long.
+    .user-org {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      margin-top: 8px;
+      padding: 5px 13px;
+      border-radius: 999px;
+      background: var(--hover-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      font-size: 0.8em;
+      font-weight: 600;
+      line-height: 1;
+
+      i { font-size: 0.95em; color: var(--text-muted); flex-shrink: 0; }
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
   }
 }
 

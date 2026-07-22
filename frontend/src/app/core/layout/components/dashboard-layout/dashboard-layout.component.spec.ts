@@ -19,12 +19,14 @@ describe('DashboardLayoutComponent', () => {
     localStorage.setItem('authToken', 'tok');
     profileService.getCurrentUser.and.returnValue(of({
       id: 1, email: 'u@x.ma', first_name: 'U', last_name: 'X',
-      role: 'ROLE_ORGANISATION_AGENT', profile_picture_url: 'http://img',
+      role: 'ROLE_ORGANISATION_AGENT', organization_name: 'Cadastre Haouz',
+      profile_picture_url: 'http://img',
     }));
     cmp.ngOnInit();
     expect(profileService.getCurrentUser).toHaveBeenCalled();
     expect(layoutService.setUserProfile).toHaveBeenCalledWith(jasmine.objectContaining({
       id: 1, email: 'u@x.ma', role: 'ROLE_ORGANISATION_AGENT', avatar: 'http://img',
+      organization_name: 'Cadastre Haouz',
     }));
   });
 
