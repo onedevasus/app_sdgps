@@ -161,6 +161,18 @@ class ProjetViewSet(BaseOrgScopedViewSet):
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['organization'].id
 
+    def perform_create(self, serializer):
+        # Un projet appartient TOUJOURS à l'organisation courante de son créateur : on force
+        # `organization` sur l'organisation active de l'agent, indépendamment de la valeur
+        # envoyée. Les administrateurs (super admin / admin système), qui n'ont pas
+        # d'organisation, conservent l'organisation fournie dans la requête (contrôle RBAC de
+        # base via super().perform_create).
+        org = self.request.user.get_primary_organization()
+        if org is not None:
+            serializer.save(created_by=self.request.user, organization=org)
+        else:
+            super().perform_create(serializer)
+
     def _annotate_counts(self, qs):
         # Compteurs agrégés annotés au niveau du queryset (une seule requête, pas de N+1),
         # en excluant les éléments supprimés à chaque niveau traversé.

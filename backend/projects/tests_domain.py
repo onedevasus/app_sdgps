@@ -163,11 +163,14 @@ class RbacScopingTests(DomainBaseTest):
         codes = {p['code_projet'] for p in data}
         self.assertIn('P-MINE', codes)
 
-    def test_agent_cannot_create_project_in_foreign_org(self):
+    def test_agent_project_forced_to_own_org(self):
+        # Un projet appartient toujours à l'organisation courante de son créateur : si l'agent
+        # tente d'imposer une organisation étrangère (org2), elle est forcée sur la sienne (org1).
         resp = self.client.post('/api/v1/projets/', {
             'nom_projet': 'X', 'code_projet': 'P-X', 'organization': str(self.org2.id),
         }, format='json')
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(Projet.objects.get(code_projet='P-X').organization_id, self.org1.id)
 
     def test_agent_creates_project_in_own_org(self):
         resp = self.client.post('/api/v1/projets/', {
