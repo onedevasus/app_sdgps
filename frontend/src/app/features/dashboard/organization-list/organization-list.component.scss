@@ -2419,3 +2419,59 @@
     }
   }
 }
+
+/* ---------- Suppression DÉFINITIVE : renforcement visuel « danger » ---------- */
+/* Réutilise le pattern .modal-delete-confirm et intensifie les signaux d'irréversibilité. */
+.modal-permanent-delete {
+  .modal-header.modal-header-danger {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  }
+
+  .warning-icon.warning-icon-permanent {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.18) 0%, rgba(192, 57, 43, 0.18) 100%);
+    box-shadow: 0 0 0 6px rgba(231, 76, 60, 0.08);
+
+    i { color: #c0392b; }
+  }
+
+  .warning-content .org-name {
+    color: #c0392b;
+    background: rgba(231, 76, 60, 0.06);
+    border-left-color: #e74c3c;
+  }
+
+  /* Encart d'alerte irréversibilité */
+  .permanent-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: rgba(231, 76, 60, 0.08);
+    border: 1px solid rgba(231, 76, 60, 0.25);
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text-color);
+
+    i {
+      color: #e74c3c;
+      font-size: 18px;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+
+    strong { color: #c0392b; font-weight: 700; }
+  }
+
+  /* Bouton d'action : rouge « danger » plus soutenu que l'accent de l'app */
+  .modal-footer .btn-danger.btn-delete-confirm {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    border: none;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+      box-shadow: 0 4px 14px rgba(192, 57, 43, 0.35);
+    }
+  }
+}

@@ -1488,24 +1488,68 @@
 
   <!-- Modal de suppression DÉFINITIVE (unitaire ou en masse) -->
   <div class="modal-overlay" *ngIf="showPermanentDeleteModal" (click)="closePermanentDelete()">
-    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3><i class="fas fa-trash-alt"></i> Suppression définitive</h3>
-      </div>
-      <div class="modal-body">
-        <p *ngIf="!isBulkPermanent && permanentDeleteTarget">
-          Supprimer <strong>définitivement</strong> l'organisation « <strong>{{ permanentDeleteTarget.name }}</strong> » ?
-        </p>
-        <p *ngIf="isBulkPermanent">
-          Supprimer <strong>définitivement</strong> <strong>{{ selectedOrganizations.size }}</strong> organisation(s) ?
-        </p>
-        <p class="warning-text"><i class="fas fa-exclamation-triangle"></i> Cette action est <strong>irréversible</strong> : les données seront définitivement effacées.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-cancel" (click)="closePermanentDelete()" [disabled]="permanentDeleting">
-          <i class="fas fa-times"></i> Annuler
+    <div class="modal-content modal-delete-confirm modal-permanent-delete" (click)="$event.stopPropagation()">
+      <div class="modal-header modal-header-danger">
+        <div class="modal-header-left">
+          <h3><i class="fas fa-exclamation-triangle"></i> Suppression définitive</h3>
+        </div>
+        <button class="close-btn" (click)="closePermanentDelete()">
+          <i class="fas fa-times"></i>
         </button>
-        <button type="button" class="btn btn-danger" (click)="confirmPermanentDelete()" [disabled]="permanentDeleting">
+      </div>
+
+      <div class="modal-body">
+        <div class="delete-warning">
+          <div class="warning-icon warning-icon-permanent">
+            <i class="fas fa-trash-alt"></i>
+          </div>
+          <div class="warning-content">
+            <h4 *ngIf="!isBulkPermanent && permanentDeleteTarget">Supprimer définitivement cette organisation ?</h4>
+            <p class="org-name" *ngIf="!isBulkPermanent && permanentDeleteTarget">"{{ permanentDeleteTarget.name }}"</p>
+
+            <h4 *ngIf="isBulkPermanent">Supprimer définitivement {{ selectedOrganizations.size }} organisation(s) ?</h4>
+            <div class="org-list-preview" *ngIf="isBulkPermanent && getSelectedOrganizationsList().length > 0">
+              <p class="org-list-title">Organisations concernées :</p>
+              <ul class="org-list">
+                <li *ngFor="let org of getSelectedOrganizationsList() | slice:0:5">
+                  <i class="fas fa-building"></i>
+                  {{ org.name }}
+                </li>
+                <li *ngIf="getSelectedOrganizationsList().length > 5" class="more-items">
+                  <i class="fas fa-ellipsis-h"></i>
+                  et {{ getSelectedOrganizationsList().length - 5 }} autre(s)
+                </li>
+              </ul>
+            </div>
+
+            <!-- Encart d'alerte : irréversibilité -->
+            <div class="permanent-callout">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>
+                Action <strong>irréversible</strong> : les données seront <strong>définitivement effacées</strong>
+                de la base et <strong>ne pourront pas être restaurées</strong>.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-cancel"
+          (click)="closePermanentDelete()"
+          [disabled]="permanentDeleting"
+        >
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger btn-delete-confirm"
+          (click)="confirmPermanentDelete()"
+          [disabled]="permanentDeleting"
+        >
           <i class="fas" [class.fa-spinner]="permanentDeleting" [class.fa-spin]="permanentDeleting" [class.fa-trash-alt]="!permanentDeleting"></i>
           {{ permanentDeleting ? 'Suppression...' : 'Supprimer définitivement' }}
         </button>
