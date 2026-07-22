@@ -67,7 +67,12 @@
         <i class="fas fa-file-csv"></i>
       </button>
 
-      <div class="toolbar-sep" *ngIf="showDeleted"></div>
+      <div class="toolbar-sep"></div>
+
+      <button class="btn btn-danger sm" *ngIf="!showDeleted" [disabled]="selectedCount === 0 || deleting" (click)="openBulkDelete()" title="Supprimer la sélection">
+        <i class="fas" [ngClass]="deleting ? 'fa-spinner fa-spin' : 'fa-trash'"></i> Supprimer
+        <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
+      </button>
 
       <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount === 0 || bulkRestoring" (click)="bulkRestore()" title="Restaurer la sélection">
         <i class="fas" [ngClass]="bulkRestoring ? 'fa-spinner fa-spin' : 'fa-undo'"></i> Restaurer
@@ -133,8 +138,17 @@
               </ng-container>
             </td>
             <td class="actions-col" (click)="$event.stopPropagation()">
+              <button class="btn-icon" title="Consulter" *ngIf="!s.is_deleted" (click)="openDetail(s, $event)">
+                <i class="fas fa-eye"></i>
+              </button>
               <button class="btn-icon" title="Voir les pièces" *ngIf="!s.is_deleted" (click)="openPieces(s)">
                 <i class="fas fa-paperclip"></i>
+              </button>
+              <button class="btn-icon" title="Modifier" *ngIf="!s.is_deleted" (click)="openEdit(s, $event)">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-icon btn-icon-danger" title="Supprimer" *ngIf="!s.is_deleted" (click)="openDeleteModal(s, $event)">
+                <i class="fas fa-trash"></i>
               </button>
               <button class="btn-icon btn-icon-restore" title="Restaurer" *ngIf="s.is_deleted" [disabled]="restoring===s.id" (click)="restore(s)">
                 <i class="fas" [ngClass]="restoring===s.id ? 'fa-spinner fa-spin' : 'fa-undo'"></i>
@@ -381,6 +395,102 @@
       <button class="btn-confirm" (click)="confirmResetSort()" [disabled]="resettingSort">
         <i class="fas" [class.fa-spinner]="resettingSort" [class.fa-spin]="resettingSort" [class.fa-arrows-rotate]="!resettingSort"></i>
         {{ resettingSort ? 'Réinitialisation…' : 'Réinitialiser' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modale : Consulter un SSDGPS (lecture seule) ===== -->
+<div class="modal-overlay" *ngIf="showDetailModal && detailTarget" (click)="closeDetail()">
+  <div class="modal-content detail-panel" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-satellite-dish header-icon"></i>
+        <div>
+          <h3>SSDGPS n° {{ detailTarget.numero_ssdgps }}</h3>
+          <span class="modal-stats">{{ detailTarget.nature_ssdgps }}</span>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeDetail()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <dl class="detail-grid">
+        <div class="detail-item"><dt>Nature</dt><dd>{{ detailTarget.nature_ssdgps || '—' }}</dd></div>
+        <div class="detail-item"><dt>Numéro</dt><dd>{{ detailTarget.numero_ssdgps }}</dd></div>
+        <div class="detail-item"><dt>Type</dt><dd>{{ detailTarget.type_ssdgps === 'multi-session' ? 'Multi-session' : 'Mono-session' }}</dd></div>
+        <div class="detail-item"><dt>Propriété</dt><dd>{{ proprieteLabel(detailTarget) || '—' }}</dd></div>
+        <div class="detail-item"><dt>Affaire</dt><dd>{{ detailTarget.affaire_numero ? ('SD ' + detailTarget.affaire_numero) : '—' }}</dd></div>
+        <div class="detail-item"><dt>Créé le</dt><dd>{{ formatDate(detailTarget.created_at) }}</dd></div>
+        <div class="detail-item"><dt>Modifié le</dt><dd>{{ formatDate(detailTarget.updated_at) }}</dd></div>
+      </dl>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeDetail()"><i class="fas fa-times"></i> Fermer</button>
+      <button class="btn-confirm" (click)="openEdit(detailTarget, $event); closeDetail()"><i class="fas fa-edit"></i> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modale : Modifier un SSDGPS ===== -->
+<div class="modal-overlay" *ngIf="showEditModal && editTarget" (click)="closeEdit()">
+  <div class="modal-content edit-panel" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-edit header-icon"></i>
+        <div><h3>Modifier le SSDGPS n° {{ editTarget.numero_ssdgps }}</h3></div>
+      </div>
+      <button class="close-btn" (click)="closeEdit()" [disabled]="submitting"><i class="fas fa-times"></i></button>
+    </div>
+    <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Nature <span class="req">*</span></label>
+          <select formControlName="nature_ssdgps">
+            <option value="">Sélectionner…</option>
+            <option *ngFor="let o of natureOptions" [value]="o.value">{{ o.value }}</option>
+          </select>
+          <span class="field-error" *ngIf="editForm.get('nature_ssdgps')?.touched && editForm.get('nature_ssdgps')?.invalid">La nature est requise.</span>
+        </div>
+        <div class="form-field">
+          <label>Numéro <span class="req">*</span></label>
+          <input type="number" formControlName="numero_ssdgps">
+          <span class="field-error" *ngIf="editForm.get('numero_ssdgps')?.touched && editForm.get('numero_ssdgps')?.invalid">Le numéro est requis.</span>
+        </div>
+        <div class="form-field">
+          <label>Type <span class="req">*</span></label>
+          <select formControlName="type_ssdgps">
+            <option *ngFor="let o of typeOptions" [value]="o.value">{{ o.label }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeEdit()" [disabled]="submitting"><i class="fas fa-times"></i> Annuler</button>
+        <button type="submit" class="btn-confirm" [disabled]="submitting || editForm.invalid">
+          <i class="fas" [class.fa-spinner]="submitting" [class.fa-spin]="submitting" [class.fa-check]="!submitting"></i>
+          {{ submitting ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== Modale : Supprimer un/des SSDGPS (suppression logique) ===== -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+  <div class="modal-content confirm-panel danger" (click)="$event.stopPropagation()">
+    <h3><i class="fas fa-triangle-exclamation"></i> Supprimer {{ isBulkDelete ? (selectedCount + ' SSDGPS') : 'ce SSDGPS' }} ?</h3>
+    <p *ngIf="!isBulkDelete && deleteTarget">
+      Le SSDGPS <strong>n° {{ deleteTarget.numero_ssdgps }}</strong> ({{ deleteTarget.nature_ssdgps }})
+      sera déplacé vers la <strong>corbeille</strong>. Vous pourrez le restaurer.
+    </p>
+    <p *ngIf="isBulkDelete">
+      <strong>{{ selectedCount }}</strong> SSDGPS sélectionné(s) seront déplacés vers la
+      <strong>corbeille</strong>. Vous pourrez les restaurer.
+    </p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" (click)="closeDeleteModal()" [disabled]="deleting"><i class="fas fa-times"></i> Annuler</button>
+      <button class="btn-danger" (click)="confirmDelete()" [disabled]="deleting">
+        <i class="fas" [class.fa-spinner]="deleting" [class.fa-spin]="deleting" [class.fa-trash]="!deleting"></i>
+        {{ deleting ? 'Suppression…' : 'Supprimer' }}
       </button>
     </div>
   </div>
