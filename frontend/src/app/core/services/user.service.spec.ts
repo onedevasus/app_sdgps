@@ -63,4 +63,19 @@ describe('UserService', () => {
     expect(req.request.body).toEqual({ user_ids: ['a', 'b'] });
     req.flush({ restored_count: 2, errors: [] });
   });
+
+  it('permanentDeleteUser() DELETE {id}/permanent/', () => {
+    service.permanentDeleteUser('9').subscribe();
+    const req = httpMock.expectOne(`${API}9/permanent/`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('bulkPermanentDeleteUsers() POST permanent-delete/ avec user_ids', () => {
+    service.bulkPermanentDeleteUsers(['a', 'b']).subscribe();
+    const req = httpMock.expectOne(`${API}permanent-delete/`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ user_ids: ['a', 'b'] });
+    req.flush({ deleted_count: 2, errors: [] });
+  });
 });

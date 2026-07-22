@@ -78,19 +78,39 @@
           <i class="fas fa-columns"></i>
         </button>
 
-        <button 
-          class="btn btn-danger" 
+        <button
+          *ngIf="!showDeleted"
+          class="btn btn-danger"
           (click)="openBulkDeleteConfirmation()"
           [disabled]="selectedOrganizations.size === 0"
           title="Supprimer la sélection">
           <i class="fas fa-trash"></i>
         </button>
+
+        <!-- Onglet Corbeille : restauration + suppression définitive en masse -->
+        <button
+          *ngIf="showDeleted"
+          class="btn btn-success"
+          (click)="openBulkRestore()"
+          [disabled]="selectedOrganizations.size === 0"
+          title="Restaurer la sélection">
+          <i class="fas fa-trash-restore"></i>
+        </button>
+        <button
+          *ngIf="showDeleted"
+          class="btn btn-danger"
+          (click)="openBulkPermanentDelete()"
+          [disabled]="selectedOrganizations.size === 0"
+          title="Supprimer définitivement la sélection">
+          <i class="fas fa-trash-alt"></i>
+        </button>
       </div>
 
       <!-- Groupe droit : Ajouter et Recherche -->
       <div class="toolbar-right">
-        <!-- Bouton Ajouter une organisation -->
-        <button 
+        <!-- Bouton Ajouter une organisation (onglet Actifs uniquement) -->
+        <button
+          *ngIf="!showDeleted"
           class="btn btn-success btn-add-org"
           [class.btn-disabled]="!canCreateOrganization"
           [disabled]="!canCreateOrganization"
@@ -122,6 +142,16 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Onglets Actifs / Corbeille -->
+  <div class="list-tabs">
+    <button class="list-tab" [class.active]="!showDeleted" (click)="setTab(false)">
+      <i class="fas fa-layer-group"></i> Organisations actives <span class="tab-count">{{ activeCount }}</span>
+    </button>
+    <button class="list-tab deleted" [class.active]="showDeleted" (click)="setTab(true)">
+      <i class="fas fa-trash-restore"></i> Organisations supprimées <span class="tab-count">{{ deletedCount }}</span>
+    </button>
   </div>
 
   <!-- Tableau des organisations -->
@@ -207,11 +237,19 @@
               <button class="btn-icon" (click)="openOrganizationDetail(org)" title="Voir les détails">
                 <i class="fas fa-eye"></i>
               </button>
-              <button class="btn-icon" (click)="openEditOrganization(org)" title="Modifier">
+              <!-- Onglet Actifs : modifier / supprimer (logique) -->
+              <button *ngIf="!showDeleted" class="btn-icon" (click)="openEditOrganization(org)" title="Modifier">
                 <i class="fas fa-edit"></i>
               </button>
-              <button class="btn-icon btn-icon-danger" (click)="openDeleteConfirmation(org)" title="Supprimer">
+              <button *ngIf="!showDeleted" class="btn-icon btn-icon-danger" (click)="openDeleteConfirmation(org)" title="Supprimer">
                 <i class="fas fa-trash"></i>
+              </button>
+              <!-- Onglet Corbeille : restaurer / supprimer définitivement -->
+              <button *ngIf="showDeleted" class="btn-icon" (click)="openRestore(org)" title="Restaurer">
+                <i class="fas fa-trash-restore"></i>
+              </button>
+              <button *ngIf="showDeleted" class="btn-icon btn-icon-danger" (click)="openPermanentDelete(org)" title="Supprimer définitivement">
+                <i class="fas fa-trash-alt"></i>
               </button>
             </td>
           </tr>
@@ -1419,6 +1457,59 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal de restauration (unitaire ou en masse) -->
+  <div class="modal-overlay" *ngIf="showRestoreModal" (click)="closeRestore()">
+    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3><i class="fas fa-trash-restore"></i> Restaurer</h3>
+      </div>
+      <div class="modal-body">
+        <p *ngIf="!isBulkRestore && restoreTarget">
+          Restaurer l'organisation « <strong>{{ restoreTarget.name }}</strong> » ? Elle réapparaîtra dans les organisations actives.
+        </p>
+        <p *ngIf="isBulkRestore">
+          Restaurer <strong>{{ selectedOrganizations.size }}</strong> organisation(s) ? Elles réapparaîtront dans les organisations actives.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-cancel" (click)="closeRestore()" [disabled]="restoring">
+          <i class="fas fa-times"></i> Annuler
+        </button>
+        <button type="button" class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
+          <i class="fas" [class.fa-spinner]="restoring" [class.fa-spin]="restoring" [class.fa-trash-restore]="!restoring"></i>
+          {{ restoring ? 'Restauration...' : 'Restaurer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de suppression DÉFINITIVE (unitaire ou en masse) -->
+  <div class="modal-overlay" *ngIf="showPermanentDeleteModal" (click)="closePermanentDelete()">
+    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3><i class="fas fa-trash-alt"></i> Suppression définitive</h3>
+      </div>
+      <div class="modal-body">
+        <p *ngIf="!isBulkPermanent && permanentDeleteTarget">
+          Supprimer <strong>définitivement</strong> l'organisation « <strong>{{ permanentDeleteTarget.name }}</strong> » ?
+        </p>
+        <p *ngIf="isBulkPermanent">
+          Supprimer <strong>définitivement</strong> <strong>{{ selectedOrganizations.size }}</strong> organisation(s) ?
+        </p>
+        <p class="warning-text"><i class="fas fa-exclamation-triangle"></i> Cette action est <strong>irréversible</strong> : les données seront définitivement effacées.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-cancel" (click)="closePermanentDelete()" [disabled]="permanentDeleting">
+          <i class="fas fa-times"></i> Annuler
+        </button>
+        <button type="button" class="btn btn-danger" (click)="confirmPermanentDelete()" [disabled]="permanentDeleting">
+          <i class="fas" [class.fa-spinner]="permanentDeleting" [class.fa-spin]="permanentDeleting" [class.fa-trash-alt]="!permanentDeleting"></i>
+          {{ permanentDeleting ? 'Suppression...' : 'Supprimer définitivement' }}
+        </button>
+      </div>
     </div>
   </div>
 </div>

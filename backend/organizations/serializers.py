@@ -83,6 +83,8 @@ class OrganizationListSerializer(serializers.ModelSerializer):
             'email',
             'website',
             'is_active',
+            'is_deleted',
+            'deleted_at',
             'member_count',
             'created_at',
             'updated_at',

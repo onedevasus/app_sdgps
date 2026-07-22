@@ -100,11 +100,22 @@ export class UserListComponent implements OnInit, OnDestroy {
   bulkDeleting = false;
   isRoleChangeBlocked = false;
 
+  // Onglets Actifs / Corbeille
+  showDeleted = false;
+  get nonDeletedCount(): number { return this.users.filter(u => !u.is_deleted).length; }
+  get deletedUsersCount(): number { return this.users.filter(u => u.is_deleted).length; }
+
   // Restore Modal
   showRestoreModal = false;
   restoreUser_target: User | null = null;
   isBulkRestore = false;
   restoring = false;
+
+  // Suppression définitive (unitaire / masse)
+  showPermanentDeleteModal = false;
+  permanentDeleteTarget: User | null = null;
+  isBulkPermanent = false;
+  permanentDeleting = false;
 
   // Reset Password Modal
   showResetPasswordModal = false;
@@ -320,12 +331,13 @@ export class UserListComponent implements OnInit, OnDestroy {
     if (this.selectedRole) {
       result = result.filter(u => u.role === this.selectedRole);
     }
-    if (this.selectedStatus === 'active') {
+    // L'onglet (showDeleted) pilote la séparation actifs / corbeille.
+    if (this.showDeleted) {
+      result = result.filter(u => u.is_deleted);
+    } else if (this.selectedStatus === 'active') {
       result = result.filter(u => u.is_active && !u.is_deleted);
     } else if (this.selectedStatus === 'inactive') {
       result = result.filter(u => !u.is_active && !u.is_deleted);
-    } else if (this.selectedStatus === 'deleted') {
-      result = result.filter(u => u.is_deleted);
     } else {
       result = result.filter(u => !u.is_deleted);
     }
@@ -1597,6 +1609,75 @@ export class UserListComponent implements OnInit, OnDestroy {
           this.restoring = false;
           this.toastService.error('Erreur', 'Erreur lors de la restauration');
         },
+      });
+    }
+  }
+
+  // ============================================
+  // Onglets Actifs / Corbeille
+  // ============================================
+  setTab(deleted: boolean): void {
+    if (this.showDeleted === deleted) return;
+    this.showDeleted = deleted;
+    this.selectedIds.clear();
+    this.searchText = '';
+    this.displayMode = 'all';
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+  }
+
+  // ============================================
+  // Suppression définitive (irréversible)
+  // ============================================
+  openPermanentDeleteModal(user: User): void {
+    this.permanentDeleteTarget = user;
+    this.isBulkPermanent = false;
+    this.permanentDeleting = false;
+    this.showPermanentDeleteModal = true;
+    document.body.style.overflow = 'hidden';
+  }
+
+  openBulkPermanentDeleteModal(): void {
+    if (this.selectedIds.size === 0) return;
+    this.permanentDeleteTarget = null;
+    this.isBulkPermanent = true;
+    this.permanentDeleting = false;
+    this.showPermanentDeleteModal = true;
+    document.body.style.overflow = 'hidden';
+  }
+
+  closePermanentDeleteModal(): void {
+    if (this.permanentDeleting) return;
+    this.showPermanentDeleteModal = false;
+    this.permanentDeleteTarget = null;
+    this.isBulkPermanent = false;
+    document.body.style.overflow = '';
+  }
+
+  confirmPermanentDelete(): void {
+    if (this.permanentDeleting) return;
+    const done = (n: number) => {
+      this.permanentDeleting = false;
+      this.closePermanentDeleteModal();
+      this.selectedIds.clear();
+      this.loadUsers();
+      this.toastService.success('Suppression définitive', `${n} utilisateur(s) supprimé(s) définitivement`);
+    };
+    const fail = () => {
+      this.permanentDeleting = false;
+      this.toastService.error('Erreur', 'Suppression définitive impossible');
+    };
+    if (this.isBulkPermanent) {
+      if (this.selectedIds.size === 0) return;
+      this.permanentDeleting = true;
+      const ids = Array.from(this.selectedIds);
+      this.userService.bulkPermanentDeleteUsers(ids).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (res) => done(res.deleted_count), error: fail,
+      });
+    } else if (this.permanentDeleteTarget) {
+      this.permanentDeleting = true;
+      this.userService.permanentDeleteUser(this.permanentDeleteTarget.id).pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => done(1), error: fail,
       });
     }
   }

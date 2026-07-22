@@ -1,3 +1,4 @@
+import { of } from 'rxjs';
 import { OrganizationListComponent } from './organization-list.component';
 
 /**
@@ -166,6 +167,66 @@ describe('OrganizationListComponent (logique)', () => {
     it('faux sans token (repli agent)', () => {
       localStorage.clear();
       expect(cmp.canCreateOrganization).toBeFalse();
+    });
+  });
+
+  describe('onglets Actifs / Corbeille & suppression définitive', () => {
+    let orgService: jasmine.SpyObj<any>;
+    let toast: jasmine.SpyObj<any>;
+
+    beforeEach(() => {
+      orgService = jasmine.createSpyObj('OrganizationService', [
+        'getOrganizations', 'restoreOrganization', 'bulkRestoreOrganizations',
+        'permanentDeleteOrganization', 'bulkPermanentDeleteOrganizations',
+      ]);
+      toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+      cmp = new OrganizationListComponent(
+        orgService, {} as any, {} as any, { markForCheck: () => {} } as any, {} as any, toast,
+      );
+      cmp.activeOrganizations = [{ id: '1', name: 'Active' }] as any;
+      cmp.deletedOrganizations = [{ id: '2', name: 'Deleted' }] as any;
+      cmp.organizations = cmp.activeOrganizations;
+    });
+
+    it('compteurs actifs/supprimés', () => {
+      expect(cmp.activeCount).toBe(1);
+      expect(cmp.deletedCount).toBe(1);
+    });
+
+    it('setTab bascule vers la corbeille', () => {
+      cmp.setTab(true);
+      expect(cmp.showDeleted).toBeTrue();
+      expect(cmp.organizations).toBe(cmp.deletedOrganizations);
+    });
+
+    it('openBulkRestore refuse sans sélection', () => {
+      cmp.selectedOrganizations.clear();
+      cmp.openBulkRestore();
+      expect(cmp.showRestoreModal).toBeFalse();
+    });
+
+    it('confirmRestore (unitaire) appelle le service', () => {
+      orgService.restoreOrganization.and.returnValue(of({}));
+      orgService.getOrganizations.and.returnValue(of([]));
+      cmp.openRestore({ id: '2', name: 'X' } as any);
+      cmp.confirmRestore();
+      expect(orgService.restoreOrganization).toHaveBeenCalledWith('2');
+    });
+
+    it('confirmPermanentDelete (masse) appelle bulkPermanentDelete', () => {
+      orgService.bulkPermanentDeleteOrganizations.and.returnValue(of({ deleted_count: 2, errors: [] }));
+      orgService.getOrganizations.and.returnValue(of([]));
+      cmp.selectedOrganizations.add('a');
+      cmp.selectedOrganizations.add('b');
+      cmp.openBulkPermanentDelete();
+      cmp.confirmPermanentDelete();
+      expect(orgService.bulkPermanentDeleteOrganizations).toHaveBeenCalled();
+    });
+
+    it('openPermanentDelete arme la cible unitaire', () => {
+      cmp.openPermanentDelete({ id: '2', name: 'X' } as any);
+      expect(cmp.showPermanentDeleteModal).toBeTrue();
+      expect(cmp.isBulkPermanent).toBeFalse();
     });
   });
 });

@@ -73,4 +73,41 @@ describe('OrganizationService', () => {
     expect(req.request.method).toBe('POST');
     req.flush({ deleted_count: 2 });
   });
+
+  it('getOrganizations({show_deleted}) transmet le paramètre', () => {
+    service.getOrganizations({ show_deleted: 'true' }).subscribe();
+    const req = httpMock.expectOne(r => r.url === API);
+    expect(req.request.params.get('show_deleted')).toBe('true');
+    req.flush([]);
+  });
+
+  it('restoreOrganization() POST {id}/restore/', () => {
+    service.restoreOrganization('7').subscribe();
+    const req = httpMock.expectOne(`${API}7/restore/`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ id: '7' });
+  });
+
+  it('bulkRestoreOrganizations() POST bulk-restore/ {organization_ids}', () => {
+    service.bulkRestoreOrganizations(['a', 'b']).subscribe();
+    const req = httpMock.expectOne(`${API}bulk-restore/`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ organization_ids: ['a', 'b'] });
+    req.flush({ restored_count: 2 });
+  });
+
+  it('permanentDeleteOrganization() DELETE {id}/permanent/', () => {
+    service.permanentDeleteOrganization('7').subscribe();
+    const req = httpMock.expectOne(`${API}7/permanent/`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('bulkPermanentDeleteOrganizations() POST permanent-delete/ {organization_ids}', () => {
+    service.bulkPermanentDeleteOrganizations(['a', 'b']).subscribe();
+    const req = httpMock.expectOne(`${API}permanent-delete/`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ organization_ids: ['a', 'b'] });
+    req.flush({ deleted_count: 2, errors: [] });
+  });
 });
