@@ -154,9 +154,12 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
         return Response({'restored_count': restored_count}, status=status.HTTP_200_OK)
 
     def _child_count(self, instance):
-        """Nombre de sous-éléments immédiats (tous rangs, y compris supprimés) : bloque la
-        purge d'un parent tant qu'il contient des enfants (purge « bottom-up »)."""
-        return sum(getattr(instance, rel).count() for rel in self.child_relations)
+        """Nombre de sous-éléments immédiats ENCORE ACTIFS (non supprimés) : bloque la purge
+        d'un parent tant qu'il contient des enfants visibles (purge « bottom-up »). Les
+        enfants déjà en corbeille (is_deleted=True) sont logiquement supprimés et seront
+        cascadés — ils ne bloquent pas un parent qui paraît vide dans l'UI."""
+        return sum(getattr(instance, rel).filter(is_deleted=False).count()
+                   for rel in self.child_relations)
 
     @action(detail=True, methods=['delete'], url_path='permanent')
     def permanent_delete(self, request, pk=None):
@@ -348,13 +351,13 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
         return serializer.validated_data['affaire'].propriete.projet.created_by_id
 
     def _child_count(self, instance):
-        """Sous-données réelles qui bloquent la purge. La session n°1 auto-créée d'un
-        SSDGPS mono-session est structurelle (invisible dans l'UI) et ne doit PAS bloquer :
-        seules ses pièces comptent. Un SSDGPS multi-session est bloqué par ses sessions
-        comme par ses pièces (cohérent avec `_annotate_counts`)."""
-        n = instance.pieces.count()
+        """Sous-données réelles (encore actives) qui bloquent la purge. La session n°1
+        auto-créée d'un SSDGPS mono-session est structurelle (invisible dans l'UI) et ne
+        doit PAS bloquer : seules ses pièces comptent. Un SSDGPS multi-session est bloqué
+        par ses sessions comme par ses pièces (cohérent avec `_annotate_counts`)."""
+        n = instance.pieces.filter(is_deleted=False).count()
         if instance.type_ssdgps == Ssdgps.TypeSSDGPS.MULTI:
-            n += instance.sessions.count()
+            n += instance.sessions.filter(is_deleted=False).count()
         return n
 
     def _annotate_counts(self, qs):

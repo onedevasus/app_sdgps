@@ -31,6 +31,17 @@ class PermanentDeleteTests(DomainBaseTest):
         self.assertIn('sous-élément', resp.data['detail'])
         self.assertTrue(Projet.objects.filter(pk=projet.id).exists())
 
+    def test_purge_parent_dont_enfants_deja_en_corbeille(self):
+        """Un parent dont TOUS les enfants sont déjà en corbeille (soft-deleted) est
+        purgeable : les enfants supprimés seront cascadés et ne bloquent pas."""
+        propriete = self._propriete()
+        affaire = self._affaire(propriete=propriete)
+        self._soft_delete(affaire)      # l'unique affaire part en corbeille
+        self._soft_delete(propriete)    # puis la propriété
+        resp = self.client.delete(f'/api/v1/proprietes/{propriete.id}/permanent/')
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(Propriete.objects.filter(pk=propriete.id).exists())
+
     def test_scoping_hors_portee_404(self):
         # Projet d'un autre agent/organisation : agent1 ne peut pas le purger.
         p = self._soft_delete(self._projet(org=self.org2, code='P-OTHER', created_by=self.agent2))
