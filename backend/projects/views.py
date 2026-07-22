@@ -347,6 +347,16 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
     def _project_creator_of_validated(self, serializer):
         return serializer.validated_data['affaire'].propriete.projet.created_by_id
 
+    def _child_count(self, instance):
+        """Sous-données réelles qui bloquent la purge. La session n°1 auto-créée d'un
+        SSDGPS mono-session est structurelle (invisible dans l'UI) et ne doit PAS bloquer :
+        seules ses pièces comptent. Un SSDGPS multi-session est bloqué par ses sessions
+        comme par ses pièces (cohérent avec `_annotate_counts`)."""
+        n = instance.pieces.count()
+        if instance.type_ssdgps == Ssdgps.TypeSSDGPS.MULTI:
+            n += instance.sessions.count()
+        return n
+
     def _annotate_counts(self, qs):
         return qs.annotate(
             # Mono-session : pas de sessions (la session implicite ne compte pas) → 0.
