@@ -110,6 +110,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   isBulkRestore = false;
   restoring = false;
 
+  // Modale suppression définitive (corbeille)
+  showPermanentDeleteModal = false;
+  permanentDeleteTarget: Projet | null = null;
+  isBulkPermanent = false;
+  permanentDeleting = false;
+
   // Colonnes — modale d'organisation
   showColumnConfig = false;
   private columnsBackup: ColumnConfig[] = [];
@@ -676,6 +682,41 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       this.service.restoreProjet(this.restoreTarget.id).subscribe({
         next: () => { this.restoring = false; this.toast.success('Succès', `Projet "${this.restoreTarget!.nom_projet}" restauré`); this.closeRestoreModal(); this.load(); },
         error: () => { this.restoring = false; this.toast.error('Erreur', 'Restauration impossible'); },
+      });
+    }
+  }
+
+  // ============================================
+  // Suppression définitive (irréversible)
+  // ============================================
+
+  openPermanentDeleteModal(projet: Projet): void { this.permanentDeleteTarget = projet; this.isBulkPermanent = false; this.showPermanentDeleteModal = true; }
+  openBulkPermanentDeleteModal(): void { if (this.selectedIds.size === 0) return; this.permanentDeleteTarget = null; this.isBulkPermanent = true; this.showPermanentDeleteModal = true; }
+  closePermanentDeleteModal(): void { if (this.permanentDeleting) return; this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; }
+
+  confirmPermanentDelete(): void {
+    if (this.permanentDeleting) return;
+    const close = () => { this.permanentDeleting = false; this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; };
+    if (this.isBulkPermanent) {
+      if (this.selectedIds.size === 0) return;
+      this.permanentDeleting = true;
+      const total = this.selectedIds.size;
+      const ids = Array.from(this.selectedIds);
+      this.service.bulkPermanentDeleteProjets(ids).subscribe({
+        next: (res) => {
+          close(); this.selectedIds.clear(); this.load();
+          const d = res.deleted_count || 0, f = (res.errors || []).length;
+          if (d > 0 && f === 0) this.toast.success('Suppression définitive', `${d} projet(s) supprimé(s) définitivement`);
+          else if (d > 0 && f > 0) this.toast.warning('Suppression partielle', `${d} supprimé(s) ; ${f} conservé(s) (sous-données rattachées).`);
+          else this.toast.error('Aucune suppression', `${total} projet(s) non supprimé(s) : des sous-données y sont rattachées.`);
+        },
+        error: () => { this.permanentDeleting = false; this.toast.error('Erreur', 'Suppression définitive impossible'); },
+      });
+    } else if (this.permanentDeleteTarget) {
+      this.permanentDeleting = true;
+      this.service.permanentDeleteProjet(this.permanentDeleteTarget.id).subscribe({
+        next: () => { close(); this.load(); this.toast.success('Suppression définitive', 'Projet supprimé définitivement'); },
+        error: (e) => { this.permanentDeleting = false; this.toast.error('Suppression impossible', e?.error?.detail || 'Suppression définitive impossible'); },
       });
     }
   }

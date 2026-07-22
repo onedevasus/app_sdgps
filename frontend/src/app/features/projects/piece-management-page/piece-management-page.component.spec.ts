@@ -1,3 +1,4 @@
+import { of } from 'rxjs';
 import { PieceManagementPageComponent } from './piece-management-page.component';
 import { Piece } from '../../../core/models/piece.model';
 
@@ -242,5 +243,37 @@ describe('PieceManagementPageComponent (logique)', () => {
       expect(esc('a"b')).toBe('"a""b"');
       expect(esc(null)).toBe('');
     });
+  });
+});
+
+describe('PieceManagementPageComponent (suppression définitive)', () => {
+  let cmp: PieceManagementPageComponent;
+  let piecesService: jasmine.SpyObj<any>;
+  let toast: jasmine.SpyObj<any>;
+
+  beforeEach(() => {
+    piecesService = jasmine.createSpyObj('PiecesService', ['permanentDelete', 'bulkPermanentDelete']);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    cmp = new PieceManagementPageComponent(
+      {} as any, piecesService, toast, { navigate: () => {} } as any, {} as any, {} as any,
+    );
+    spyOn(cmp, 'loadPieces');
+  });
+
+  it('confirmPermanentDelete (unitaire) appelle le service', () => {
+    piecesService.permanentDelete.and.returnValue(of(null));
+    cmp.openPermanentDeleteModal({ id: '2', type_piece_display: 'X' } as any);
+    cmp.confirmPermanentDelete();
+    expect(piecesService.permanentDelete).toHaveBeenCalledWith('2');
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('confirmPermanentDelete (masse) appelle bulkPermanentDelete', () => {
+    piecesService.bulkPermanentDelete.and.returnValue(of({ deleted_count: 2, errors: [] }));
+    cmp.selectedIds.add('a');
+    cmp.selectedIds.add('b');
+    cmp.openBulkPermanentDeleteModal();
+    cmp.confirmPermanentDelete();
+    expect(piecesService.bulkPermanentDelete).toHaveBeenCalled();
   });
 });

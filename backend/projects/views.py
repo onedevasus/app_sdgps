@@ -68,6 +68,7 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
     # À définir dans les sous-classes :
     org_lookup = None          # ex. 'projet__organization_id'
     parent_query_param = None  # ex. ('projet', 'projet_id')
+    child_relations = ()       # accesseurs inverses des enfants immédiats (ex. ('proprietes',))
 
     def _annotate_counts(self, qs: QuerySet) -> QuerySet:
         """
@@ -152,11 +153,54 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
         qs.update(is_deleted=False, deleted_at=None, deleted_by=None)
         return Response({'restored_count': restored_count}, status=status.HTTP_200_OK)
 
+    def _child_count(self, instance):
+        """Nombre de sous-éléments immédiats (tous rangs, y compris supprimés) : bloque la
+        purge d'un parent tant qu'il contient des enfants (purge « bottom-up »)."""
+        return sum(getattr(instance, rel).count() for rel in self.child_relations)
+
+    @action(detail=True, methods=['delete'], url_path='permanent')
+    def permanent_delete(self, request, pk=None):
+        """DELETE /…/{id}/permanent/ — suppression DÉFINITIVE (irréversible), scopée.
+
+        Autorisée uniquement sur un élément en corbeille (is_deleted=True) et SANS sous-données.
+        """
+        instance = self._org_scoped_queryset().filter(pk=pk, is_deleted=True).first()
+        if instance is None:
+            return Response({'detail': 'Élément non trouvé ou non supprimé.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        blocking = self._child_count(instance)
+        if blocking:
+            return Response(
+                {'detail': f"Suppression définitive impossible : {blocking} sous-élément(s) "
+                           f"rattaché(s). Supprimez-les d'abord."},
+                status=status.HTTP_400_BAD_REQUEST)
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='permanent-delete')
+    def bulk_permanent_delete(self, request):
+        """POST /…/permanent-delete/ — {"ids": [...]} — purge en masse (scopée, corbeille)."""
+        ids = request.data.get('ids', [])
+        if not isinstance(ids, list) or not ids:
+            return Response({'detail': 'La liste ids est requise.'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self._org_scoped_queryset().filter(pk__in=ids, is_deleted=True)
+        deleted_count = 0
+        errors = []
+        for instance in qs:
+            blocking = self._child_count(instance)
+            if blocking:
+                errors.append({'id': str(instance.pk), 'detail': f"{blocking} sous-élément(s) rattaché(s)."})
+                continue
+            instance.delete()
+            deleted_count += 1
+        return Response({'deleted_count': deleted_count, 'errors': errors}, status=status.HTTP_200_OK)
+
 
 class ProjetViewSet(BaseOrgScopedViewSet):
     queryset = Projet.objects.all()
     serializer_class = ProjetSerializer
     org_lookup = 'organization_id'
+    child_relations = ('proprietes',)
 
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['organization'].id
@@ -220,6 +264,7 @@ class ProprieteViewSet(BaseOrgScopedViewSet):
         'projet', 'organisme_niveau1', 'organisme_niveau2')
     serializer_class = ProprieteSerializer
     org_lookup = 'projet__organization_id'
+    child_relations = ('affaires',)
     parent_query_param = ('projet', 'projet_id')
 
     def _org_id_of_validated(self, serializer):
@@ -252,6 +297,7 @@ class AffaireViewSet(BaseOrgScopedViewSet):
     queryset = Affaire.objects.select_related('propriete__projet')
     serializer_class = AffaireSerializer
     org_lookup = 'propriete__projet__organization_id'
+    child_relations = ('ssdgps_set',)
     parent_query_param = ('propriete', 'propriete_id')
 
     def _org_id_of_validated(self, serializer):
@@ -279,6 +325,7 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
     queryset = Ssdgps.objects.select_related('affaire__propriete__projet')
     serializer_class = SsdgpsSerializer
     org_lookup = 'affaire__propriete__projet__organization_id'
+    child_relations = ('sessions', 'pieces')
     parent_query_param = ('affaire', 'affaire_id')
 
     def get_queryset(self):
@@ -316,6 +363,7 @@ class SessionViewSet(BaseOrgScopedViewSet):
     queryset = Session.objects.select_related('ssdgps__affaire__propriete__projet')
     serializer_class = SessionSerializer
     org_lookup = 'ssdgps__affaire__propriete__projet__organization_id'
+    child_relations = ('pieces',)
     parent_query_param = ('ssdgps', 'ssdgps_id')
 
     def _org_id_of_validated(self, serializer):

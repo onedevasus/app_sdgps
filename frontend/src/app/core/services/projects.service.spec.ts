@@ -63,6 +63,28 @@ describe('ProjectsService', () => {
     req.flush({ restored_count: 2 });
   });
 
+  it('permanentDeleteProjet() DELETE {id}/permanent/', () => {
+    service.permanentDeleteProjet('7').subscribe();
+    const req = httpMock.expectOne(`${BASE}projets/7/permanent/`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('bulkPermanentDeleteProjets() POST permanent-delete/ avec ids', () => {
+    service.bulkPermanentDeleteProjets(['a', 'b']).subscribe();
+    const req = httpMock.expectOne(`${BASE}projets/permanent-delete/`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ ids: ['a', 'b'] });
+    req.flush({ deleted_count: 2, errors: [] });
+  });
+
+  it('permanentDeleteSsdgps() cible la bonne ressource', () => {
+    service.permanentDeleteSsdgps('9').subscribe();
+    const req = httpMock.expectOne(`${BASE}ssdgps/9/permanent/`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
   it('getProprietes(projetId) filtre par projet', () => {
     service.getProprietes('P1').subscribe();
     const req = httpMock.expectOne(r => r.url === `${BASE}proprietes/`);

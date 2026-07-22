@@ -1,4 +1,5 @@
 import { FormBuilder } from '@angular/forms';
+import { of } from 'rxjs';
 import { ProjectExplorerComponent } from './project-explorer.component';
 
 describe('ProjectExplorerComponent (logique)', () => {
@@ -197,5 +198,41 @@ describe('ProjectExplorerComponent (logique)', () => {
       cmp.applyColumnFilter('visible');
       expect(cmp.getColumnFilterLabel()).toBe('Colonnes visibles');
     });
+  });
+});
+
+describe('ProjectExplorerComponent (suppression définitive par niveau)', () => {
+  let cmp: ProjectExplorerComponent;
+  let service: jasmine.SpyObj<any>;
+  let toast: jasmine.SpyObj<any>;
+
+  beforeEach(() => {
+    service = jasmine.createSpyObj('ProjectsService', [
+      'permanentDeleteSsdgps', 'bulkPermanentDeleteSsdgps',
+    ]);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
+    cmp = new ProjectExplorerComponent(
+      service, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any,
+    );
+    spyOn(cmp, 'loadLevel');
+    cmp.level = 'ssdgps';
+  });
+
+  it('confirmPermanentDelete (unitaire) dispatche vers le service du niveau courant', () => {
+    service.permanentDeleteSsdgps.and.returnValue(of(null));
+    cmp.openPermanentDeleteModal({ id: '9' } as any);
+    cmp.confirmPermanentDelete();
+    expect(service.permanentDeleteSsdgps).toHaveBeenCalledWith('9');
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('confirmPermanentDelete (masse) : partiel → toast warning', () => {
+    service.bulkPermanentDeleteSsdgps.and.returnValue(of({ deleted_count: 1, errors: [{ id: 'b' }] }));
+    cmp.selectedIds.add('a');
+    cmp.selectedIds.add('b');
+    cmp.openBulkPermanentDeleteModal();
+    cmp.confirmPermanentDelete();
+    expect(service.bulkPermanentDeleteSsdgps).toHaveBeenCalled();
+    expect(toast.warning).toHaveBeenCalled();
   });
 });

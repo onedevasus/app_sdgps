@@ -57,4 +57,19 @@ describe('PiecesService', () => {
     expect(fd.get('source_saisie')).toBe('image');
     req.flush({ id: '1' });
   });
+
+  it('permanentDelete() DELETE {id}/permanent/', () => {
+    service.permanentDelete('7').subscribe();
+    const req = httpMock.expectOne(`${BASE}7/permanent/`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('bulkPermanentDelete() POST permanent-delete/ avec ids', () => {
+    service.bulkPermanentDelete(['a', 'b']).subscribe();
+    const req = httpMock.expectOne(`${BASE}permanent-delete/`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ ids: ['a', 'b'] });
+    req.flush({ deleted_count: 2, errors: [] });
+  });
 });

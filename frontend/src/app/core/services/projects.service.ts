@@ -37,6 +37,14 @@ export class ProjectsService {
     return this.http.post<{ restored_count: number }>(`${this.base}${resource}/bulk-restore/`, { ids });
   }
 
+  private permanentDelete(resource: string, id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}${resource}/${id}/permanent/`);
+  }
+
+  private bulkPermanentDelete(resource: string, ids: string[]): Observable<{ deleted_count: number; errors: any[] }> {
+    return this.http.post<{ deleted_count: number; errors: any[] }>(`${this.base}${resource}/permanent-delete/`, { ids });
+  }
+
   // --- Projets ---
   getProjets(params?: Record<string, any>): Observable<Projet[]> { return this.list('projets', params); }
   getProjet(id: string): Observable<Projet> { return this.http.get<Projet>(`${this.base}projets/${id}/`); }
@@ -80,4 +88,16 @@ export class ProjectsService {
   deleteSession(id: string): Observable<void> { return this.http.delete<void>(`${this.base}sessions/${id}/`); }
   restoreSession(id: string): Observable<Session> { return this.restore('sessions', id); }
   bulkRestoreSessions(ids: string[]): Observable<{ restored_count: number }> { return this.bulkRestore('sessions', ids); }
+
+  // --- Suppression définitive (corbeille) ---
+  permanentDeleteProjet(id: string): Observable<void> { return this.permanentDelete('projets', id); }
+  bulkPermanentDeleteProjets(ids: string[]) { return this.bulkPermanentDelete('projets', ids); }
+  permanentDeletePropriete(id: string): Observable<void> { return this.permanentDelete('proprietes', id); }
+  bulkPermanentDeleteProprietes(ids: string[]) { return this.bulkPermanentDelete('proprietes', ids); }
+  permanentDeleteAffaire(id: string): Observable<void> { return this.permanentDelete('affaires', id); }
+  bulkPermanentDeleteAffaires(ids: string[]) { return this.bulkPermanentDelete('affaires', ids); }
+  permanentDeleteSsdgps(id: string): Observable<void> { return this.permanentDelete('ssdgps', id); }
+  bulkPermanentDeleteSsdgps(ids: string[]) { return this.bulkPermanentDelete('ssdgps', ids); }
+  permanentDeleteSession(id: string): Observable<void> { return this.permanentDelete('sessions', id); }
+  bulkPermanentDeleteSessions(ids: string[]) { return this.bulkPermanentDelete('sessions', ids); }
 }

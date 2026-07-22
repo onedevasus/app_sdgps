@@ -325,6 +325,14 @@ export class PiecesService {
     return this.http.post<{ restored_count: number }>(`${this.base}bulk-restore/`, { ids });
   }
 
+  permanentDelete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}${id}/permanent/`);
+  }
+
+  bulkPermanentDelete(ids: string[]): Observable<{ deleted_count: number; errors: any[] }> {
+    return this.http.post<{ deleted_count: number; errors: any[] }>(`${this.base}permanent-delete/`, { ids });
+  }
+
   reorder(ssdgpsId: string, orderedIds: string[]): Observable<Piece[]> {
     return this.http.post<Piece[]>(`${this.base}reorder/`, { ssdgps: ssdgpsId, ordered_ids: orderedIds });
   }

@@ -46,6 +46,9 @@
         <button class="btn btn-success" *ngIf="showDeleted" (click)="openBulkRestoreModal()" [disabled]="selectedIds.size === 0" title="Restaurer la sélection">
           <i class="fas fa-undo"></i>
         </button>
+        <button class="btn btn-danger" *ngIf="showDeleted" (click)="openBulkPermanentDeleteModal()" [disabled]="selectedIds.size === 0" title="Supprimer définitivement la sélection">
+          <i class="fas fa-trash-alt"></i>
+        </button>
       </div>
 
       <div class="toolbar-right">
@@ -131,6 +134,7 @@
           <button class="icon-btn" title="Modifier" *ngIf="!p.is_deleted" (click)="openEdit(p, $event)"><i class="fas fa-pen"></i></button>
           <button class="icon-btn danger" title="Supprimer" *ngIf="!p.is_deleted" (click)="openDeleteModal(p, $event)"><i class="fas fa-trash-alt"></i></button>
           <button class="icon-btn restore" title="Restaurer" *ngIf="p.is_deleted" (click)="openRestoreModal(p); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+          <button class="icon-btn danger" title="Supprimer définitivement" *ngIf="p.is_deleted" (click)="openPermanentDeleteModal(p); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
         </div>
         <i class="fas fa-chevron-right chev"></i>
       </div>
@@ -198,6 +202,9 @@
                 </button>
                 <button class="btn-icon btn-icon-restore" *ngIf="p.is_deleted" (click)="openRestoreModal(p)" title="Restaurer">
                   <i class="fas fa-undo"></i>
+                </button>
+                <button class="btn-icon btn-icon-danger" *ngIf="p.is_deleted" (click)="openPermanentDeleteModal(p)" title="Supprimer définitivement">
+                  <i class="fas fa-trash-alt"></i>
                 </button>
               </td>
             </tr>
@@ -619,6 +626,52 @@
       <button type="button" class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
         <i class="fas" [class.fa-spinner]="restoring" [class.fa-spin]="restoring" [class.fa-undo]="!restoring"></i>
         {{ restoring ? 'Restauration...' : 'Oui, Restaurer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Suppression DÉFINITIVE d'un projet  -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showPermanentDeleteModal" (click)="closePermanentDeleteModal()">
+  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-danger">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-exclamation-triangle"></i> Suppression définitive</h3>
+      </div>
+      <button class="close-btn" (click)="closePermanentDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="delete-warning">
+        <div class="warning-icon"><i class="fas fa-trash-alt"></i></div>
+        <div class="warning-content">
+          <h4 *ngIf="!isBulkPermanent && permanentDeleteTarget">Supprimer définitivement le projet « {{ permanentDeleteTarget.nom_projet }} » ?</h4>
+          <h4 *ngIf="isBulkPermanent">Supprimer définitivement {{ selectedIds.size }} projet(s) ?</h4>
+          <div class="user-list-preview" *ngIf="isBulkPermanent && getSelectedProjetsList().length > 0">
+            <p class="user-list-title">Projets concernés :</p>
+            <ul class="user-list">
+              <li *ngFor="let p of getSelectedProjetsList() | slice:0:5">
+                <i class="fas fa-project-diagram"></i> {{ p.nom_projet }} ({{ p.code_projet }})
+              </li>
+              <li *ngIf="getSelectedProjetsList().length > 5" class="more-items">
+                <i class="fas fa-ellipsis-h"></i> et {{ getSelectedProjetsList().length - 5 }} autre(s)
+              </li>
+            </ul>
+          </div>
+          <p class="warning-text">
+            Action <strong>irréversible</strong> : le(s) projet(s) seront <strong>définitivement effacés</strong> et ne pourront pas être restaurés. Un projet contenant des sous-données (propriétés, affaires…) ne peut être purgé qu'après les avoir supprimées.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closePermanentDeleteModal()" [disabled]="permanentDeleting">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+      <button type="button" class="btn btn-danger btn-delete-confirm" (click)="confirmPermanentDelete()" [disabled]="permanentDeleting">
+        <i class="fas" [class.fa-spinner]="permanentDeleting" [class.fa-spin]="permanentDeleting" [class.fa-trash-alt]="!permanentDeleting"></i>
+        {{ permanentDeleting ? 'Suppression...' : 'Supprimer définitivement' }}
       </button>
     </div>
   </div>

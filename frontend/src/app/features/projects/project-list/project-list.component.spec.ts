@@ -1,4 +1,5 @@
 import { FormBuilder } from '@angular/forms';
+import { of } from 'rxjs';
 import { ProjectListComponent } from './project-list.component';
 
 /**
@@ -58,5 +59,42 @@ describe('ProjectListComponent (getters & pagination)', () => {
     expect(cmp.currentPage).toBe(1);
     cmp.goToPage(0);
     expect(cmp.currentPage).toBe(1);
+  });
+});
+
+describe('ProjectListComponent (suppression définitive)', () => {
+  let cmp: ProjectListComponent;
+  let service: jasmine.SpyObj<any>;
+  let toast: jasmine.SpyObj<any>;
+
+  beforeEach(() => {
+    service = jasmine.createSpyObj('ProjectsService', ['permanentDeleteProjet', 'bulkPermanentDeleteProjets']);
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
+    cmp = new ProjectListComponent(
+      service, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any,
+    );
+    spyOn(cmp, 'load');
+  });
+
+  it('openBulkPermanentDeleteModal refuse sans sélection', () => {
+    cmp.selectedIds.clear();
+    cmp.openBulkPermanentDeleteModal();
+    expect(cmp.showPermanentDeleteModal).toBeFalse();
+  });
+
+  it('confirmPermanentDelete (unitaire) appelle le service', () => {
+    service.permanentDeleteProjet.and.returnValue(of(null));
+    cmp.openPermanentDeleteModal({ id: '2', nom_projet: 'X' } as any);
+    cmp.confirmPermanentDelete();
+    expect(service.permanentDeleteProjet).toHaveBeenCalledWith('2');
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('confirmPermanentDelete (masse) : aucune suppression → toast error', () => {
+    service.bulkPermanentDeleteProjets.and.returnValue(of({ deleted_count: 0, errors: [{ id: 'a' }] }));
+    cmp.selectedIds.add('a');
+    cmp.openBulkPermanentDeleteModal();
+    cmp.confirmPermanentDelete();
+    expect(toast.error).toHaveBeenCalled();
   });
 });
