@@ -185,23 +185,35 @@ class PasswordSyncTests(TestCase):
 
 
 class ProductionGuardTests(TestCase):
-    """Garde-fou : les données de démo/test sont interdites en production."""
+    """Garde-fou : les données de démo/test sont interdites en environnement « type production »
+    (preprod, production) mais autorisées en development et staging."""
 
-    @override_settings(ENVIRONMENT='development')
-    def test_autorise_en_developpement(self):
+    @override_settings(IS_PRODUCTION_LIKE=False)
+    def test_autorise_hors_production_like(self):
         self.assertIsNone(forbid_in_production())
 
-    @override_settings(ENVIRONMENT='production')
-    def test_bloque_en_production(self):
+    @override_settings(IS_PRODUCTION_LIKE=True)
+    def test_bloque_en_production_like(self):
         with self.assertRaises(CommandError):
             forbid_in_production()
 
-    @override_settings(ENVIRONMENT='production')
-    def test_commande_seed_demo_orgs_bloquee_en_production(self):
+    @override_settings(IS_PRODUCTION_LIKE=True)
+    def test_commande_seed_demo_orgs_bloquee(self):
         with self.assertRaises(CommandError):
             call_command('seed_demo_orgs')
 
-    @override_settings(ENVIRONMENT='production')
-    def test_commande_seed_test_users_bloquee_en_production(self):
+    @override_settings(IS_PRODUCTION_LIKE=True)
+    def test_commande_seed_test_users_bloquee(self):
         with self.assertRaises(CommandError):
             call_command('seed_test_users')
+
+
+class EnvironmentStrategyTests(TestCase):
+    """Stratégie des environnements progressifs (development → staging → preprod → production)."""
+
+    def test_classification_des_environnements(self):
+        from django.conf import settings
+        # Bases PostgreSQL dédiées côté serveur ; SQLite en dev local.
+        self.assertEqual(settings.SERVER_ENVIRONMENTS, ('staging', 'preprod', 'production'))
+        # Données de démo/test masquées et interdites en preprod + production.
+        self.assertEqual(settings.PRODUCTION_LIKE_ENVIRONMENTS, ('preprod', 'production'))

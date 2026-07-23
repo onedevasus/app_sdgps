@@ -65,21 +65,23 @@ def load_business_data():
 
 
 def forbid_in_production():
-    """Interdit l'exécution d'une commande de données de démo/test en production.
+    """Interdit les commandes de données de démo/test dans les environnements « type production ».
 
     Les données d'initialisation (super-admin, admins app, organisations & organismes
     prédéfinis) sont seedées PARTOUT via run_seed(). En revanche les données de démo/test
-    (`is_test_data=True`) ne doivent JAMAIS être injectées en production : ce garde-fou est
-    appelé en tête des commandes correspondantes (seed_demo_orgs, generate_test_data,
-    seed_test_users).
+    (`is_test_data=True`) ne doivent JAMAIS être injectées en preprod ni en production (le
+    client en validation et le public en live ne voient que des données réelles) : ce garde-fou
+    est appelé en tête des commandes correspondantes (seed_demo_orgs, generate_test_data,
+    seed_test_users). Elles restent autorisées en development et staging.
     """
     from django.conf import settings
     from django.core.management.base import CommandError
 
-    if getattr(settings, 'ENVIRONMENT', 'development') == 'production':
+    if getattr(settings, 'IS_PRODUCTION_LIKE', False):
+        env = getattr(settings, 'ENVIRONMENT', 'development')
         raise CommandError(
-            "Commande de données de démo/test interdite en production "
-            "(ENVIRONMENT=production). Seules les données d'initialisation y sont autorisées."
+            f"Commande de données de démo/test interdite en « {env} » (environnement type "
+            "production). Seules les données d'initialisation y sont autorisées."
         )
 
 
