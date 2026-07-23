@@ -17,6 +17,8 @@ Forme : { '<TYPE_PIECE>': [ {'field': .., 'dir': 'asc'|'desc'}, .. ]
 """
 import copy
 
+from django.db import transaction
+
 DEFAULT_PIECE_SORT_CONFIG = {
     "LPA": [
         {
@@ -236,10 +238,14 @@ def superadmin_piece_sort_config():
     en cours de migration)."""
     from django.contrib.auth import get_user_model
     try:
-        User = get_user_model()
-        admin = (User.objects.filter(is_superuser=True)
-                 .order_by('date_joined', 'email').first())
-        cfg = getattr(admin, 'piece_sort_config', None) if admin else None
+        # Savepoint : si la requête échoue (colonne pas encore créée pendant une migration),
+        # PostgreSQL laisse la transaction dans un état « aborted ». Le `atomic()` restaure au
+        # savepoint pour ne pas casser la transaction de migration englobante (cf. RDL Postgres).
+        with transaction.atomic():
+            User = get_user_model()
+            admin = (User.objects.filter(is_superuser=True)
+                     .order_by('date_joined', 'email').first())
+            cfg = getattr(admin, 'piece_sort_config', None) if admin else None
         return cfg or None
     except Exception:
         return None
@@ -261,11 +267,13 @@ def superadmin_piece_fields_config():
     admin le plus ancien (par date d'inscription puis email). Calqué sur
     `superadmin_piece_sort_config`."""
     from django.contrib.auth import get_user_model
-    User = get_user_model()
     try:
-        admin = (User.objects.filter(is_superuser=True)
-                 .order_by('date_joined', 'email').first())
-        cfg = getattr(admin, 'piece_fields_config', None) if admin else None
+        # Savepoint : cf. superadmin_piece_sort_config (résilience migration PostgreSQL).
+        with transaction.atomic():
+            User = get_user_model()
+            admin = (User.objects.filter(is_superuser=True)
+                     .order_by('date_joined', 'email').first())
+            cfg = getattr(admin, 'piece_fields_config', None) if admin else None
         return cfg or None
     except Exception:
         return None
@@ -294,13 +302,17 @@ def superadmin_ssdgps_sort_config():
     `None` si indisponible (aucun super admin, ou config vide). Super admin le plus ancien.
 
     Défensif : renvoie `None` si la requête échoue — notamment pendant la migration qui CRÉE
-    la colonne (la valeur par défaut est alors évaluée avant que la colonne existe)."""
+    la colonne (la valeur par défaut est alors évaluée avant que la colonne existe). Le
+    savepoint `atomic()` est INDISPENSABLE sur PostgreSQL : sans lui, le SELECT sur la colonne
+    absente met la transaction de migration en état « aborted » et l'`ADD COLUMN` échoue ensuite
+    en `InFailedSqlTransaction`."""
     from django.contrib.auth import get_user_model
     try:
-        User = get_user_model()
-        admin = (User.objects.filter(is_superuser=True)
-                 .order_by('date_joined', 'email').first())
-        cfg = getattr(admin, 'ssdgps_sort_config', None) if admin else None
+        with transaction.atomic():
+            User = get_user_model()
+            admin = (User.objects.filter(is_superuser=True)
+                     .order_by('date_joined', 'email').first())
+            cfg = getattr(admin, 'ssdgps_sort_config', None) if admin else None
         return cfg or None
     except Exception:
         return None
