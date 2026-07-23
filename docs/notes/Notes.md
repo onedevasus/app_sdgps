@@ -6,6 +6,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -74,13 +76,29 @@
   - Fonctionnalite espace stockage utilisee par les donnees de l'app dans l'espace admin.
 
 
+  - Plan des tests frontend + backend
+      - ecrire tous les tests de toutes les fonctionnalites de l'app : frontend + backend
+      - maj le fichier de configs des workflow GitHub Actions
+      - Ajoute instruction global pour les ai assistants de coding pour qu'ils redigent les tests pour chaque nouvelle fonctionnalite ajoutee dans le codebase.
+
+  - Plan Migration de la bdd vers postgresql
+    - migrer la bdd existante vers Postgresql
+    - migrer egalement les donnees existantes actuellement dans la bdd sqlite vers la bdd Postgresql
+    - Faire en sorte que a chaque reinitialisation de la bdd les donnees suivantes sont ajoutees automatiquement :\
+      - donnees des utilisateurs : 1 superadmin + 2 admins de l'app.
+      - liste predefinies des organisations
+      - liste predefinies des organismes premier niveau + deuxieme niveau.
+
+
   - Plan de deployement : developement + tests + production
     - Generer plan de deployement dans "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps\docs\plans\plans_claude_code"
-      - inclure une phase pour ecrire tous les tests de toutes les fonctionnalites de l'app.
+      - inclure la migration de la bdd depuis sqlite3 vers postgresql.
+      - 
       - inclure phase de resolution les problemes de securite
       - inclure l'automatisation du process d'integration et deployement des maj via les outiles DevOps.
+      - ajoute l'etape de monitoring de l'app avec outiles : Sentry + Prometheus + Grafana + UptimeRobot
       
-    - executer plan de deployement
+    - executer plan de deploiement
 
  
 
@@ -89,7 +107,9 @@
 Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
 
 - Fonctionnalites futures:
+  - Ajouter une page de changelog + versionning de l'app 
   - Fonctionnalite gestion stockage des fichiers de l'app avec un fournisseur du service stockage.
+  - 
 
 
 # Rôles de l'application
@@ -131,18 +151,14 @@ Super Admin > Admin Système > Admin Organisation > Agent Organisation
 | Nom complet | Email | Mot de passe | Rôle | Organisation |
 |------------|-------|-------------|------|-------------|
 | Abderrazzak Boulmane | boulmaneabderrazzak@gmail.com | Abderrazzak@1234 | Super Admin | — |
-| Jamila Boulmane | boulmanejamila@gmail.com | SuperAdmin@2026 | Super Admin | — |
-| PtestSA1 NtestSA1 | testsuperadmin1@gmail.com | SuperAdmin@2026 | Super Admin | — |
-| PtestSA2 NtestSA2 | testsuperadmin2@gmail.com | SuperAdmin@2026 | Super Admin | — |
 | Amine Benali | appadmin1@sdgps.ma | AppAdmin@2026 | App Admin | — |
 | Sara El Amrani | appadmin2@sdgps.ma | AppAdmin@2026 | App Admin | — |
-| Karim Tazi | orgadmin1@sdgps.ma | OrgAdmin@2026 | Admin Org | Cabinet Tech & Innovation |
-| Nadia Fassi | orgadmin2@sdgps.ma | OrgAdmin@2026 | Admin Org | Fiduciaire Atlas Conseil |
-| Hicham Bennani | orgadmin3@sdgps.ma | OrgAdmin@2026 | Admin Org | Bureau d'Études Génie Civil |
-| Youssef Idrissi | agent1@sdgps.ma | Agent@2026 | Agent Org | Cabinet Tech & Innovation |
-| Fatima Zahra | agent2@sdgps.ma | Agent@2026 | Agent Org | Fiduciaire Atlas Conseil |
-| Omar Saidi | agent3@sdgps.ma | Agent@2026 | Agent Org | Bureau d'Études Génie Civil |
-| Abderrazzak Boulmane | abderrazzak.cadazilal@gmail.com | Test@1234 | Agent Org | — (sans org) |
+| Karim Tazi | orgadmin1@sdgps.ma | OrgAdmin@2026 | Admin Org | Cadastre Azilal |
+| Nadia Fassi | orgadmin2@sdgps.ma | OrgAdmin@2026 | Admin Org | Cadastre Haouz |
+| Hicham Bennani | orgadmin3@sdgps.ma | OrgAdmin@2026 | Admin Org | ITKANTOPO |
+| Youssef Idrissi | agent1@sdgps.ma | Agent@2026 | Agent Org | Cadastre Azilal |
+| Fatima Zahra | agent2@sdgps.ma | Agent@2026 | Agent Org | Cadastre Haouz |
+| Omar Saidi | agent3@sdgps.ma | Agent@2026 | Agent Org | ITKANTOPO |
 
 ## Réinitialisation des données en cas de reset BDD
 
