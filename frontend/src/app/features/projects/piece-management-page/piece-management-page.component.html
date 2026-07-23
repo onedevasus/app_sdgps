@@ -1,0 +1,546 @@
+<div class="pieces-page" *ngIf="ssdgps">
+  <nav class="breadcrumb">
+    <!-- Bouton retour adaptatif : Sessions (multi) ou SSDGPS (mono) -->
+    <button class="crumb back" (click)="goBack()">
+      <i class="fas fa-arrow-left"></i>
+      {{ ssdgps.type_ssdgps === 'multi-session' ? 'Sessions' : 'SSDGPS' }}
+    </button>
+
+    <i class="fas fa-chevron-right sep"></i>
+
+    <!-- Segment SSDGPS : clickable si multi-session (remonte au niveau SSDGPS), actif si mono -->
+    <button class="crumb"
+            [class.active]="ssdgps.type_ssdgps !== 'multi-session'"
+            (click)="ssdgps.type_ssdgps === 'multi-session' ? goBackToSsdgps() : null">
+      <i class="fas fa-satellite-dish"></i>
+      SSDGPS N{{ ssdgps.numero_ssdgps }} — {{ ssdgps.nature_ssdgps }} — {{ ssdgps.type_ssdgps === 'multi-session' ? 'Multi' : 'Mono' }}
+    </button>
+
+    <!-- Segment Session : uniquement multi-session avec une session courante -->
+    <ng-container *ngIf="ssdgps.type_ssdgps === 'multi-session' && currentSession">
+      <i class="fas fa-chevron-right sep"></i>
+      <button class="crumb active">
+        <i class="fas fa-clock"></i>
+        Session n°{{ currentSession.numero_session }}
+        <span *ngIf="currentSession.date_session" class="crumb-date">
+          — {{ formatDate(currentSession.date_session) }}
+        </span>
+      </button>
+    </ng-container>
+
+    <i class="fas fa-chevron-right sep"></i>
+
+    <!-- Page courante -->
+    <button class="crumb active">
+      <i class="fas fa-paperclip"></i> Pièces
+    </button>
+  </nav>
+
+  <header class="level-header">
+    <div class="level-title">
+      <span class="level-icon"><i class="fas fa-paperclip"></i></span>
+      <div>
+        <h2>Pièces du rapport</h2>
+        <p class="subtitle" *ngIf="!loading">
+          <strong>Total : </strong>{{ items.length }} | <strong>Filtrés : </strong>{{ filteredItems.length }} | <strong>Sélectionnés : </strong>{{ selectedCount }}
+        </p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="view-toggle">
+        <button class="view-toggle-btn" [class.active]="viewMode==='cards'" (click)="toggleViewMode('cards')" title="Vue cartes">
+          <i class="fas fa-th-large"></i>
+        </button>
+        <button class="view-toggle-btn" [class.active]="viewMode==='table'" (click)="toggleViewMode('table')" title="Vue tableau">
+          <i class="fas fa-table"></i>
+        </button>
+      </div>
+      <button class="btn btn-report" *ngIf="!showDeleted"
+              [disabled]="validCount === 0"
+              [title]="validCount === 0 ? 'Aucune pièce valide à inclure dans le rapport' : 'Générer le rapport PDF des pièces valides'"
+              (click)="openReportModal()">
+        <i class="fas fa-file-pdf"></i> Rapport PDF
+        <span *ngIf="validCount > 0" class="btn-count">{{ validCount }}</span>
+      </button>
+      <button class="btn btn-success" *ngIf="!showDeleted" (click)="openAddWizard()"><i class="fas fa-plus-circle"></i> Ajouter</button>
+    </div>
+  </header>
+
+  <div class="level-tabs">
+    <button class="level-tab" [class.active]="!showDeleted" (click)="setTab(false)">
+      <i class="fas fa-layer-group"></i> Actifs <span class="tab-count">{{ activeCount }}</span>
+    </button>
+    <button class="level-tab deleted" [class.active]="showDeleted" (click)="setTab(true)">
+      <i class="fas fa-trash-restore"></i> Corbeille <span class="tab-count">{{ deletedCount }}</span>
+    </button>
+  </div>
+
+  <div class="level-toolbar" *ngIf="!loading">
+    <div class="toolbar-group">
+      <button class="icon-tool" (click)="toggleSelectAll()" title="Tout sélectionner / désélectionner">
+        <i class="fas" [class.fa-check-double]="!isAllSelected" [class.fa-times]="isAllSelected"></i>
+      </button>
+      <button class="icon-tool" (click)="invertSelection()" title="Inverser la sélection"><i class="fas fa-exchange-alt"></i></button>
+      <button class="icon-tool" (click)="pinSelectionToTop()" [disabled]="selectedCount===0" title="Épingler la sélection en tête (affichage uniquement)">
+        <i class="fas fa-arrow-up"></i>
+      </button>
+
+      <div class="toolbar-sep"></div>
+
+      <button class="icon-tool" [class.active]="showColumnConfig" (click)="toggleColumnConfig()" title="Organiser les colonnes"><i class="fas fa-columns"></i></button>
+      <div class="dropdown-container" [class.open]="showExportMenu">
+        <button class="icon-tool" (click)="$event.stopPropagation(); toggleExportMenu()" title="Exporter"><i class="fas fa-file-export"></i></button>
+        <div class="dropdown-menu" [hidden]="!showExportMenu">
+          <div class="dropdown-item" (click)="$event.stopPropagation(); exportCSV(false); toggleExportMenu()"><i class="fas fa-file-csv"></i><span>Toutes les pièces filtrées</span></div>
+          <div class="dropdown-item" [class.disabled]="selectedCount===0" (click)="$event.stopPropagation(); exportCSV(true); toggleExportMenu()"><i class="fas fa-check-square"></i><span>Pièces sélectionnées</span></div>
+        </div>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <button class="btn btn-status sm" *ngIf="!showDeleted" [disabled]="selectedCount===0" (click)="openBulkStatusModal()" title="Modifier le statut des pièces sélectionnées"><i class="fas fa-tag"></i> Statut <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
+      <button class="btn btn-danger sm" *ngIf="!showDeleted" [disabled]="selectedCount===0" (click)="openBulkDeleteModal()"><i class="fas fa-trash"></i> <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
+      <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount===0" (click)="openBulkRestoreModal()"><i class="fas fa-undo"></i> Restaurer <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
+      <button class="btn btn-danger sm" *ngIf="showDeleted" [disabled]="selectedCount===0" (click)="openBulkPermanentDeleteModal()" title="Supprimer définitivement la sélection"><i class="fas fa-trash-alt"></i> <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
+    </div>
+
+    <div class="reorder-indicator" *ngIf="!showDeleted">
+      <ng-container *ngIf="reorderModeActive; else notReordering">
+        <i class="fas fa-sort"></i> Mode réordonnancement actif — glissez-déposez ou utilisez les flèches par ligne.
+      </ng-container>
+      <ng-template #notReordering>
+        <button class="link-btn" (click)="enableReorderMode()"><i class="fas fa-sort"></i> Réordonner le rapport</button>
+      </ng-template>
+    </div>
+
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" placeholder="Filtrer les pièces…" [(ngModel)]="searchText">
+      <button *ngIf="searchText" class="clear-btn" (click)="searchText=''"><i class="fas fa-times"></i></button>
+    </div>
+  </div>
+
+  <div class="loading-state" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i><span>Chargement…</span></div>
+
+  <!-- ============ Vue Cartes ============ -->
+  <div class="items" *ngIf="!loading && viewMode==='cards'">
+    <div *ngFor="let p of filteredItems; let i = index"
+         class="item-card"
+         [class.selected]="isSelected(p)"
+         [class.deleted]="p.is_deleted"
+         [class.dragging]="draggedPieceIndex===i"
+         [class.drag-over]="dragOverPieceIndex===i"
+         [attr.draggable]="reorderModeActive"
+         (dragstart)="onPieceDragStart(i)" (dragover)="onPieceDragOver($event, i)" (dragleave)="onPieceDragLeave()" (drop)="onPieceDrop(i)" (dragend)="onPieceDragEnd()"
+         (contextmenu)="onRowRightClick($event, p)">
+      <span class="drag-handle" *ngIf="reorderModeActive"><i class="fas fa-grip-vertical"></i></span>
+      <label class="item-check" (click)="$event.stopPropagation()">
+        <input type="checkbox" [checked]="isSelected(p)" (change)="toggleSelect(p, $event)">
+      </label>
+      <span class="item-icon"><i class="fas fa-file-alt"></i></span>
+      <div class="item-main">
+        <span class="item-label">
+          <span class="ordre-badge">#{{ p.ordre + 1 }}</span>
+          {{ p.type_piece_display }}
+          <span class="numero-badge" *ngIf="p.numero">n°{{ p.numero }}</span>
+          <span class="deleted-badge" *ngIf="p.is_deleted"><i class="fas fa-trash"></i> Supprimé</span>
+        </span>
+        <span class="item-meta">
+          <span class="tag">{{ sourceLabel(p.source_saisie) }}</span>
+          <span class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ statutLabel(p.statut) }}</span>
+          <span class="portee-tag" *ngIf="isMultiSession">{{ portee_label(p) }}</span>
+        </span>
+      </div>
+      <select class="scope-select" *ngIf="showScopeSelector(p)" [ngModel]="p.session || ''" (ngModelChange)="changeScope(p, $event)" (click)="$event.stopPropagation()">
+        <option value="">Commune à toutes les sessions</option>
+        <option *ngFor="let s of sessions" [value]="s.id">Session n°{{ s.numero_session }}</option>
+      </select>
+      <div class="reorder-buttons" *ngIf="reorderModeActive" (click)="$event.stopPropagation()">
+        <button class="icon-btn" [disabled]="isFirst(p)" title="Premier" (click)="moveFirst(p)"><i class="fas fa-angle-double-up"></i></button>
+        <button class="icon-btn" [disabled]="isFirst(p)" title="Précédent" (click)="movePrevious(p)"><i class="fas fa-angle-up"></i></button>
+        <button class="icon-btn" [disabled]="isLast(p)" title="Suivant" (click)="moveNext(p)"><i class="fas fa-angle-down"></i></button>
+        <button class="icon-btn" [disabled]="isLast(p)" title="Dernier" (click)="moveLast(p)"><i class="fas fa-angle-double-down"></i></button>
+      </div>
+      <div class="item-actions" (click)="$event.stopPropagation()">
+        <button class="icon-btn" *ngIf="!p.is_deleted" title="Voir" (click)="openDetail(p, $event, 'view')"><i class="fas fa-eye"></i></button>
+        <button class="icon-btn" *ngIf="!p.is_deleted" title="Modifier" (click)="openDetail(p, $event, 'edit')"><i class="fas fa-edit"></i></button>
+        <a class="icon-btn" *ngIf="p.fichier_url" [href]="p.fichier_url" target="_blank" title="Voir le fichier"><i class="fas fa-external-link-alt"></i></a>
+        <button class="icon-btn danger" *ngIf="!p.is_deleted" title="Supprimer" (click)="openDeleteModal(p, $event)"><i class="fas fa-trash-alt"></i></button>
+        <button class="icon-btn restore" *ngIf="p.is_deleted" title="Restaurer" (click)="openRestoreModal(p); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+        <button class="icon-btn danger" *ngIf="p.is_deleted" title="Supprimer définitivement" (click)="openPermanentDeleteModal(p); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="items.length === 0 && !showDeleted">
+      <i class="fas fa-paperclip"></i>
+      <p>Aucune pièce</p>
+      <button class="btn btn-success" (click)="openAddWizard()"><i class="fas fa-plus-circle"></i> Ajouter une pièce</button>
+    </div>
+    <div class="empty-state" *ngIf="items.length === 0 && showDeleted">
+      <i class="fas fa-trash-restore"></i>
+      <p>Corbeille vide</p>
+    </div>
+    <div class="empty-state" *ngIf="items.length > 0 && filteredItems.length === 0">
+      <i class="fas fa-search"></i>
+      <p>Aucun résultat</p>
+    </div>
+  </div>
+
+  <!-- ============ Vue Tableau ============ -->
+  <div class="table-wrapper" *ngIf="!loading && viewMode==='table'">
+    <div class="table-container">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th class="checkbox-col"><input type="checkbox" [checked]="isAllSelected" (change)="toggleSelectAll()"></th>
+            <th class="reorder-col" *ngIf="reorderModeActive"></th>
+            <th *ngFor="let col of getVisibleColumns()" [class.sortable]="true" (click)="sortBy(col.field)" (contextmenu)="onColumnHeaderRightClick($event, col)" [title]="getFieldDescription(col.field)">
+              <span>{{ col.label }}</span>
+              <i [class]="getSortIcon(col.field)"></i>
+            </th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of paginatedItems; let i = index"
+              [class.selected]="isSelected(p)" [class.row-deleted]="p.is_deleted"
+              [class.dragging]="draggedPieceIndex===i" [class.drag-over]="dragOverPieceIndex===i"
+              [attr.draggable]="reorderModeActive"
+              (dragstart)="onPieceDragStart(i)" (dragover)="onPieceDragOver($event, i)" (dragleave)="onPieceDragLeave()" (drop)="onPieceDrop(i)" (dragend)="onPieceDragEnd()"
+              (contextmenu)="onRowRightClick($event, p)">
+            <td class="checkbox-col" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="isSelected(p)" (change)="toggleSelect(p, $event)"></td>
+            <td class="reorder-col" *ngIf="reorderModeActive" (click)="$event.stopPropagation()">
+              <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+              <div class="reorder-buttons">
+                <button class="icon-btn" [disabled]="isFirst(p)" title="Premier" (click)="moveFirst(p)"><i class="fas fa-angle-double-up"></i></button>
+                <button class="icon-btn" [disabled]="isFirst(p)" title="Précédent" (click)="movePrevious(p)"><i class="fas fa-angle-up"></i></button>
+                <button class="icon-btn" [disabled]="isLast(p)" title="Suivant" (click)="moveNext(p)"><i class="fas fa-angle-down"></i></button>
+                <button class="icon-btn" [disabled]="isLast(p)" title="Dernier" (click)="moveLast(p)"><i class="fas fa-angle-double-down"></i></button>
+              </div>
+            </td>
+            <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onRowRightClick($event, p, col.field)" (click)="$event.stopPropagation()">
+              <span *ngIf="col.field === 'ordre'" class="num-value">{{ p.ordre + 1 }}</span>
+              <div *ngIf="col.field === 'type_piece_display'" class="type-cell">
+                <span class="type-name">{{ p.type_piece_display }}</span>
+                <span class="type-numero" *ngIf="p.numero"><i class="fas fa-hashtag"></i>{{ p.numero }}</span>
+              </div>
+              <span *ngIf="col.field === 'statut'" class="badge" [ngClass]="statutBadgeClass(p.statut)">{{ statutLabel(p.statut) }}</span>
+              <span *ngIf="col.field === 'is_deleted'">{{ p.is_deleted ? 'Oui' : 'Non' }}</span>
+              <ng-container *ngIf="col.field==='portee_label' && showScopeSelector(p)">
+                <select class="scope-select-inline" [ngModel]="p.session || ''" (ngModelChange)="changeScope(p, $event)">
+                  <option value="">Commune</option>
+                  <option *ngFor="let s of sessions" [value]="s.id">Session n°{{ s.numero_session }}</option>
+                </select>
+              </ng-container>
+              <span *ngIf="col.field !== 'ordre' && col.field !== 'type_piece_display' && col.field !== 'statut' && col.field !== 'is_deleted' && !(col.field==='portee_label' && showScopeSelector(p))">{{ getCellValue(p, col.field) }}</span>
+            </td>
+            <td class="actions-col" (click)="$event.stopPropagation()">
+              <button class="btn-icon" *ngIf="!p.is_deleted" title="Voir" (click)="openDetail(p, $event, 'view')"><i class="fas fa-eye"></i></button>
+              <button class="btn-icon" *ngIf="!p.is_deleted" title="Modifier" (click)="openDetail(p, $event, 'edit')"><i class="fas fa-edit"></i></button>
+              <a class="btn-icon" *ngIf="p.fichier_url" [href]="p.fichier_url" target="_blank" title="Voir le fichier"><i class="fas fa-external-link-alt"></i></a>
+              <button class="btn-icon btn-icon-danger" *ngIf="!p.is_deleted" title="Supprimer" (click)="openDeleteModal(p, $event)"><i class="fas fa-trash"></i></button>
+              <button class="btn-icon btn-icon-restore" *ngIf="p.is_deleted" title="Restaurer" (click)="openRestoreModal(p); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+              <button class="btn-icon btn-icon-danger" *ngIf="p.is_deleted" title="Supprimer définitivement" (click)="openPermanentDeleteModal(p); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
+            </td>
+          </tr>
+          <tr *ngIf="filteredItems.length === 0">
+            <td [attr.colspan]="getVisibleColumns().length + (reorderModeActive ? 3 : 2)" class="no-data">
+              <div class="no-data-content">
+                <i class="fas" [ngClass]="showDeleted ? 'fa-trash-restore' : 'fa-paperclip'"></i>
+                <p>{{ showDeleted ? 'Corbeille vide' : 'Aucune pièce trouvée' }}</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-footer">
+      <div class="table-footer-left">
+        <div class="filter-menu-wrapper">
+          <button class="filter-menu-trigger" (click)="$event.stopPropagation(); toggleFilterMenu()">
+            <i class="fas fa-filter"></i> Filtrer
+            <span class="filter-menu-badge" *ngIf="displayMode !== 'all' || activeFieldFilter"></span>
+          </button>
+          <div class="filter-menu-dropdown" *ngIf="showFilterMenu" (click)="$event.stopPropagation()">
+            <div class="filter-menu-item" (click)="setDisplayMode('all'); toggleFilterMenu()" [class.active]="displayMode === 'all' && !activeFieldFilter">
+              <i class="fas fa-list filter-menu-item-icon"></i><span>Afficher toutes les pièces</span>
+            </div>
+            <div class="filter-menu-item" (click)="setDisplayMode('selected'); toggleFilterMenu()" [class.disabled]="selectedCount === 0" [class.active]="displayMode === 'selected'">
+              <i class="fas fa-check-square filter-menu-item-icon"></i><span>Afficher les pièces sélectionnées</span>
+              <span class="badge-count" *ngIf="selectedCount > 0">{{ selectedCount }}</span>
+            </div>
+            <div class="filter-menu-divider"></div>
+            <div class="filter-menu-item filter-menu-item-sub" (click)="showFieldFilterMenu = !showFieldFilterMenu">
+              <span>Filtrage par champs</span><i class="fas fa-chevron-right filter-menu-chevron"></i>
+            </div>
+            <div class="filter-submenu" *ngIf="showFieldFilterMenu">
+              <div class="filter-menu-item" *ngFor="let column of columns" (click)="selectFieldForFilter(column.field, column.label)">
+                <i class="fas fa-tag filter-menu-item-icon"></i><span>{{ column.label }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="filter-field-input" *ngIf="activeFieldFilter">
+          <input type="text" class="field-filter-input" [placeholder]="'Filtrer par ' + activeFieldFilterLabel + '…'" [value]="fieldFilterValue" (input)="onFieldFilterInput($event)">
+          <button class="input-clear-btn" (click)="clearFieldFilter()"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="table-footer-right">
+        <div class="pagination-size">
+          <span class="pagination-size-label">Éléments par page :</span>
+          <select class="pagination-size-select" [value]="pageSize" (change)="setPageSize(+$any($event.target).value)">
+            <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+        <div class="pagination-nav">
+          <button class="pagination-nav-btn" [disabled]="currentPage<=1" (click)="goToFirstPage()"><i class="fas fa-angle-double-left"></i></button>
+          <button class="pagination-nav-btn" [disabled]="currentPage<=1" (click)="prevPage()"><i class="fas fa-chevron-left"></i></button>
+          <button *ngFor="let p of pageNumbers" class="pagination-page-btn" [class.active]="p===currentPage" (click)="goToPage(p)">{{ p }}</button>
+          <span class="pagination-nav-label">Page {{ currentPage }} sur {{ totalPages }}</span>
+          <button class="pagination-nav-btn" [disabled]="currentPage>=totalPages" (click)="nextPage()"><i class="fas fa-chevron-right"></i></button>
+          <button class="pagination-nav-btn" [disabled]="currentPage>=totalPages" (click)="goToLastPage()"><i class="fas fa-angle-double-right"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale configuration des colonnes ========== -->
+<div class="modal-overlay" *ngIf="showColumnConfig" (click)="cancelColumnConfig()">
+  <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-columns header-icon"></i>
+        <div>
+          <h3>Organiser les colonnes</h3>
+          <span class="modal-stats">
+            Total: {{ getColumnStats().total }} <span class="stat-sep">|</span>
+            Visibles : {{ getColumnStats().visible }} <span class="stat-sep">|</span>
+            Masquées : {{ getColumnStats().hidden }}
+          </span>
+        </div>
+      </div>
+      <div class="modal-header-right">
+        <div class="dropdown-container" [class.open]="showColumnFilterMenu">
+          <button type="button" class="btn btn-filter-toggle" (click)="toggleColumnFilterMenu($event)">
+            <i class="fas fa-filter"></i> {{ getColumnFilterLabel() }} <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('all')" [class.active]="columnFilter==='all'"><i class="fas fa-eye"></i><span>Toutes les colonnes</span></div>
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('visible')" [class.active]="columnFilter==='visible'"><i class="fas fa-eye-slash"></i><span>Colonnes visibles</span></div>
+          </div>
+        </div>
+        <button class="close-btn" (click)="cancelColumnConfig()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <ul class="column-list">
+        <li *ngFor="let col of getFilteredColumns(); let i = index"
+            class="column-item"
+            [class.dragging]="draggedColumnIndex === columns.indexOf(col)"
+            [class.drag-over]="dragOverIndex === columns.indexOf(col)"
+            draggable="true"
+            (dragstart)="onDragStart(columns.indexOf(col))" (dragover)="onDragOver($event, columns.indexOf(col))" (dragleave)="onDragLeave()" (drop)="onDrop(columns.indexOf(col))" (dragend)="onDragEnd()">
+          <div class="column-row">
+            <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.field)">
+            <div class="column-reorder-buttons">
+              <button type="button" class="btn-reorder" [disabled]="i===0" (click)="moveColumnToTop(i)"><i class="fas fa-angle-double-up"></i></button>
+              <button type="button" class="btn-reorder" [disabled]="i===0" (click)="moveColumnUp(i)"><i class="fas fa-angle-up"></i></button>
+              <button type="button" class="btn-reorder" [disabled]="i===columns.length-1" (click)="moveColumnDown(i)"><i class="fas fa-angle-down"></i></button>
+              <button type="button" class="btn-reorder" [disabled]="i===columns.length-1" (click)="moveColumnToBottom(i)"><i class="fas fa-angle-double-down"></i></button>
+            </div>
+            <label>
+              <span class="column-type">{{ getTypeLabel(col.type) }}</span>
+              <span class="column-info">
+                <span class="column-name">{{ col.label }}</span>
+                <span class="column-desc" *ngIf="getFieldDescription(col.field)">{{ getFieldDescription(col.field) }}</span>
+              </span>
+            </label>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="modal-footer">
+      <div class="footer-actions">
+        <button class="btn btn-action" (click)="selectAllColumns()"><i class="fas fa-check-double"></i> Tout sélectionner</button>
+        <button class="btn btn-action" (click)="deselectAllColumns()"><i class="fas fa-times"></i> Tout désélectionner</button>
+        <button class="btn btn-action" (click)="invertColumnSelection()"><i class="fas fa-exchange-alt"></i> Inverser</button>
+      </div>
+      <div class="footer-buttons">
+        <button class="btn btn-cancel" (click)="cancelColumnConfig()"><i class="fas fa-times"></i> Annuler</button>
+        <button class="btn btn-confirm" (click)="confirmColumnConfig()"><i class="fas fa-check"></i> OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Menus contextuels ========== -->
+<div class="context-menu" *ngIf="showColumnContextMenu" [style.top.px]="contextMenuPosition.y" [style.left.px]="contextMenuPosition.x" (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="hideColumnFromContext()"><i class="fas fa-eye-slash"></i><span>Masquer la colonne</span></div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" (click)="openColumnConfigFromContext()"><i class="fas fa-columns"></i><span>Organiser les colonnes</span></div>
+</div>
+
+<div class="context-menu" *ngIf="showRowContextMenu" [style.top.px]="contextMenuPosition.y" [style.left.px]="contextMenuPosition.x" (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="toggleSelectFromContext()">
+    <i class="fas" [class.fa-check-square]="contextMenuPiece && isSelected(contextMenuPiece)" [class.fa-square]="!contextMenuPiece || !isSelected(contextMenuPiece)"></i>
+    <span>{{ contextMenuPiece && isSelected(contextMenuPiece) ? 'Désélectionner' : 'Sélectionner' }}</span>
+  </div>
+  <div class="context-menu-item" (click)="selectAllFromContext()"><i class="fas fa-check-double"></i><span>Sélectionner tout</span></div>
+  <div class="context-menu-divider" *ngIf="contextMenuField"></div>
+  <div class="context-menu-item" *ngIf="contextMenuField" (click)="copyCellValueFromContext()"><i class="fas fa-copy"></i><span>Copier la valeur</span></div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" *ngIf="contextMenuPiece && !contextMenuPiece.is_deleted" (click)="openDetailFromContext('view')"><i class="fas fa-eye"></i><span>Voir</span></div>
+  <div class="context-menu-item" *ngIf="contextMenuPiece && !contextMenuPiece.is_deleted" (click)="openDetailFromContext('edit')"><i class="fas fa-edit"></i><span>Modifier</span></div>
+  <div class="context-menu-item context-menu-item-danger" *ngIf="contextMenuPiece && !contextMenuPiece.is_deleted" (click)="openDeleteFromContext()"><i class="fas fa-trash"></i><span>Supprimer</span></div>
+  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuPiece?.is_deleted" (click)="openRestoreFromContext()"><i class="fas fa-undo"></i><span>Restaurer</span></div>
+</div>
+
+<!-- ========== Modale suppression ========== -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left"><span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span><h3>Confirmer la suppression</h3></div>
+      <button class="close-btn" (click)="closeDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" *ngIf="isBulkDelete">Supprimer <strong>{{ selectedCount }} pièce(s)</strong> sélectionnée(s) ?</p>
+      <p class="confirm-text" *ngIf="!isBulkDelete && deleteTarget">Supprimer <strong>« {{ deleteTarget.type_piece_display }} »</strong> ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Suppression logique — les données sont conservées et peuvent être restaurées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeDeleteModal()" [disabled]="deleting">Annuler</button>
+      <button class="btn btn-danger" (click)="confirmDelete()" [disabled]="deleting">
+        <i class="fas" [ngClass]="deleting ? 'fa-spinner fa-spin' : 'fa-trash'"></i> {{ deleting ? 'Suppression…' : 'Supprimer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale restauration ========== -->
+<div class="modal-overlay" *ngIf="showRestoreModal" (click)="closeRestoreModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header success">
+      <div class="modal-header-left"><span class="header-icon success"><i class="fas fa-undo"></i></span><h3>Restaurer</h3></div>
+      <button class="close-btn" (click)="closeRestoreModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" *ngIf="isBulkRestore">Restaurer <strong>{{ selectedCount }} pièce(s)</strong> sélectionnée(s) ?</p>
+      <p class="confirm-text" *ngIf="!isBulkRestore && restoreTarget">Restaurer <strong>« {{ restoreTarget.type_piece_display }} »</strong> ?</p>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> La pièce sera à nouveau visible et modifiable.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeRestoreModal()" [disabled]="restoring">Annuler</button>
+      <button class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
+        <i class="fas" [ngClass]="restoring ? 'fa-spinner fa-spin' : 'fa-undo'"></i> {{ restoring ? 'Restauration…' : 'Restaurer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale suppression DÉFINITIVE ========== -->
+<div class="modal-overlay" *ngIf="showPermanentDeleteModal" (click)="closePermanentDeleteModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left"><span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span><h3>Suppression définitive</h3></div>
+      <button class="close-btn" (click)="closePermanentDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" *ngIf="isBulkPermanent">Supprimer <strong>définitivement</strong> {{ selectedCount }} pièce(s) sélectionnée(s) ?</p>
+      <p class="confirm-text" *ngIf="!isBulkPermanent && permanentDeleteTarget">Supprimer <strong>définitivement</strong> « {{ permanentDeleteTarget.type_piece_display }} » ?</p>
+      <p class="confirm-note"><i class="fas fa-exclamation-triangle"></i> Action <strong>irréversible</strong> : la ou les pièces seront <strong>définitivement effacées</strong> et ne pourront pas être restaurées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closePermanentDeleteModal()" [disabled]="permanentDeleting">Annuler</button>
+      <button class="btn btn-danger" (click)="confirmPermanentDelete()" [disabled]="permanentDeleting">
+        <i class="fas" [ngClass]="permanentDeleting ? 'fa-spinner fa-spin' : 'fa-trash-alt'"></i> {{ permanentDeleting ? 'Suppression…' : 'Supprimer définitivement' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale édition en masse du statut ========== -->
+<div class="modal-overlay" *ngIf="showStatusModal" (click)="closeStatusModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left"><span class="header-icon"><i class="fas fa-tag"></i></span><h3>Modifier le statut</h3></div>
+      <button class="close-btn" (click)="closeStatusModal()" [disabled]="updatingStatus"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text">Appliquer un statut à <strong>{{ selectedCount }} pièce(s)</strong> sélectionnée(s) :</p>
+      <div class="status-options">
+        <label class="status-option" *ngFor="let opt of statutOptions" [class.active]="bulkStatusValue === opt.value">
+          <input type="radio" name="bulkStatus" [value]="opt.value" [(ngModel)]="bulkStatusValue" [disabled]="updatingStatus">
+          <span class="badge" [ngClass]="statutBadgeClass(opt.value)">{{ opt.label }}</span>
+        </label>
+      </div>
+      <p class="confirm-note"><i class="fas fa-info-circle"></i> Le passage à « Validée » peut être refusé pour certaines pièces (ex. points sans photo) ; celles-ci resteront inchangées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeStatusModal()" [disabled]="updatingStatus">Annuler</button>
+      <button class="btn btn-primary" (click)="confirmBulkStatus()" [disabled]="updatingStatus || !bulkStatusValue">
+        <i class="fas" [ngClass]="updatingStatus ? 'fa-spinner fa-spin' : 'fa-check'"></i> {{ updatingStatus ? 'Application…' : 'Appliquer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Modale génération du rapport PDF ========== -->
+<div class="modal-overlay" *ngIf="showReportModal" (click)="closeReportModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left"><span class="header-icon"><i class="fas fa-file-pdf"></i></span><h3>Rapport PDF</h3></div>
+      <button class="close-btn" (click)="closeReportModal()" [disabled]="reportGenerating"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Étape 1 : configuration (choix du mode d'impression) -->
+      <ng-container *ngIf="!reportStarted">
+        <p class="report-mode-hint">Choisissez le mode d'impression avant de générer le rapport :</p>
+        <div class="report-mode-choice" role="radiogroup" aria-label="Mode d'impression">
+          <button type="button" class="mode-card" [class.selected]="reportDuplex" role="radio" [attr.aria-checked]="reportDuplex" (click)="reportDuplex = true">
+            <i class="fas fa-book-open mode-icon"></i>
+            <span class="mode-title">Recto-verso</span>
+            <span class="mode-desc">Pages de garde à droite, pied de page en miroir. Pour reliure.</span>
+          </button>
+          <button type="button" class="mode-card" [class.selected]="!reportDuplex" role="radio" [attr.aria-checked]="!reportDuplex" (click)="reportDuplex = false">
+            <i class="fas fa-file mode-icon"></i>
+            <span class="mode-title">Recto seul</span>
+            <span class="mode-desc">Identification à droite, pagination à gauche du pied de page.</span>
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- Étape 2 : génération / résultat -->
+      <ng-container *ngIf="reportStarted">
+        <ng-container *ngIf="!reportError">
+          <p class="report-status">
+            <i class="fas" [ngClass]="reportProgress >= 100 ? 'fa-check-circle report-done' : 'fa-spinner fa-spin'"></i>
+            {{ reportProgress >= 100 ? 'Rapport généré avec succès.' : 'Génération du rapport en cours…' }}
+          </p>
+          <div class="progress-track"><div class="progress-fill" [class.done]="reportProgress >= 100" [style.width.%]="reportProgress"></div></div>
+          <div class="progress-label">{{ reportProgress }}%</div>
+          <p class="report-filename" *ngIf="reportProgress >= 100 && reportFilename"><i class="fas fa-file-pdf"></i> {{ reportFilename }}</p>
+        </ng-container>
+        <p class="report-error" *ngIf="reportError"><i class="fas fa-exclamation-triangle"></i> {{ reportError }}</p>
+      </ng-container>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeReportModal()" [disabled]="reportGenerating">Fermer</button>
+      <!-- Config : lancer la génération -->
+      <button class="btn btn-report" *ngIf="!reportStarted" (click)="generateReport()">
+        <i class="fas fa-file-pdf"></i> Générer le rapport
+      </button>
+      <!-- Résultat : revenir au choix du mode / télécharger -->
+      <button class="btn btn-secondary" *ngIf="reportStarted && reportProgress >= 100 && !reportError" (click)="backToReportConfig()">
+        <i class="fas fa-arrow-left"></i> Changer de mode
+      </button>
+      <button class="btn btn-report" *ngIf="reportStarted && ((reportProgress >= 100 && !reportError) || reportError)"
+              (click)="reportError ? generateReport() : downloadReportFile()">
+        <i class="fas" [ngClass]="reportError ? 'fa-rotate-right' : 'fa-download'"></i> {{ reportError ? 'Réessayer' : 'Télécharger' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Consultation, ajout et édition d'une pièce sont désormais des pages dédiées routées. -->

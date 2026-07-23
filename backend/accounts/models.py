@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import timedelta
 from .managers import OrganizationManager
+from .piece_defaults import default_piece_sort_config, default_piece_fields_config, default_ssdgps_sort_config
 
 
 class Organization(models.Model):
@@ -22,10 +23,8 @@ class Organization(models.Model):
     
     # Rôles disponibles dans l'organisation (hiérarchie)
     ROLE_CHOICES = [
-        ('OWNER', 'Propriétaire / Chef de service'),
-        ('ADMIN', 'Administrateur'),
-        ('MANAGER', 'Gestionnaire'),
-        ('USER', 'Utilisateur'),
+        ('ROLE_ORGANISATION_ADMIN', 'Admin Organisation'),
+        ('ROLE_ORGANISATION_AGENT', 'Agent Organisation'),
     ]
 
     # Identifiants
@@ -208,9 +207,9 @@ class Membership(models.Model):
         verbose_name="Organisation"
     )
     role = models.CharField(
-        max_length=10,
+        max_length=30,
         choices=Organization.ROLE_CHOICES,
-        default='USER',
+        default='ROLE_ORGANISATION_AGENT',
         verbose_name="Rôle"
     )
     joined_at = models.DateTimeField(auto_now_add=True, verbose_name="Date d'adhésion")
@@ -227,7 +226,7 @@ class Membership(models.Model):
 
     def is_admin_or_higher(self):
         """Vérifie si l'utilisateur a un rôle admin ou supérieur"""
-        return self.role in ['OWNER', 'ADMIN']
+        return self.role == 'ROLE_ORGANISATION_ADMIN'
 
 
 class CustomUser(AbstractUser):
@@ -243,7 +242,20 @@ class CustomUser(AbstractUser):
     
     # Champ personnalisé : Nom de société
     nom_societe = models.CharField(max_length=200, blank=True)
-    
+
+    # Champ pour rôle plateforme (Admin App)
+    PLATFORM_ROLE_CHOICES = [
+        ('ROLE_ADMIN_SYSTEME', 'Admin Système'),
+    ]
+    platform_role = models.CharField(
+        max_length=30,
+        choices=PLATFORM_ROLE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Rôle plateforme",
+        help_text="Rôle global sur la plateforme (hors organisations). ROLE_ADMIN_PLATEFORME pour les admins d'application."
+    )
+
     # Email comme identifiant principal (au lieu de username)
     email = models.EmailField(unique=True, verbose_name="Adresse email")
     USERNAME_FIELD = 'email'
@@ -269,6 +281,18 @@ class CustomUser(AbstractUser):
         help_text="Date et heure de la dernière connexion réussie"
     )
     
+    # Soft-delete
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name="Supprimé (logique)",
+        help_text="Indique si l'utilisateur a été supprimé logiquement"
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de suppression"
+    )
+
     # Photo de profil
     profile_picture = models.ImageField(
         upload_to='profile_pictures/%Y/%m/',
@@ -277,7 +301,52 @@ class CustomUser(AbstractUser):
         verbose_name="Photo de profil",
         help_text="Image de profil de l'utilisateur"
     )
-    
+
+    # Préférences de tri par défaut des tableaux de pièces, PAR TYPE de pièce.
+    # Forme : { '<TYPE_PIECE>': {'field': '<nom_champ>', 'dir': 'asc'|'desc'} }.
+    # Utilisé comme tri par défaut des tableaux (table interactive) ET pour ordonner les
+    # lignes des tableaux dans le rapport PDF généré par cet opérateur.
+    # Défaut = configuration de référence (copiée depuis « agent1@sdgps.ma »), appliquée à TOUT
+    # compte nouvellement créé (opérateur, admin org, admin app, super admin). Cf. piece_defaults.
+    piece_sort_config = models.JSONField(
+        default=default_piece_sort_config, blank=True,
+        verbose_name="Tri par défaut des tableaux de pièces",
+        help_text="Champ de tri par défaut par type de pièce (tableaux de données)."
+    )
+
+    # Champs (colonnes) par défaut à AFFICHER, PAR TYPE de pièce et PAR VUE.
+    # Deux vues distinctes : 'app' (affichage des données dans l'app) et 'pdf'
+    # (rapport PDF généré). Chaque vue comporte une version 'brut' et, pour les
+    # types à écarts (RDL/RDN/RDIA), une version 'ecarts'. Forme :
+    #   { '<TYPE>': { 'app': {'brut': [<noms ordonnés>], 'ecarts': [...]},
+    #                 'pdf': {'brut': [...],            'ecarts': [...]} } }
+    # Une liste = colonnes VISIBLES, dans cet ORDRE. Type / vue / version ABSENT =
+    # tous les champs du catalogue, dans l'ordre du catalogue.
+    # Défaut = configuration de colonnes du super admin (source), appliquée à TOUT compte
+    # nouvellement créé ; repli sur {} si aucune source. Cf. piece_defaults.
+    piece_fields_config = models.JSONField(
+        default=default_piece_fields_config, blank=True,
+        verbose_name="Champs par défaut des tableaux de pièces",
+        help_text="Colonnes affichées (et leur ordre) par type de pièce et par vue (app / rapport PDF)."
+    )
+
+    # Tri MULTI-NIVEAUX par défaut du tableau de la LISTE DES SSDGPS (vue à plat d'un projet).
+    # Forme : liste ordonnée `[{'field': '<colonne>', 'dir': 'asc'|'desc'}, ..]` (niveau 1 =
+    # prioritaire). Défaut = config du super admin (source), repli sur le tri par numéro.
+    ssdgps_sort_config = models.JSONField(
+        default=default_ssdgps_sort_config, blank=True,
+        verbose_name="Tri multi-niveaux de la liste des SSDGPS",
+        help_text="Niveaux de tri (champ + sens) par défaut du tableau de la liste des SSDGPS."
+    )
+
+    class Meta:
+        verbose_name = "Utilisateur"
+        verbose_name_plural = "Utilisateurs"
+        indexes = [
+            models.Index(fields=['email']),
+            models.Index(fields=['is_deleted']),
+        ]
+
     def __str__(self):
         return self.email
     
@@ -300,7 +369,7 @@ class CustomUser(AbstractUser):
     
     def is_admin_in_any_org(self):
         """Vérifie si l'utilisateur est administrateur dans au moins une organisation."""
-        return self.has_role_in_any_org('ADMIN')
+        return self.has_role_in_any_org('ROLE_ORGANISATION_ADMIN')
     
     def requires_password_change(self):
         """
@@ -342,34 +411,40 @@ class CustomUser(AbstractUser):
         self.last_connection_at = timezone.now()
         self.save(update_fields=['last_connection_at'])
     
+    def is_platform_admin(self):
+        return bool(self.platform_role == 'ROLE_ADMIN_SYSTEME')
+
+    def is_super_admin(self):
+        return self.is_superuser
+
     def get_primary_role(self):
         """
-        Retourne le rôle principal de l'utilisateur (rôle dans la première organisation active).
-        Pour le Super Admin, retourne 'superadmin'.
+        Retourne le rôle principal de l'utilisateur.
+        Hiérarchie : Super Admin > Admin App > Admin Org > Agent.
         """
-        # Vérifier si c'est un superuser Django
         if self.is_superuser:
-            return 'superadmin'
-        
-        # Sinon, récupérer le rôle de la première organisation
+            return 'ROLE_SUPER_ADMIN'
+        if self.is_platform_admin():
+            return 'ROLE_ADMIN_SYSTEME'
+
         membership = self.memberships.filter(is_active=True).order_by('joined_at').first()
         if membership:
-            return membership.role.lower()  # 'ADMIN' → 'admin', etc.
-        
-        return 'user'  # Rôle par défaut
-    
+            return membership.role
+
+        return 'ROLE_ORGANISATION_AGENT'
+
     def get_primary_role_display(self):
         """
         Retourne l'affichage du rôle principal.
         """
         role = self.get_primary_role()
         role_map = {
-            'superadmin': 'Super Administrateur',
-            'admin': 'Administrateur',
-            'manager': 'Gestionnaire',
-            'user': 'Utilisateur',
+            'ROLE_SUPER_ADMIN': 'Super Admin',
+            'ROLE_ADMIN_SYSTEME': 'Admin Système',
+            'ROLE_ORGANISATION_ADMIN': 'Admin Org',
+            'ROLE_ORGANISATION_AGENT': 'Agent Org',
         }
-        return role_map.get(role, role.title())
+        return role_map.get(role, role.replace('_', ' ').title())
 
 
 class PasswordResetToken(models.Model):

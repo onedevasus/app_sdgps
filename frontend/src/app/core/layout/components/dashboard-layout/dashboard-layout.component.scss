@@ -18,37 +18,10 @@
   background-color: var(--content-bg);
 }
 
-.content-area {
+.content-wrapper {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  
-  // Scrollbar personnalisée
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-  }
-}
-
-// Thème clair - scrollbar plus visible
-[data-theme="light"] .content-area {
-  &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-
-    &:hover {
-      background: rgba(0, 0, 0, 0.3);
-    }
-  }
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }

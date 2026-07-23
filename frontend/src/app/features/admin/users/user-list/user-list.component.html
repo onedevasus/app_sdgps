@@ -1,0 +1,1389 @@
+<div class="user-list-container">
+  <!-- En-tête -->
+  <div class="list-header">
+    <h2>Liste des Utilisateurs — <span class="status-info small-font"><strong>Total : </strong><strong>{{ users.length }}</strong> | <strong>Filtrés : </strong><strong>{{ filteredUsers.length }}</strong> | <strong>Sélectionnés : </strong><strong>{{ selectedIds.size }}</strong></span></h2>
+
+    <div class="header-actions">
+      <div class="toolbar-left">
+        <button class="btn btn-secondary" (click)="selectAll()" title="Sélectionner tout">
+          <i class="fas fa-check-double"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="deselectAll()" title="Désélectionner tout">
+          <i class="fas fa-times"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="invertSelection()" title="Inverser la sélection">
+          <i class="fas fa-exchange-alt"></i>
+        </button>
+        <button class="btn btn-secondary" (click)="moveSelectionToTop()" [disabled]="selectedIds.size === 0" title="Déplacer la sélection en haut">
+          <i class="fas fa-arrow-up"></i>
+        </button>
+
+        <div class="dropdown-container" [class.open]="showExportMenu">
+          <button class="btn btn-secondary" (click)="$event.stopPropagation(); toggleExportMenu()" title="Exporter les données">
+            <i class="fas fa-file-export"></i> Exporter
+            <i class="fas fa-chevron-down" style="margin-left: 5px; font-size: 0.8em;"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showExportMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); exportCSV(false); toggleExportMenu()">
+              <i class="fas fa-file-excel"></i>
+              <span>Tous les utilisateurs</span>
+            </div>
+            <div class="dropdown-item"
+                 (click)="$event.stopPropagation(); exportCSV(true); toggleExportMenu()"
+                 [class.disabled]="selectedIds.size === 0">
+              <i class="fas fa-check-square"></i>
+              <span>Utilisateurs sélectionnés</span>
+              <span *ngIf="selectedIds.size > 0" class="badge-count">{{ selectedIds.size }}</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary" (click)="toggleColumnConfig()" title="Organiser les colonnes">
+          <i class="fas fa-columns"></i>
+        </button>
+
+        <button *ngIf="!showDeleted" class="btn btn-danger" (click)="openBulkDeleteModal()" [disabled]="selectedIds.size === 0" title="Supprimer la sélection">
+          <i class="fas fa-trash"></i>
+        </button>
+        <!-- Onglet Corbeille : restaurer / supprimer définitivement en masse -->
+        <button *ngIf="showDeleted" class="btn btn-success" (click)="openBulkRestoreModal()" [disabled]="selectedIds.size === 0" title="Restaurer la sélection">
+          <i class="fas fa-trash-restore"></i>
+        </button>
+        <button *ngIf="showDeleted" class="btn btn-danger" (click)="openBulkPermanentDeleteModal()" [disabled]="selectedIds.size === 0" title="Supprimer définitivement la sélection">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <button *ngIf="!showDeleted" class="btn btn-success btn-add-org" (click)="openAddModal()" title="Ajouter un nouvel utilisateur">
+          <i class="fas fa-plus-circle"></i>
+          <span>Ajouter</span>
+        </button>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="search-box-right">
+          <i class="fas fa-search"></i>
+          <input type="text" [value]="searchText" (input)="onSearchInput($event)" placeholder="Rechercher un utilisateur...">
+          <button *ngIf="searchText && searchText.length > 0" class="btn-clear-search" (click)="clearSearch()" title="Effacer la recherche">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="filters-line">
+      <select class="filter-select" *ngIf="!isOrgAdmin" [value]="selectedRole" (change)="onRoleFilterChange($event)">
+        <option value="">Tous les rôles</option>
+        <option value="ROLE_SUPER_ADMIN">Super Admin</option>
+                <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
+                <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+        <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
+      </select>
+      <select class="filter-select" *ngIf="!showDeleted" [value]="selectedStatus" (change)="onStatusFilterChange($event)">
+        <option value="">Tous les statuts</option>
+        <option value="active">Actif</option>
+        <option value="inactive">Inactif</option>
+      </select>
+      <select class="filter-select" *ngIf="!isOrgAdmin" [value]="selectedOrganization" (change)="onOrganizationFilterChange($event)">
+        <option value="">Toutes les organisations</option>
+        <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Bannière d'avertissement sélection compte courant -->
+  <div class="selection-warning-banner" *ngIf="isCurrentUserSelected()">
+    <div class="banner-content">
+      <div class="banner-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="banner-text">
+        <strong>Compte personnel sélectionné</strong>
+        <span>Vous avez sélectionné votre propre compte. Décochez-le pour pouvoir supprimer la sélection.</span>
+      </div>
+      <button class="banner-close" (click)="deselectAll()" title="Tout dé-sélectionner">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Onglets Actifs / Corbeille -->
+  <div class="list-tabs">
+    <button class="list-tab" [class.active]="!showDeleted" (click)="setTab(false)">
+      <i class="fas fa-layer-group"></i> Utilisateurs actifs <span class="tab-count">{{ nonDeletedCount }}</span>
+    </button>
+    <button class="list-tab deleted" [class.active]="showDeleted" (click)="setTab(true)">
+      <i class="fas fa-trash-restore"></i> Utilisateurs supprimés <span class="tab-count">{{ deletedUsersCount }}</span>
+    </button>
+  </div>
+
+  <!-- Wrapper du tableau -->
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <div class="table-wrapper">
+      <div class="table-container">
+        <table class="modern-table">
+          <thead>
+            <tr>
+              <th class="checkbox-col">
+                <input type="checkbox" [checked]="isAllSelected" (change)="toggleSelectAll()">
+              </th>
+              <th *ngFor="let col of getVisibleColumns()"
+                  [class.sortable]="true"
+                  (click)="sortBy(col.field)"
+                  (contextmenu)="onColumnHeaderRightClick($event, col)"
+                  [title]="getFieldDescription(col.field)">
+                <span>{{ col.label }}</span>
+                <i [class]="getSortIcon(col.field)"></i>
+              </th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of paginatedUsers"
+                [class.selected]="isSelected(user)"
+                [class.row-current-user]="isCurrentUser(user)"
+                [class.row-deleted]="user.is_deleted"
+                [class.row-selected-warning]="isCurrentUser(user) && isSelected(user)"
+                (contextmenu)="onRowRightClick($event, user)">
+              <td class="checkbox-col">
+                <input type="checkbox" [checked]="isSelected(user)" (change)="toggleSelection(user.id)">
+                <i class="fas fa-exclamation-triangle self-warning-icon" *ngIf="isCurrentUser(user) && isSelected(user)" title="Vous ne pouvez pas supprimer votre propre compte"></i>
+              </td>
+              <td *ngFor="let col of getVisibleColumns()" (contextmenu)="onCellRightClick($event, user, col.field)">
+                <!-- Nom complet -->
+                <span *ngIf="col.field === 'first_name'" class="cell-primary">{{ user.first_name }} {{ user.last_name }}</span>
+
+                <!-- Email -->
+                <a *ngIf="col.field === 'email'" [href]="'mailto:' + user.email" class="email-link">{{ user.email }}</a>
+
+                <!-- Rôle avec badge -->
+                <span *ngIf="col.field === 'role'" class="badge" [ngClass]="getRoleBadgeClass(user.role)">{{ user.role_display }}</span>
+
+                <!-- Organisation -->
+                <span *ngIf="col.field === 'organization_name'">{{ user.organization_name || '—' }}</span>
+
+                <!-- Statut avec badge -->
+                <span *ngIf="col.field === 'is_active'" class="badge"
+                      [class.badge-success]="user.is_active"
+                      [class.badge-warning]="!user.is_active && !user.is_deleted"
+                      [class.badge-secondary]="user.is_deleted">
+                  {{ user.is_deleted ? 'Supprimé' : (user.is_active ? 'Actif' : 'Inactif') }}
+                </span>
+
+                <!-- Booléens (is_deleted, is_superuser, must_change_password) -->
+                <span *ngIf="col.field === 'is_deleted' || col.field === 'is_superuser' || col.field === 'must_change_password'" class="badge"
+                      [class.badge-success]="getCellValue(user, col.field) === 'Oui'"
+                      [class.badge-secondary]="getCellValue(user, col.field) === 'Non'">
+                  {{ getCellValue(user, col.field) }}
+                </span>
+
+                <!-- Dates formatées -->
+                <span *ngIf="col.field === 'date_joined' || col.field === 'last_connection_at' || col.field === 'password_changed_at'">
+                  {{ formatDate($any(user)[col.field]) }}
+                </span>
+
+                <!-- Autres champs -->
+                <span *ngIf="col.field !== 'first_name' && col.field !== 'email' && col.field !== 'role' && col.field !== 'organization_name' && col.field !== 'is_active' && col.field !== 'is_deleted' && col.field !== 'is_superuser' && col.field !== 'must_change_password' && col.field !== 'date_joined' && col.field !== 'last_connection_at' && col.field !== 'password_changed_at'">
+                  {{ getCellValue(user, col.field) }}
+                </span>
+              </td>
+              <td class="actions-col">
+                <span class="current-user-badge" *ngIf="isCurrentUser(user)" title="Vous êtes connecté(e)">
+                  <i class="fas fa-user-circle"></i>
+                  Vous
+                </span>
+                <button class="btn-icon" (click)="openDetailModal(user)" title="Voir les détails">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <!-- Onglet Actifs : édition / mot de passe / activation / suppression logique -->
+                <ng-container *ngIf="!user.is_deleted">
+                  <button class="btn-icon" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openEditModal(user)" [title]="actionTitle(user, 'edit')">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn-icon" [class.btn-icon-disabled]="isActionDisabled(user)" [disabled]="isActionDisabled(user)" (click)="!isActionDisabled(user) && openResetPasswordModal(user)" [title]="actionTitle(user, 'reset')">
+                    <i class="fas fa-key"></i>
+                  </button>
+                  <button class="btn-icon" [class.btn-icon-toggle-on]="user.is_active" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openToggleModal(user)" [title]="actionTitle(user, 'toggle')">
+                    <i class="fas" [class.fa-toggle-on]="user.is_active" [class.fa-toggle-off]="!user.is_active"></i>
+                  </button>
+                  <button class="btn-icon btn-icon-danger" [class.btn-icon-disabled]="isToggleDeleteDisabled(user)" [disabled]="isToggleDeleteDisabled(user)" (click)="!isToggleDeleteDisabled(user) && openDeleteModal(user)" [title]="actionTitle(user, 'delete')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </ng-container>
+                <!-- Onglet Corbeille : restaurer / supprimer définitivement -->
+                <button class="btn-icon btn-icon-restore" *ngIf="user.is_deleted" (click)="openRestoreModal(user)" title="Restaurer">
+                  <i class="fas fa-trash-restore"></i>
+                </button>
+                <button class="btn-icon btn-icon-danger" *ngIf="user.is_deleted" (click)="openPermanentDeleteModal(user)" title="Supprimer définitivement">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredUsers.length === 0">
+              <td [attr.colspan]="getVisibleColumns().length + 2" class="no-data">
+                <i class="fas fa-users"></i>
+                <p>Aucun utilisateur trouvé</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="table-footer">
+        <div class="table-footer-left">
+          <div class="filter-menu-wrapper">
+            <button class="filter-menu-trigger" (click)="$event.stopPropagation(); toggleFilterMenu()">
+              <i class="fas fa-filter"></i>
+              Filtrer
+              <span class="filter-menu-badge" *ngIf="displayMode !== 'all' || activeFieldFilter"></span>
+            </button>
+            <div class="filter-menu-dropdown" *ngIf="showFilterMenu" (click)="$event.stopPropagation()">
+              <div class="filter-menu-item" (click)="setDisplayMode('all'); toggleFilterMenu()" [class.active]="displayMode === 'all' && !activeFieldFilter">
+                <i class="fas fa-list filter-menu-item-icon"></i>
+                <span>Afficher tous les utilisateurs</span>
+                <i class="fas fa-check filter-menu-check" *ngIf="displayMode === 'all' && !activeFieldFilter"></i>
+              </div>
+              <div class="filter-menu-item" (click)="setDisplayMode('selected'); toggleFilterMenu()" [class.disabled]="selectedIds.size === 0" [class.active]="displayMode === 'selected'">
+                <i class="fas fa-check-square filter-menu-item-icon"></i>
+                <span>Afficher les utilisateurs sélectionnés</span>
+                <span class="badge-count" *ngIf="selectedIds.size > 0">{{ selectedIds.size }}</span>
+                <i class="fas fa-check filter-menu-check" *ngIf="displayMode === 'selected'"></i>
+              </div>
+              <div class="filter-menu-divider"></div>
+              <div class="filter-menu-item filter-menu-item-sub" (click)="showFieldFilterMenu = !showFieldFilterMenu">
+                <span>Filtrage par champs</span>
+                <i class="fas fa-chevron-right filter-menu-chevron"></i>
+              </div>
+              <div class="filter-submenu" *ngIf="showFieldFilterMenu">
+                <div class="filter-menu-item" *ngFor="let column of columns" (click)="selectFieldForFilter(column.field, column.label)">
+                  <i class="fas fa-tag filter-menu-item-icon"></i>
+                  <span>{{ column.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field-input" *ngIf="activeFieldFilter">
+            <input type="text" class="field-filter-input" [placeholder]="'Filtrer par ' + activeFieldFilterLabel + '…'" [value]="fieldFilterValue" (input)="onFieldFilterInput($event)">
+            <button class="input-clear-btn" (click)="clearFieldFilter()" title="Effacer le filtre">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <div class="table-footer-right">
+          <div class="pagination-size">
+            <span class="pagination-size-label">Éléments par page :</span>
+            <div class="pagination-size-select-wrapper">
+              <select class="pagination-size-select" [value]="pageSize" (change)="setPageSize(+$any($event.target).value)">
+                <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+              </select>
+              <i class="fas fa-chevron-down pagination-size-arrow"></i>
+            </div>
+          </div>
+          <div class="pagination-nav">
+            <button class="pagination-nav-btn" [disabled]="currentPage <= 1" (click)="goToFirstPage()" title="Première page">
+              <i class="fas fa-angle-double-left"></i>
+            </button>
+            <button class="pagination-nav-btn" [disabled]="currentPage <= 1" (click)="prevPage()" title="Page précédente">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button *ngFor="let p of pageNumbers" class="pagination-page-btn"
+                    [class.active]="p === currentPage"
+                    (click)="goToPage(p)">{{ p }}</button>
+            <span class="pagination-nav-label">Page {{ currentPage }} sur {{ totalPages }}</span>
+            <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="nextPage()" title="Page suivante">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+            <button class="pagination-nav-btn" [disabled]="currentPage >= totalPages" (click)="goToLastPage()" title="Dernière page">
+              <i class="fas fa-angle-double-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Template de chargement -->
+  <ng-template #loadingTpl>
+    <div class="loading-spinner">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Chargement des utilisateurs...</p>
+    </div>
+  </ng-template>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Configuration des colonnes         -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showColumnConfig" (click)="toggleColumnConfig()">
+  <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-columns header-icon"></i>
+        <div>
+          <h3>Organiser les colonnes</h3>
+          <span class="modal-stats">
+            <i class="fas fa-table"></i>
+            Total: {{ getColumnStats().total }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye"></i>
+            Visibles : {{ getColumnStats().visible }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye-slash"></i>
+            Masquées : {{ getColumnStats().hidden }}
+          </span>
+        </div>
+      </div>
+      <div class="modal-header-right">
+        <div class="dropdown-container" [class.open]="showColumnFilterMenu">
+          <button type="button" class="btn btn-filter-toggle" (click)="toggleColumnFilterMenu($event)" [title]="getColumnFilterLabel()">
+            <i class="fas fa-filter"></i>
+            {{ getColumnFilterLabel() }}
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('all')" [class.active]="columnFilter === 'all'">
+              <i class="fas fa-eye"></i>
+              <span>Afficher toutes les colonnes</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'all'"></i>
+            </div>
+            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('visible')" [class.active]="columnFilter === 'visible'">
+              <i class="fas fa-eye-slash"></i>
+              <span>Afficher uniquement les colonnes visibles</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'visible'"></i>
+            </div>
+          </div>
+        </div>
+        <button class="close-btn" (click)="toggleColumnConfig()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <ul class="column-list">
+        <li *ngFor="let col of getFilteredColumns(); let i = index"
+            class="column-item"
+            [class.dragging]="draggedColumnIndex === columns.indexOf(col)"
+            [class.drag-over]="dragOverIndex === columns.indexOf(col)"
+            draggable="true"
+            (dragstart)="onDragStart(columns.indexOf(col))"
+            (dragover)="onDragOver($event, columns.indexOf(col))"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop(columns.indexOf(col))"
+            (dragend)="onDragEnd()">
+          <div class="column-row">
+            <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.field)">
+
+            <div class="column-reorder-buttons">
+              <button type="button" class="btn-reorder" [disabled]="i === 0" (click)="moveColumnToTop(i)" title="Déplacer en première position">
+                <i class="fas fa-angle-double-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === 0" (click)="moveColumnUp(i)" title="Monter">
+                <i class="fas fa-angle-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === columns.length - 1" (click)="moveColumnDown(i)" title="Descendre">
+                <i class="fas fa-angle-down"></i>
+              </button>
+              <button type="button" class="btn-reorder" [disabled]="i === columns.length - 1" (click)="moveColumnToBottom(i)" title="Déplacer en dernière position">
+                <i class="fas fa-angle-double-down"></i>
+              </button>
+            </div>
+
+            <label>
+              <span class="column-type">{{ getTypeLabel(col.type) }}</span>
+              <span class="column-name">{{ col.label }}</span>
+              <i class="fas fa-info-circle column-info-icon" *ngIf="getFieldDescription(col.field)" [title]="getFieldDescription(col.field)"></i>
+            </label>
+            <div class="column-description-cell" *ngIf="getFieldDescription(col.field)">
+              {{ getFieldDescription(col.field) }}
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="modal-footer">
+      <div class="footer-actions">
+        <button class="btn btn-action" (click)="selectAllColumns()">
+          <i class="fas fa-check-double"></i>
+          Sélectionner tout
+        </button>
+        <button class="btn btn-action" (click)="deselectAllColumns()">
+          <i class="fas fa-times"></i>
+          Désélectionner tout
+        </button>
+        <button class="btn btn-action" (click)="invertColumnSelection()">
+          <i class="fas fa-exchange-alt"></i>
+          Inverser
+        </button>
+      </div>
+      <div class="footer-buttons">
+        <button class="btn btn-cancel" (click)="cancelColumnConfig()">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button class="btn btn-confirm" (click)="confirmColumnConfig()">
+          <i class="fas fa-check"></i>
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MENU CONTEXTUEL: En-têtes de colonnes      -->
+<!-- ========================================== -->
+<div class="context-menu"
+     *ngIf="showColumnContextMenu"
+     [style.top.px]="contextMenuPosition.y"
+     [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="hideColumnFromContext()">
+    <i class="fas fa-eye-slash"></i>
+    <span>Masquer la colonne</span>
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" (click)="openColumnConfigFromContext()">
+    <i class="fas fa-columns"></i>
+    <span>Organiser les colonnes</span>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MENU CONTEXTUEL: Lignes (clic droit)       -->
+<!-- ========================================== -->
+<div class="context-menu"
+     *ngIf="showRowContextMenu"
+     [style.top.px]="contextMenuPosition.y"
+     [style.left.px]="contextMenuPosition.x"
+     (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="toggleRowSelectionFromContext()">
+    <i class="fas" [class.fa-check-square]="contextMenuUser && isSelected(contextMenuUser)" [class.fa-square]="!contextMenuUser || !isSelected(contextMenuUser)"></i>
+    <span>{{ contextMenuUser && isSelected(contextMenuUser) ? 'Désélectionner cette ligne' : 'Sélectionner cette ligne' }}</span>
+  </div>
+  <div class="context-menu-item" (click)="selectAllFromContext()">
+    <i class="fas fa-check-double"></i>
+    <span>Sélectionner tout</span>
+  </div>
+  <div class="context-menu-divider" *ngIf="contextMenuField"></div>
+  <div class="context-menu-item" *ngIf="contextMenuField" (click)="copyCellValueFromContext()">
+    <i class="fas fa-copy"></i>
+    <span>Copier la valeur de la cellule</span>
+  </div>
+  <div class="context-menu-divider"></div>
+  <div class="context-menu-item" (click)="openDetailFromContext()">
+    <i class="fas fa-eye"></i>
+    <span>Voir les détails</span>
+  </div>
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isBlockedForAppAdmin(contextMenuUser)" (click)="contextMenuUser && !isBlockedForAppAdmin(contextMenuUser) && openEditFromContext()">
+    <i class="fas fa-edit"></i>
+    <span>Modifier</span>
+  </div>
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isActionDisabled(contextMenuUser)" (click)="contextMenuUser && !isActionDisabled(contextMenuUser) && openResetPasswordFromContext()">
+    <i class="fas fa-key"></i>
+    <span>Réinitialiser MDP</span>
+  </div>
+  <div class="context-menu-item" [class.context-menu-item-disabled]="contextMenuUser && isToggleDeleteDisabled(contextMenuUser)" (click)="contextMenuUser && !isToggleDeleteDisabled(contextMenuUser) && openToggleFromContext()">
+    <i class="fas" [class.fa-toggle-off]="contextMenuUser?.is_active" [class.fa-toggle-on]="!contextMenuUser?.is_active"></i>
+    <span>{{ contextMenuUser?.is_active ? 'Désactiver' : 'Activer' }}</span>
+  </div>
+  <div class="context-menu-divider" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)"></div>
+  <div class="context-menu-item context-menu-item-danger" [class.context-menu-item-disabled]="contextMenuUser && isToggleDeleteDisabled(contextMenuUser)" *ngIf="contextMenuUser && !isCurrentUser(contextMenuUser) && !contextMenuUser.is_deleted && !isBlockedForAppAdmin(contextMenuUser)" (click)="contextMenuUser && !isToggleDeleteDisabled(contextMenuUser) && openDeleteFromContext()">
+    <i class="fas fa-trash"></i>
+    <span>Supprimer</span>
+  </div>
+  <div class="context-menu-item context-menu-item-restore" *ngIf="contextMenuUser?.is_deleted" (click)="openRestoreFromContext()">
+    <i class="fas fa-undo"></i>
+    <span>Restaurer</span>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Ajouter un utilisateur             -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-content modal-add-user" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-plus-circle"></i> Ajouter un Utilisateur</h3>
+      </div>
+      <button class="close-btn" (click)="closeAddModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <form [formGroup]="addForm" (ngSubmit)="onSubmitAdd()">
+      <div class="modal-body">
+        <!-- Section: Identité -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-user"></i>
+            Identité
+          </h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="add-first-name">
+                <i class="fas fa-user-tag"></i>
+                Prénom <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Prénom de l'utilisateur"></i>
+              </label>
+              <input type="text" id="add-first-name" formControlName="first_name" placeholder="Prénom de l'utilisateur" [class.error]="addForm.get('first_name')?.invalid && addForm.get('first_name')?.touched">
+              <div class="error-message" *ngIf="addForm.get('first_name')?.invalid && addForm.get('first_name')?.touched">
+                Le prénom est requis.
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="add-last-name">
+                <i class="fas fa-user-tag"></i>
+                Nom <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Nom de famille de l'utilisateur"></i>
+              </label>
+              <input type="text" id="add-last-name" formControlName="last_name" placeholder="Nom de l'utilisateur" [class.error]="addForm.get('last_name')?.invalid && addForm.get('last_name')?.touched">
+              <div class="error-message" *ngIf="addForm.get('last_name')?.invalid && addForm.get('last_name')?.touched">
+                Le nom est requis.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Email -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-envelope"></i>
+            Contact
+          </h4>
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="add-email">
+                <i class="fas fa-envelope"></i>
+                Email <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Adresse email professionnelle de l'utilisateur"></i>
+              </label>
+              <input type="email" id="add-email" formControlName="email" placeholder="email@exemple.com" [class.error]="addForm.get('email')?.invalid && addForm.get('email')?.touched">
+              <div class="error-message" *ngIf="addForm.get('email')?.errors?.['required'] && addForm.get('email')?.touched">
+                L'email est requis.
+              </div>
+              <div class="error-message" *ngIf="addForm.get('email')?.errors?.['email'] && addForm.get('email')?.touched">
+                Format d'email invalide.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Rôle et Organisation -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-shield-alt"></i>
+            Rôle et Organisation
+          </h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="add-role">
+                <i class="fas fa-user-tag"></i>
+                Rôle <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Niveau de privilèges de l'utilisateur"></i>
+              </label>
+              <select id="add-role" *ngIf="!isOrgAdmin" formControlName="role" [class.error]="addForm.get('role')?.invalid && addForm.get('role')?.touched">
+                <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
+                <option value="ROLE_ORGANISATION_ADMIN">Admin Organisation</option>
+                <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
+              </select>
+              <div class="platform-field" *ngIf="isOrgAdmin">
+                <span class="platform-badge">
+                  <i class="fas fa-user"></i>
+                  <span>Agent Organisation</span>
+                </span>
+                <span class="platform-hint">seul rôle que vous pouvez créer</span>
+              </div>
+              <div class="error-message" *ngIf="!isOrgAdmin && addForm.get('role')?.invalid && addForm.get('role')?.touched">
+                Le rôle est requis.
+              </div>
+            </div>
+            <div class="form-group" *ngIf="addForm.get('role')?.value !== 'ROLE_ADMIN_SYSTEME'">
+              <label for="add-org">
+                <i class="fas fa-building"></i>
+                Organisation <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Organisation à laquelle l'utilisateur sera rattaché"></i>
+              </label>
+              <select id="add-org" *ngIf="!isOrgAdmin" formControlName="organization_id" [class.error]="addForm.get('organization_id')?.invalid && addForm.get('organization_id')?.touched">
+                <option value="">Sélectionner...</option>
+                <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+              </select>
+              <div class="platform-field" *ngIf="isOrgAdmin">
+                <span class="platform-badge">
+                  <i class="fas fa-building"></i>
+                  <span>{{ currentUserOrgName || 'Votre organisation' }}</span>
+                </span>
+                <span class="platform-hint">votre organisation</span>
+              </div>
+              <div class="error-message" *ngIf="!isOrgAdmin && addForm.get('organization_id')?.invalid && addForm.get('organization_id')?.touched">
+                L'organisation est requise.
+              </div>
+            </div>
+            <div class="form-group" *ngIf="addForm.get('role')?.value === 'ROLE_ADMIN_SYSTEME'">
+              <label>
+                <i class="fas fa-building"></i>
+                Organisation
+              </label>
+              <div class="platform-field">
+                <span class="platform-badge">
+                  <i class="fas fa-globe"></i>
+                  <span>Non applicable</span>
+                </span>
+                <span class="platform-hint">rôle plateforme</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Mot de passe -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-key"></i>
+            Mot de passe temporaire
+          </h4>
+          <div class="form-row">
+            <div class="form-group full-width">
+              <div class="password-input-group">
+                <input type="text" [value]="generatedPassword" readonly class="generated-password">
+                <button type="button" class="btn" (click)="regeneratePassword()" title="Générer un nouveau mot de passe">
+                  <i class="fas fa-sync"></i>
+                </button>
+                <button type="button" class="btn" (click)="copyToClipboard(generatedPassword)" title="Copier le mot de passe">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="must_change_password">
+                <span class="checkmark"></span>
+                <span class="checkbox-text">
+                  <i class="fas fa-key"></i>
+                  Forcer le changement au premier login
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-cancel" (click)="closeAddModal()" [disabled]="submitting">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-primary btn-submit" [disabled]="addForm.invalid || submitting">
+          <i class="fas" [class.fa-spinner]="submitting" [class.fa-spin]="submitting" [class.fa-save]="!submitting"></i>
+          {{ submitting ? 'Création en cours...' : "Créer l'utilisateur" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Modifier un utilisateur            -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
+  <div class="modal-content modal-edit-user" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-edit"></i> Modifier l'Utilisateur</h3>
+      </div>
+      <button class="close-btn" (click)="closeEditModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <form [formGroup]="editForm" (ngSubmit)="onSubmitEdit()">
+      <div class="modal-body">
+        <!-- Section: Identité -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-user"></i>
+            Identité
+          </h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-first-name">
+                <i class="fas fa-user-tag"></i>
+                Prénom <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Prénom de l'utilisateur"></i>
+              </label>
+              <input type="text" id="edit-first-name" formControlName="first_name" [class.error]="editForm.get('first_name')?.invalid && editForm.get('first_name')?.touched">
+              <div class="error-message" *ngIf="editForm.get('first_name')?.invalid && editForm.get('first_name')?.touched">
+                Le prénom est requis.
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="edit-last-name">
+                <i class="fas fa-user-tag"></i>
+                Nom <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon" title="Nom de famille de l'utilisateur"></i>
+              </label>
+              <input type="text" id="edit-last-name" formControlName="last_name" [class.error]="editForm.get('last_name')?.invalid && editForm.get('last_name')?.touched">
+              <div class="error-message" *ngIf="editForm.get('last_name')?.invalid && editForm.get('last_name')?.touched">
+                Le nom est requis.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Rôle et Organisation -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-shield-alt"></i>
+            Rôle et Organisation
+          </h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-role">
+                <i class="fas fa-user-tag"></i>
+                Rôle <span class="required">*</span>
+                <i class="fas fa-info-circle field-info-icon"
+                   [title]="isRoleChangeBlocked
+                     ? '🔒 ' + roleChangeBlockedMessage
+                     : 'Niveau de privilèges de l\'utilisateur'"></i>
+              </label>
+              <select id="edit-role" formControlName="role"
+                      [class.error]="editForm.get('role')?.invalid && editForm.get('role')?.touched"
+                      [class.role-select-disabled]="isRoleDisabled"
+                      [attr.tabindex]="isRoleDisabled ? -1 : 0"
+                      [attr.aria-disabled]="isRoleDisabled"
+                      [title]="editUser?.is_superuser ? 'Le rôle d\'un super administrateur ne peut pas être modifié' : ((!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)) ? 'Seul un Super Admin peut modifier ce rôle' : (isRoleChangeBlocked ? roleChangeBlockedMessage : ''))">
+                <option value="ROLE_SUPER_ADMIN" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Super Admin</option>
+                <option value="ROLE_ADMIN_SYSTEME" *ngIf="currentUserRole === 'ROLE_SUPER_ADMIN'">Admin Système</option>
+                <option value="ROLE_ORGANISATION_ADMIN" *ngIf="!isOrgAdmin">Admin Organisation</option>
+                <option value="ROLE_ORGANISATION_AGENT">Agent Organisation</option>
+              </select>
+              <div class="error-message" *ngIf="editForm.get('role')?.invalid && editForm.get('role')?.touched">
+                Le rôle est requis.
+              </div>
+              <p class="disabled-note" *ngIf="editUser?.is_superuser">
+                <i class="fas fa-shield-alt"></i>
+                Le rôle d'un super administrateur ne peut pas être modifié.
+              </p>
+              <p class="disabled-note" *ngIf="!!editUser && currentUserRole !== 'ROLE_SUPER_ADMIN' && isAppAdmin(editUser)">
+                <i class="fas fa-shield-alt"></i>
+                Seul un Super Admin peut modifier le rôle d'un Admin Système.
+              </p>
+              <p class="disabled-note" *ngIf="isRoleChangeBlocked">
+                <i class="fas fa-lock"></i>
+                {{ roleChangeBlockedMessage }}
+              </p>
+            </div>
+            <div class="form-group" *ngIf="editUser && !editUser.is_superuser && editUser.role !== 'ROLE_ADMIN_SYSTEME'">
+              <label for="edit-org">
+                <i class="fas fa-building"></i>
+                Organisation
+              </label>
+              <select id="edit-org" *ngIf="!isOrgAdmin" formControlName="organization_id">
+                <option value="">Sélectionner...</option>
+                <option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</option>
+              </select>
+              <div class="platform-field" *ngIf="isOrgAdmin">
+                <span class="platform-badge">
+                  <i class="fas fa-building"></i>
+                  <span>{{ editUser.organization_name || currentUserOrgName || 'Votre organisation' }}</span>
+                </span>
+                <span class="platform-hint">non modifiable</span>
+              </div>
+            </div>
+            <div class="form-group" *ngIf="editUser && (editUser.is_superuser || editUser.role === 'ROLE_ADMIN_SYSTEME')">
+              <label>
+                <i class="fas fa-building"></i>
+                Organisation
+              </label>
+              <div class="platform-field">
+                <span class="platform-badge">
+                  <i class="fas fa-globe"></i>
+                  <span>Non applicable</span>
+                </span>
+                <span class="platform-hint">rôle plateforme</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Statut -->
+        <div class="form-section">
+          <h4 class="section-title">
+            <i class="fas fa-toggle-on"></i>
+            Statut
+          </h4>
+          <div class="form-row">
+            <div class="form-group mat-toggle-group">
+              <mat-slide-toggle formControlName="is_active"
+                color="primary">
+                {{ isActiveChecked ? 'Compte actif' : 'Compte inactif' }}
+              </mat-slide-toggle>
+              <p class="help-text">
+                {{ isActiveChecked ? 'L\'utilisateur peut se connecter au système' : 'L\'utilisateur ne pourra plus se connecter au système' }}
+              </p>
+              <p class="disabled-note" *ngIf="editUser && isCurrentUser(editUser)">
+                <i class="fas fa-info-circle"></i>
+                Vous ne pouvez pas désactiver votre propre compte.
+              </p>
+              <p class="disabled-note" *ngIf="editUser && isBlockedForAppAdmin(editUser) && !isCurrentUser(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                Vous ne pouvez pas modifier le statut d'un autre administrateur système.
+              </p>
+              <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalSuperAdmin(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
+              </p>
+              <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalAppAdmin(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
+              </p>
+              <p class="disabled-note super-admin-critical-warning" *ngIf="editUser && isCriticalOrgAdmin(editUser)">
+                <i class="fas fa-shield-halved"></i>
+                <strong>Attention :</strong> Ce compte est le dernier administrateur actif de son organisation.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-cancel" (click)="closeEditModal()" [disabled]="submitting">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-info btn-submit" [disabled]="editForm.invalid || submitting">
+          <i class="fas" [class.fa-spinner]="submitting" [class.fa-spin]="submitting" [class.fa-save]="!submitting"></i>
+          {{ submitting ? 'Enregistrement...' : 'Enregistrer' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Détail d'un utilisateur            -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetailModal()">
+  <div class="modal-content modal-detail-user" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-info">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-eye"></i> Détails de l'Utilisateur</h3>
+      </div>
+      <button class="close-btn" (click)="closeDetailModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body" *ngIf="showDetailUser">
+      <!-- Section: Identité -->
+      <div class="detail-section">
+        <h4 class="section-title">
+          <i class="fas fa-info-circle"></i>
+          Identité
+        </h4>
+        <div class="detail-row">
+          <div class="detail-field">
+            <label><i class="fas fa-user"></i> Nom complet</label>
+            <div class="detail-value">{{ showDetailUser.first_name }} {{ showDetailUser.last_name }}</div>
+          </div>
+          <div class="detail-field">
+            <label><i class="fas fa-envelope"></i> Email</label>
+            <div class="detail-value">{{ showDetailUser.email }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Rôle et Organisation -->
+      <div class="detail-section">
+        <h4 class="section-title">
+          <i class="fas fa-shield-alt"></i>
+          Rôle et Organisation
+        </h4>
+        <div class="detail-row">
+          <div class="detail-field">
+            <label><i class="fas fa-user-tag"></i> Rôle</label>
+            <div class="detail-value">
+              <span class="badge" [ngClass]="getRoleBadgeClass(showDetailUser.role)">{{ getRoleLongName(showDetailUser.role) }}</span>
+            </div>
+          </div>
+          <div class="detail-field" *ngIf="showDetailUser && !showDetailUser.is_superuser && showDetailUser.role !== 'ROLE_ADMIN_SYSTEME'">
+            <label><i class="fas fa-building"></i> Organisation</label>
+            <div class="detail-value">{{ showDetailUser.organization_name || 'Non assigné' }}</div>
+          </div>
+          <div class="detail-field" *ngIf="showDetailUser && (showDetailUser.is_superuser || showDetailUser.role === 'ROLE_ADMIN_SYSTEME')">
+            <label><i class="fas fa-building"></i> Organisation</label>
+            <div class="platform-field">
+              <span class="platform-badge">
+                <i class="fas fa-globe"></i>
+                <span>Non applicable</span>
+              </span>
+              <span class="platform-hint">rôle plateforme</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Compte -->
+      <div class="detail-section">
+        <h4 class="section-title">
+          <i class="fas fa-chart-line"></i>
+          Informations du Compte
+        </h4>
+        <div class="detail-row">
+          <div class="detail-field">
+            <label><i class="fas fa-toggle-on"></i> Statut</label>
+            <div class="detail-value">
+              <span class="badge"
+                    [class.badge-success]="showDetailUser.is_active"
+                    [class.badge-warning]="!showDetailUser.is_active && !showDetailUser.is_deleted"
+                    [class.badge-secondary]="showDetailUser.is_deleted">
+                {{ showDetailUser.is_deleted ? 'Supprimé' : (showDetailUser.is_active ? 'Actif' : 'Inactif') }}
+              </span>
+            </div>
+          </div>
+          <div class="detail-field">
+            <label><i class="fas fa-shield"></i> Superuser</label>
+            <div class="detail-value">
+              <span class="badge" [class.badge-success]="showDetailUser.is_superuser" [class.badge-secondary]="!showDetailUser.is_superuser">
+                {{ showDetailUser.is_superuser ? 'Oui' : 'Non' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-field">
+            <label><i class="fas fa-calendar-plus"></i> Date d'inscription</label>
+            <div class="detail-value">{{ formatDate(showDetailUser.date_joined) }}</div>
+          </div>
+          <div class="detail-field">
+            <label><i class="fas fa-sign-in-alt"></i> Dernière connexion</label>
+            <div class="detail-value">{{ showDetailUser.last_connection_at ? formatDate(showDetailUser.last_connection_at) : 'Jamais' }}</div>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-field">
+            <label><i class="fas fa-key"></i> MDP à changer</label>
+            <div class="detail-value">
+              <span class="badge" [class.badge-warning]="showDetailUser.must_change_password" [class.badge-success]="!showDetailUser.must_change_password">
+                {{ showDetailUser.must_change_password ? 'Oui' : 'Non' }}
+              </span>
+            </div>
+          </div>
+          <div class="detail-field">
+            <label><i class="fas fa-calendar-check"></i> Dernier changement MDP</label>
+            <div class="detail-value">{{ showDetailUser.password_changed_at ? formatDate(showDetailUser.password_changed_at) : '—' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Adhésions -->
+      <div class="detail-section" *ngIf="showDetailUser.memberships && showDetailUser.memberships.length > 0">
+        <h4 class="section-title">
+          <i class="fas fa-users"></i>
+          Adhésions aux Organisations
+        </h4>
+        <div *ngFor="let m of showDetailUser.memberships" class="detail-row">
+          <div class="detail-field full-width">
+            <label><i class="fas fa-building"></i> {{ m.organization_name }}</label>
+            <div class="detail-value">
+              <span class="badge" [ngClass]="getRoleBadgeClass(m.role)">{{ getRoleLongName(m.role) }}</span>
+              <span style="margin-left: 12px; font-size: 12px; color: var(--text-muted);">
+                Depuis le {{ m.joined_at | date:'dd/MM/yyyy' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeDetailModal()">
+        <i class="fas fa-times"></i>
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Confirmation de suppression        -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-danger">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-exclamation-triangle"></i> Confirmation de Suppression</h3>
+      </div>
+      <button class="close-btn" (click)="closeDeleteModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="delete-warning" *ngIf="!isBulkDelete && deleteUser">
+        <div class="warning-icon">
+          <i class="fas fa-trash-alt"></i>
+        </div>
+        <div class="warning-content">
+          <h4>Êtes-vous sûr de vouloir supprimer cet utilisateur ?</h4>
+          <p class="user-name">"{{ deleteUser.first_name }} {{ deleteUser.last_name }}" ({{ deleteUser.email }})</p>
+          <p class="warning-text">
+            Cette action est <strong>réversible</strong> (soft-delete). L'utilisateur pourra être restauré.
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="deleteUser && isCriticalSuperAdmin(deleteUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
+            La suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - 1 }}.
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="deleteUser && isCriticalAppAdmin(deleteUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
+            La suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - 1 }}.
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="deleteUser && isCriticalOrgAdmin(deleteUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est le dernier administrateur actif de son organisation.
+            La suppression laisserait cette organisation sans aucun administrateur.
+          </p>
+        </div>
+      </div>
+      <div class="delete-warning" *ngIf="isBulkDelete">
+        <div class="warning-icon" [class.warning-icon-danger]="hasBulkBlockingIssues">
+          <i class="fas" [class.fa-exclamation-triangle]="hasBulkBlockingIssues" [class.fa-trash-alt]="!hasBulkBlockingIssues"></i>
+        </div>
+        <div class="warning-content">
+
+          <!-- Vue blocages : liste tous les problèmes -->
+          <ng-container *ngIf="hasBulkBlockingIssues; else normalBulkContent">
+            <h4><i class="fas fa-ban"></i> Suppression bloquée</h4>
+            <p class="warning-text">
+              Des problèmes ont été détectés dans votre sélection. Veuillez les corriger avant de procéder :
+            </p>
+            <ul class="blocked-reasons-list">
+              <li *ngIf="isCurrentUserSelected()">
+                <i class="fas fa-user-slash"></i>
+                <span><strong>Votre propre compte</strong> est sélectionné — veuillez le décocher.</span>
+              </li>
+              <li *ngIf="bulkBlockedPairSelectedCount > 0">
+                <i class="fas fa-lock"></i>
+                <span><strong>{{ bulkBlockedPairSelectedCount }} administrateur(s) système</strong> — seuls les Super Admins peuvent gérer ces comptes.</span>
+              </li>
+              <li *ngIf="criticalSuperAdminSelectedCount > 0">
+                <i class="fas fa-shield-halved"></i>
+                <span><strong>{{ criticalSuperAdminSelectedCount }} super administrateur(s) critique(s)</strong> — la suppression réduirait le nombre de super admins actifs à {{ activeSuperAdminCount - criticalSuperAdminSelectedCount }} (minimum 2 requis).</span>
+              </li>
+              <li *ngIf="criticalAppAdminSelectedCount > 0">
+                <i class="fas fa-shield-halved"></i>
+                <span><strong>{{ criticalAppAdminSelectedCount }} administrateur(s) système critique(s)</strong> — la suppression réduirait le nombre d'admins système actifs à {{ activeAppAdminCount - criticalAppAdminSelectedCount }} (minimum 2 requis).</span>
+              </li>
+              <li *ngIf="bulkBlockedOrgAdminSelectedCount > 0">
+                <i class="fas fa-lock"></i>
+                <span><strong>{{ bulkBlockedOrgAdminSelectedCount }} utilisateur(s)</strong> — les Admins Organisation ne peuvent gérer que les Agents Organisation.</span>
+              </li>
+              <li *ngIf="criticalOrgAdminSelectedCount > 0">
+                <i class="fas fa-shield-halved"></i>
+                <span><strong>{{ criticalOrgAdminSelectedCount }} administrateur(s) d'organisation critique(s)</strong> — la suppression laisserait leur organisation sans aucun administrateur actif.</span>
+              </li>
+            </ul>
+          </ng-container>
+
+          <!-- Vue normale : pas de blocage, message de confirmation -->
+          <ng-template #normalBulkContent>
+            <h4>Êtes-vous sûr de vouloir supprimer {{ selectedIds.size }} utilisateur(s) ?</h4>
+            <p class="warning-text">
+              Cette action est <strong>réversible</strong> (soft-delete). Les utilisateurs pourront être restaurés.
+            </p>
+            <div class="user-list-preview" *ngIf="getSelectedUsersList().length > 0">
+              <p class="user-list-title">Utilisateurs sélectionnés :</p>
+              <ul class="user-list">
+                <li *ngFor="let u of getSelectedUsersList() | slice:0:5">
+                  <i class="fas fa-user"></i>
+                  {{ u.first_name }} {{ u.last_name }} ({{ u.email }})
+                </li>
+                <li *ngIf="getSelectedUsersList().length > 5" class="more-items">
+                  <i class="fas fa-ellipsis-h"></i>
+                  et {{ getSelectedUsersList().length - 5 }} autre(s)
+                </li>
+              </ul>
+            </div>
+          </ng-template>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeDeleteModal()" [disabled]="deleting || bulkDeleting">
+        <i class="fas fa-times"></i>
+        Annuler
+      </button>
+      <button type="button" class="btn btn-danger btn-delete-confirm" (click)="confirmDelete()" [disabled]="deleting || bulkDeleting || (deleteUser && isDeleteBlockedByCritical(deleteUser)) || (isBulkDelete && hasBulkBlockingIssues)">
+        <i class="fas" [class.fa-spinner]="deleting || bulkDeleting" [class.fa-spin]="deleting || bulkDeleting" [class.fa-trash]="!(deleting || bulkDeleting)"></i>
+        {{ (deleting || bulkDeleting) ? 'Suppression...' : 'Oui, Supprimer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Confirmation toggle actif/inactif  -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showConfirmToggleModal" (click)="closeToggleModal()">
+  <div class="modal-content modal-toggle-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header" [class.modal-header-danger]="toggleAction === 'désactiver'" [class.modal-header-success]="toggleAction === 'activer'">
+      <div class="modal-header-left">
+        <h3>
+          <i class="fas" [class.fa-toggle-off]="toggleAction === 'désactiver'" [class.fa-toggle-on]="toggleAction === 'activer'"></i>
+          {{ toggleAction === 'désactiver' ? 'Désactiver' : 'Activer' }} le Compte
+        </h3>
+      </div>
+      <button class="close-btn" (click)="closeToggleModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body" *ngIf="toggleTargetUser">
+      <div class="delete-warning">
+        <div class="warning-icon" [class.warning-icon-success]="toggleAction === 'activer'">
+          <i class="fas" [class.fa-toggle-off]="toggleAction === 'désactiver'" [class.fa-toggle-on]="toggleAction === 'activer'"></i>
+        </div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment {{ toggleAction }} le compte ?</h4>
+          <p class="user-name">"{{ toggleTargetUser.first_name }} {{ toggleTargetUser.last_name }}" ({{ toggleTargetUser.email }})</p>
+          <p class="warning-text" *ngIf="toggleAction === 'désactiver'">
+            L'utilisateur <strong>ne pourra plus se connecter</strong> au système tant que le compte n'est pas réactivé.
+          </p>
+          <p class="warning-text" *ngIf="toggleAction === 'activer'">
+            L'utilisateur <strong>pourra à nouveau se connecter</strong> au système.
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="toggleTargetUser && isCriticalSuperAdmin(toggleTargetUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers super administrateurs actifs.
+            {{ toggleAction === 'désactiver' ? 'La désactivation réduirait le nombre de super admins actifs à ' + (activeSuperAdminCount - 1) + '.' : '' }}
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="toggleTargetUser && isCriticalAppAdmin(toggleTargetUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est l'un des derniers administrateurs système actifs.
+            {{ toggleAction === 'désactiver' ? 'La désactivation réduirait le nombre d\'admins système actifs à ' + (activeAppAdminCount - 1) + '.' : '' }}
+          </p>
+          <p class="super-admin-critical-warning" *ngIf="toggleTargetUser && isCriticalOrgAdmin(toggleTargetUser)">
+            <i class="fas fa-shield-halved"></i>
+            <strong>Attention :</strong> Ce compte est le dernier administrateur actif de son organisation.
+            {{ toggleAction === 'désactiver' ? 'La désactivation laisserait cette organisation sans aucun administrateur.' : '' }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeToggleModal()">
+        <i class="fas fa-times"></i>
+        Annuler
+      </button>
+      <button type="button" class="btn" [class.btn-danger]="toggleAction === 'désactiver'" [class.btn-success]="toggleAction === 'activer'" (click)="confirmToggle()">
+        <i class="fas fa-check"></i>
+        Confirmer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Restaurer un utilisateur          -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showRestoreModal" (click)="closeRestoreModal()">
+  <div class="modal-content modal-restore-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-success">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-undo"></i> Restaurer le Compte</h3>
+      </div>
+      <button class="close-btn" (click)="closeRestoreModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="delete-warning" *ngIf="!isBulkRestore && restoreUser_target">
+        <div class="warning-icon warning-icon-success">
+          <i class="fas fa-undo"></i>
+        </div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment restaurer ce compte ?</h4>
+          <p class="user-name">"{{ restoreUser_target.first_name }} {{ restoreUser_target.last_name }}" ({{ restoreUser_target.email }})</p>
+          <p class="warning-text">
+            Le compte sera <strong>réactivé</strong> et l'utilisateur <strong>pourra à nouveau se connecter</strong>.
+            Son mot de passe actuel restera inchangé.
+          </p>
+        </div>
+      </div>
+      <div class="delete-warning" *ngIf="isBulkRestore">
+        <div class="warning-icon warning-icon-success">
+          <i class="fas fa-undo"></i>
+        </div>
+        <div class="warning-content">
+          <h4>Voulez-vous vraiment restaurer {{ getSelectedUsersList().length }} utilisateur(s) ?</h4>
+          <p class="warning-text">
+            Les comptes seront <strong>réactivés</strong> et les utilisateurs <strong>pourront à nouveau se connecter</strong>.
+          </p>
+          <div class="user-list-preview" *ngIf="getSelectedUsersList().length > 0">
+            <p class="user-list-title">Utilisateurs sélectionnés :</p>
+            <ul class="user-list">
+              <li *ngFor="let u of getSelectedUsersList() | slice:0:5">
+                <i class="fas fa-user"></i>
+                {{ u.first_name }} {{ u.last_name }} ({{ u.email }})
+              </li>
+              <li *ngIf="getSelectedUsersList().length > 5" class="more-items">
+                <i class="fas fa-ellipsis-h"></i>
+                et {{ getSelectedUsersList().length - 5 }} autre(s)
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closeRestoreModal()" [disabled]="restoring">
+        <i class="fas fa-times"></i>
+        Annuler
+      </button>
+      <button type="button" class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
+        <i class="fas" [class.fa-spinner]="restoring" [class.fa-spin]="restoring" [class.fa-undo]="!restoring"></i>
+        {{ restoring ? 'Restauration...' : 'Oui, Restaurer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Suppression DÉFINITIVE d'un compte -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showPermanentDeleteModal" (click)="closePermanentDeleteModal()">
+  <div class="modal-content modal-delete-confirm" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-danger">
+      <div class="modal-header-left">
+        <h3><i class="fas fa-trash-alt"></i> Suppression définitive</h3>
+      </div>
+      <button class="close-btn" (click)="closePermanentDeleteModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="delete-warning">
+        <div class="warning-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="warning-content">
+          <h4 *ngIf="!isBulkPermanent && permanentDeleteTarget">
+            Supprimer définitivement "{{ permanentDeleteTarget.first_name }} {{ permanentDeleteTarget.last_name }}" ({{ permanentDeleteTarget.email }}) ?
+          </h4>
+          <h4 *ngIf="isBulkPermanent">
+            Supprimer définitivement {{ selectedIds.size }} utilisateur(s) ?
+          </h4>
+          <p class="warning-text">
+            Cette action est <strong>irréversible</strong> : le(s) compte(s) seront <strong>définitivement effacés</strong> de la base et ne pourront pas être restaurés.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-cancel" (click)="closePermanentDeleteModal()" [disabled]="permanentDeleting">
+        <i class="fas fa-times"></i>
+        Annuler
+      </button>
+      <button type="button" class="btn btn-danger btn-delete-confirm" (click)="confirmPermanentDelete()" [disabled]="permanentDeleting">
+        <i class="fas" [class.fa-spinner]="permanentDeleting" [class.fa-spin]="permanentDeleting" [class.fa-trash-alt]="!permanentDeleting"></i>
+        {{ permanentDeleting ? 'Suppression...' : 'Supprimer définitivement' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALE: Réinitialisation du mot de passe   -->
+<!-- ========================================== -->
+<div class="modal-overlay" *ngIf="showResetPasswordModal" (click)="closeResetPasswordModal()">
+  <div class="modal-content modal-password-reset" (click)="$event.stopPropagation()">
+    <div class="modal-header" [class.modal-header-success]="!!newPassword">
+      <div class="modal-header-left">
+        <h3>
+          <i class="fas" [class.fa-key]="!newPassword" [class.fa-check-circle]="!!newPassword"></i>
+          {{ newPassword ? 'Mot de passe généré' : 'Réinitialiser le Mot de Passe' }}
+        </h3>
+      </div>
+      <button class="close-btn" (click)="closeResetPasswordModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Étape 1 : Confirmation avant réinitialisation -->
+      <div *ngIf="resetPasswordUser && !newPassword && !resetting" class="reset-confirm">
+        <div class="reset-user-info">
+          <div class="user-avatar">
+            {{ resetPasswordUser.first_name.charAt(0) }}{{ resetPasswordUser.last_name.charAt(0) }}
+          </div>
+          <div class="user-details">
+            <h4>{{ resetPasswordUser.first_name }} {{ resetPasswordUser.last_name }}</h4>
+            <span class="user-email">{{ resetPasswordUser.email }}</span>
+          </div>
+        </div>
+        <div class="reset-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <p>Voulez-vous réinitialiser le mot de passe de cet utilisateur ? Un nouveau mot de passe sécurisé sera généré. L'utilisateur devra le changer à la prochaine connexion.</p>
+        </div>
+      </div>
+
+      <!-- État chargement -->
+      <div *ngIf="resetting" class="reset-loading">
+        <div class="spinner"></div>
+        <p>Génération du mot de passe...</p>
+      </div>
+
+      <!-- Étape 2 : Mot de passe généré -->
+      <div *ngIf="newPassword" class="password-result">
+        <div class="success-banner">
+          <i class="fas fa-check-circle"></i>
+          <span>Mot de passe réinitialisé avec succès</span>
+        </div>
+
+        <div class="password-card">
+          <div class="password-field">
+            <label>Nouveau mot de passe</label>
+            <div class="password-input-group">
+              <input [type]="showPassword ? 'text' : 'password'" [value]="newPassword" readonly>
+              <button class="btn-icon-toggle" (click)="showPassword = !showPassword" [title]="showPassword ? 'Masquer' : 'Afficher'">
+                <i class="fas" [class.fa-eye]="!showPassword" [class.fa-eye-slash]="showPassword"></i>
+              </button>
+              <button class="btn-icon-copy" (click)="copyToClipboard(newPassword)" [class.copied]="copied" [title]="copied ? 'Copié !' : 'Copier'">
+                <i class="fas" [class.fa-check]="copied" [class.fa-copy]="!copied"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="password-actions">
+            <button class="btn btn-regenerate" (click)="regenerateResetPassword()" [disabled]="regenerating">
+              <i class="fas" [class.fa-spinner]="regenerating" [class.fa-spin]="regenerating" [class.fa-sync]="!regenerating"></i>
+              {{ regenerating ? 'Génération...' : 'Régénérer' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="password-note">
+          <i class="fas fa-info-circle"></i>
+          <p>Communiquez ce mot de passe à l'utilisateur. Il devra le changer lors de sa prochaine connexion.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-cancel" (click)="closeResetPasswordModal()" [disabled]="resetting">
+        <i class="fas fa-times"></i>
+        {{ newPassword ? 'Fermer' : 'Annuler' }}
+      </button>
+      <button class="btn btn-reset" *ngIf="!newPassword && !resetting" (click)="confirmResetPassword()">
+        <i class="fas fa-key"></i>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+</div>

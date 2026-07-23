@@ -8,12 +8,20 @@ urlpatterns = [
     # Liste et création d'organisations
     path('', views.OrganizationListView.as_view(), name='organization-list'),
     
-    # Suppression en groupe d'organisations
+    # Suppression en groupe d'organisations (logique)
     path('bulk-delete/', views.OrganizationBulkDeleteView.as_view(), name='organization-bulk-delete'),
-    
+
+    # Corbeille : restauration et suppression définitive (en masse)
+    path('bulk-restore/', views.OrganizationBulkRestoreView.as_view(), name='organization-bulk-restore'),
+    path('permanent-delete/', views.OrganizationBulkPermanentDeleteView.as_view(), name='organization-bulk-permanent-delete'),
+
     # Métadonnées des champs (descriptions, types, etc.)
     path('metadata/', views.OrganizationMetadataView.as_view(), name='organization-metadata'),
-    
+
+    # Corbeille : restauration et suppression définitive (unitaire)
+    path('<uuid:pk>/restore/', views.OrganizationRestoreView.as_view(), name='organization-restore'),
+    path('<uuid:pk>/permanent/', views.OrganizationPermanentDeleteView.as_view(), name='organization-permanent-delete'),
+
     # Détails d'une organisation
     path('<uuid:pk>/', views.OrganizationDetailView.as_view(), name='organization-detail'),
     

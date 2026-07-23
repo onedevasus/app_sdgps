@@ -17,9 +17,10 @@ export class LayoutService {
   private themeSubject = new BehaviorSubject<ThemeMode>('light');
   public theme$: Observable<ThemeMode> = this.themeSubject.asObservable();
 
-  // État de la sidebar
+  // État de la sidebar — réduite (mode compact) par défaut : à l'ouverture de l'app et après
+  // connexion, le sidebar s'affiche en mode réduit (cf. collapseSidebar / setUserProfile).
   private sidebarStateSubject = new BehaviorSubject<SidebarState>({
-    isCollapsed: false,
+    isCollapsed: true,
     isVisible: true
   });
   public sidebarState$: Observable<SidebarState> = this.sidebarStateSubject.asObservable();
@@ -34,11 +35,25 @@ export class LayoutService {
   }
 
   /**
+   * Filtrer les items de menu selon le rôle de l'utilisateur
+   */
+  private filterMenuByRole(items: MenuItem[], role: string): MenuItem[] {
+    return items
+      .filter(item => !item.roles || item.roles.includes(role))
+      .map(item => {
+        if (item.children) {
+          return { ...item, children: this.filterMenuByRole(item.children, role) };
+        }
+        return item;
+      });
+  }
+
+  /**
    * Définir le menu selon le rôle de l'utilisateur
    */
   setMenuByRole(role: string): void {
-    const isAdmin = role === 'superadmin' || role === 'admin';
-    const menu = isAdmin ? ADMIN_MENU : USER_MENU;
+    const isAdmin = role === 'ROLE_SUPER_ADMIN' || role === 'ROLE_ADMIN_SYSTEME' || role === 'ROLE_ORGANISATION_ADMIN';
+    const menu = isAdmin ? this.filterMenuByRole(ADMIN_MENU, role) : USER_MENU;
     this.menuItemsSubject.next(menu);
     
     console.log(`📋 Menu chargé pour rôle: ${role} (${menu.length} éléments)`);
@@ -50,6 +65,8 @@ export class LayoutService {
   setUserProfile(profile: UserProfile): void {
     this.userProfileSubject.next(profile);
     this.setMenuByRole(profile.role);
+    // Après connexion, afficher le sidebar en mode réduit.
+    this.collapseSidebar();
   }
 
   /**
@@ -110,6 +127,17 @@ export class LayoutService {
     
     this.sidebarStateSubject.next(newState);
     console.log(`📐 Sidebar collapsed: ${newState.isCollapsed}`);
+  }
+
+  /**
+   * Réduire le sidebar (mode compact) s'il ne l'est pas déjà. Utilisé après connexion et
+   * après l'ouverture d'une entrée du menu.
+   */
+  collapseSidebar(): void {
+    const currentState = this.sidebarStateSubject.getValue();
+    if (!currentState.isCollapsed) {
+      this.sidebarStateSubject.next({ ...currentState, isCollapsed: true });
+    }
   }
 
   /**

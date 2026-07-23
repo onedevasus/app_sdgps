@@ -40,6 +40,14 @@ export class SidebarComponent implements OnInit {
   }
 
   /**
+   * Après l'ouverture d'une entrée du menu, réduire le sidebar (mode compact).
+   * Appelé uniquement sur les liens de navigation (feuilles), pas sur l'ouverture d'un sous-menu.
+   */
+  onNavigate(): void {
+    this.layoutService.collapseSidebar();
+  }
+
+  /**
    * Naviguer vers une route
    */
   navigateTo(route?: string): void {

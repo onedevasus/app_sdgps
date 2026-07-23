@@ -1,0 +1,55 @@
+<div class="column-mapper" [formGroup]="form">
+  <div class="mapper-header">
+    <span class="mapper-count">{{ preview.total_rows }} ligne(s) détectée(s)</span>
+    <span class="mapper-completion" [class.warning]="mappedCount === 0">
+      <i class="fas fa-check-circle"></i> {{ mappedCount }} / {{ totalChamps }} champs mappés
+    </span>
+    <button class="reset-all-btn" (click)="resetAllToSuggestions()" title="Réinitialiser toutes les suggestions">
+      <i class="fas fa-undo"></i> Réinitialiser
+    </button>
+  </div>
+
+  <div class="unmapped-warning" *ngIf="unmappedSourceColumns.length">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span>Colonnes du fichier non utilisées : {{ unmappedSourceColumns.join(', ') }}</span>
+  </div>
+
+  <div class="mapper-panes">
+    <div class="mapper-fields">
+      <div class="mapper-field-row" *ngFor="let champ of champs"
+           [class.has-desc]="champ.description || champ.tooltip">
+        <i class="fas field-status" [ngClass]="form.value[champ.name] ? 'fa-check-circle mapped' : 'fa-circle unmapped'"></i>
+        <span class="champ-label" [title]="champ.tooltip || champ.description || ''">
+          {{ champ.label }}
+          <i class="fas fa-circle-info champ-info" *ngIf="champ.description || champ.tooltip"
+             [title]="champ.description || champ.tooltip"></i>
+        </span>
+        <select [formControlName]="champ.name">
+          <option [value]="ignoreValue">— ignorer —</option>
+          <option *ngFor="let col of preview.columns" [value]="col">{{ col }}</option>
+        </select>
+        <button class="field-reset-btn" *ngIf="isModified(champ.name)" (click)="resetField(champ.name)" title="Réinitialiser ce champ">
+          <i class="fas fa-rotate-left"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="mapper-preview" *ngIf="previewSampleRows.length">
+      <p class="preview-title"><i class="fas fa-eye"></i> Aperçu (5 premières lignes)</p>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th *ngFor="let champ of previewColumns">{{ champ.label }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of previewSampleRows">
+              <td *ngFor="let champ of previewColumns">{{ previewValue(row, champ) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

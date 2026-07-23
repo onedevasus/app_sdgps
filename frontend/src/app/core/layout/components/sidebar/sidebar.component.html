@@ -24,12 +24,14 @@
       
       <!-- Menu sans enfants -->
       <li *ngIf="!item.children || item.children.length === 0" class="menu-item">
-        <a 
-          [routerLink]="item.route" 
+        <a
+          [routerLink]="item.route"
           routerLinkActive="active current-page"
+          [routerLinkActiveOptions]="{ exact: !!item.exact }"
+          (click)="onNavigate()"
           class="menu-link"
           [title]="item.description || item.title">
-          
+
           <i *ngIf="item.icon" [class]="item.icon + ' menu-icon'"></i>
           <span class="menu-text">{{ item.title }}</span>
           
@@ -52,12 +54,16 @@
           <i class="fas fa-chevron-down submenu-toggle-icon" [class.rotated]="isExpanded(item.id)"></i>
         </a>
 
-        <!-- Sous-menu -->
+        <!-- Sous-menu (déroulé en mode étendu / flyout au survol en mode réduit) -->
         <ul class="submenu" [class.open]="isExpanded(item.id)">
+          <!-- En-tête : visible uniquement dans le flyout du mode réduit (titre du parent). -->
+          <li class="submenu-flyout-title" aria-hidden="true">{{ item.title }}</li>
           <li *ngFor="let child of item.children" class="menu-item">
-            <a 
-              [routerLink]="child.route" 
+            <a
+              [routerLink]="child.route"
               routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: !!child.exact }"
+              (click)="onNavigate()"
               class="menu-link submenu-link"
               [title]="child.description || child.title">
               

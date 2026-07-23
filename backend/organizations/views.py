@@ -1,6 +1,8 @@
 """
 Vues API pour la gestion des organisations
 """
+from django.db.models import ProtectedError
+from django.utils import timezone
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +11,11 @@ from .serializers import OrganizationSerializer, OrganizationListSerializer, Mem
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def is_app_admin(user):
+    """Vrai pour un Super Admin ou un Admin Système (administration de l'application)."""
+    return user.is_superuser or user.get_primary_role() == 'ROLE_ADMIN_SYSTEME'
 
 
 class OrganizationBulkDeleteView(APIView):
@@ -22,9 +29,9 @@ class OrganizationBulkDeleteView(APIView):
     
     def post(self, request):
         # Vérifier que l'utilisateur est Super Admin
-        if not request.user.is_superuser and request.user.get_primary_role() != 'superadmin':
+        if not request.user.is_superuser and request.user.get_primary_role() != 'ROLE_ADMIN_SYSTEME':
             return Response(
-                {'detail': 'Seul le Super Admin peut supprimer des organisations.'},
+                {'detail': 'Seul l\'administrateur de l\'application peut supprimer des organisations.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -122,22 +129,33 @@ class OrganizationListView(generics.ListCreateAPIView):
         return OrganizationListSerializer
     
     def get_queryset(self):
-        queryset = Organization.objects.filter(is_active=True, is_deleted=False)
-        
+        # Onglet « Corbeille » : organisations en suppression logique. Sinon, actives.
+        show_deleted = str(self.request.query_params.get('show_deleted', '')).lower() in ('1', 'true', 'yes')
+        if show_deleted:
+            queryset = Organization.objects.filter(is_deleted=True)
+        else:
+            queryset = Organization.objects.filter(is_active=True, is_deleted=False)
+
         # Filtrage par type
         org_type = self.request.query_params.get('type', None)
         if org_type:
             queryset = queryset.filter(type=org_type)
-        
+
         # Filtrage par recherche
         search = self.request.query_params.get('search', None)
         if search:
             queryset = queryset.filter(name__icontains=search)
-        
+
         return queryset.order_by('name')
     
     def perform_create(self, serializer):
-        """Ajoute l'utilisateur courant comme créateur"""
+        """Ajoute l'utilisateur courant comme créateur.
+        Seuls les Super Admins et Admins Système peuvent créer des organisations.
+        """
+        user = self.request.user
+        if not user.is_superuser and user.get_primary_role() != 'ROLE_ADMIN_SYSTEME':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seuls les Super Admins et Admins Système peuvent créer des organisations.")
         serializer.save(created_by=self.request.user)
         logger.info(f"Organisation créée par: {self.request.user.email}")
 
@@ -158,14 +176,14 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         """Vérifie les permissions spécifiques à l'objet"""
         if request.method in ['PUT', 'PATCH', 'DELETE']:
             # Super Admin peut tout faire
-            if request.user.is_superuser or request.user.get_primary_role() == 'superadmin':
+            if request.user.is_superuser or request.user.get_primary_role() == 'ROLE_ADMIN_SYSTEME':
                 return
             
             # Admin de l'organisation peut modifier
             membership = Membership.objects.filter(
                 user=request.user,
                 organization=obj,
-                role__in=['ADMIN', 'OWNER'],
+                role='ROLE_ORGANISATION_ADMIN',
                 is_active=True
             ).first()
             
@@ -208,6 +226,111 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         logger.info(f"Organisation supprimée (soft delete): {instance.name} (ID: {instance.id})")
 
 
+class OrganizationRestoreView(APIView):
+    """POST /api/v1/organizations/{id}/restore/ — restaure une organisation en corbeille."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        if not is_app_admin(request.user):
+            return Response({'detail': "Action réservée à l'administrateur de l'application."},
+                            status=status.HTTP_403_FORBIDDEN)
+        org = Organization.all_objects.filter(pk=pk, is_deleted=True).first()
+        if not org:
+            return Response({'detail': 'Organisation supprimée introuvable.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        org.is_deleted = False
+        org.deleted_at = None
+        org.save(update_fields=['is_deleted', 'deleted_at'])
+        logger.info(f"Organisation restaurée: {org.name} (ID: {org.id}) par {request.user.email}")
+        return Response(OrganizationListSerializer(org).data, status=status.HTTP_200_OK)
+
+
+class OrganizationBulkRestoreView(APIView):
+    """POST /api/v1/organizations/bulk-restore/ — {organization_ids} — restaure en masse."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not is_app_admin(request.user):
+            return Response({'detail': "Action réservée à l'administrateur de l'application."},
+                            status=status.HTTP_403_FORBIDDEN)
+        ids = request.data.get('organization_ids', [])
+        if not ids:
+            return Response({'detail': 'Aucune organisation spécifiée.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        qs = Organization.all_objects.filter(pk__in=ids, is_deleted=True)
+        restored_count = qs.count()
+        qs.update(is_deleted=False, deleted_at=None)
+        logger.info(f"{restored_count} organisation(s) restaurée(s) par {request.user.email}")
+        return Response({'restored_count': restored_count}, status=status.HTTP_200_OK)
+
+
+class OrganizationPermanentDeleteView(APIView):
+    """DELETE /api/v1/organizations/{id}/permanent/ — suppression DÉFINITIVE (irréversible).
+
+    Autorisée uniquement sur une organisation déjà en corbeille (is_deleted=True).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        if not is_app_admin(request.user):
+            return Response({'detail': "Action réservée à l'administrateur de l'application."},
+                            status=status.HTTP_403_FORBIDDEN)
+        org = Organization.all_objects.filter(pk=pk).first()
+        if not org:
+            return Response({'detail': 'Organisation introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+        if not org.is_deleted:
+            return Response({'detail': 'Seule une organisation en corbeille peut être supprimée définitivement.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # Blocage explicite : Projet.organization est en PROTECT — on refuse tant que des
+        # projets sont rattachés (aucune donnée de projet n'est supprimée automatiquement).
+        projet_count = org.projets.count()
+        if projet_count:
+            return Response(
+                {'detail': f"Suppression définitive impossible : {projet_count} projet(s) "
+                           f"rattaché(s) à cette organisation. Supprimez-les d'abord."},
+                status=status.HTTP_400_BAD_REQUEST)
+        name = org.name
+        try:
+            org.delete()
+        except ProtectedError:
+            return Response({'detail': 'Suppression définitive impossible : des données protégées y sont rattachées.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        logger.warning(f"Organisation supprimée DÉFINITIVEMENT: {name} par {request.user.email}")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class OrganizationBulkPermanentDeleteView(APIView):
+    """POST /api/v1/organizations/permanent-delete/ — {organization_ids} — purge en masse."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not is_app_admin(request.user):
+            return Response({'detail': "Action réservée à l'administrateur de l'application."},
+                            status=status.HTTP_403_FORBIDDEN)
+        ids = request.data.get('organization_ids', [])
+        if not ids:
+            return Response({'detail': 'Aucune organisation spécifiée.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # Uniquement les organisations en corbeille.
+        qs = Organization.all_objects.filter(pk__in=ids, is_deleted=True)
+        deleted_count = 0
+        errors = []
+        for org in qs:
+            projet_count = org.projets.count()
+            if projet_count:
+                errors.append({'id': str(org.id), 'name': org.name,
+                               'detail': f"{projet_count} projet(s) rattaché(s)."})
+                continue
+            try:
+                org.delete()
+                deleted_count += 1
+            except ProtectedError:
+                errors.append({'id': str(org.id), 'name': org.name,
+                               'detail': 'Données protégées rattachées.'})
+        logger.warning(f"{deleted_count} organisation(s) supprimée(s) DÉFINITIVEMENT par {request.user.email}")
+        return Response({'deleted_count': deleted_count, 'errors': errors}, status=status.HTTP_200_OK)
+
+
 class UserOrganizationsView(APIView):
     """
     Endpoint: GET /api/v1/organizations/my-organizations/
@@ -241,16 +364,23 @@ class OrganizationMembersView(generics.ListAPIView):
     
     def get_queryset(self):
         org_id = self.kwargs['pk']
+        user = self.request.user
+        # Super Admin et Admin Système voient les membres de toutes les orgs
+        if user.is_superuser or user.get_primary_role() == 'ROLE_ADMIN_SYSTEME':
+            return Membership.objects.filter(
+                organization_id=org_id,
+                is_active=True
+            ).select_related('user', 'organization')
+        # Admin Organisation et Agent Organisation ne voient que les membres de leurs propres orgs
+        user_org_ids = user.memberships.filter(
+            is_active=True
+        ).values_list('organization_id', flat=True)
+        if org_id not in user_org_ids:
+            return Membership.objects.none()
         return Membership.objects.filter(
             organization_id=org_id,
             is_active=True
         ).select_related('user', 'organization')
-    
-    def get_permissions(self):
-        """Seuls les admins peuvent voir la liste des membres"""
-        if self.request.method == 'GET':
-            return [permissions.IsAuthenticated()]
-        return super().get_permissions()
 
 
 class AddMemberView(APIView):
@@ -274,7 +404,7 @@ class AddMemberView(APIView):
         membership = Membership.objects.filter(
             user=request.user,
             organization=organization,
-            role__in=['ADMIN', 'OWNER'],
+            role='ROLE_ORGANISATION_ADMIN',
             is_active=True
         ).first()
         

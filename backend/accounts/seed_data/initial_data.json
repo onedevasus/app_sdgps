@@ -1,0 +1,1303 @@
+{
+  "_comment": "Donnees d'initialisation SDGPS (snapshot de la base de developpement). Surchargeable via SEED_DATA_FILE. Les mots de passe ne figurent JAMAIS ici: chaque utilisateur reference la variable d'env password_env. Les champs *_env priment sur la valeur litterale.",
+  "users": [
+    {
+      "email": "boulmaneabderrazzak@gmail.com",
+      "email_env": "SUPER_ADMIN_EMAIL",
+      "password_env": "SUPER_ADMIN_PASSWORD",
+      "first_name": "Abderrazzak",
+      "last_name": "Boulmane",
+      "is_superuser": true,
+      "is_staff": true,
+      "platform_role": null
+    },
+    {
+      "email": "appadmin1@sdgps.ma",
+      "password_env": "APP_ADMIN1_PASSWORD",
+      "first_name": "Amine",
+      "last_name": "Benali",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": "ROLE_ADMIN_SYSTEME"
+    },
+    {
+      "email": "appadmin2@sdgps.ma",
+      "password_env": "APP_ADMIN2_PASSWORD",
+      "first_name": "Sara",
+      "last_name": "El Amrani",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": "ROLE_ADMIN_SYSTEME"
+    },
+    {
+      "email": "orgadmin1@sdgps.ma",
+      "password_env": "ORGADMIN_PASSWORD",
+      "first_name": "Karim",
+      "last_name": "Tazi",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "SC-AZILAL",
+          "role": "ROLE_ORGANISATION_ADMIN",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "orgadmin2@sdgps.ma",
+      "password_env": "ORGADMIN_PASSWORD",
+      "first_name": "Nadia",
+      "last_name": "Fassi",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "SC-HAOUZ",
+          "role": "ROLE_ORGANISATION_ADMIN",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "orgadmin3@sdgps.ma",
+      "password_env": "ORGADMIN_PASSWORD",
+      "first_name": "Hicham",
+      "last_name": "Bennani",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "ITKANTOPO-V2",
+          "role": "ROLE_ORGANISATION_ADMIN",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "agent1@sdgps.ma",
+      "password_env": "SEED_DEFAULT_PASSWORD",
+      "first_name": "Youssef",
+      "last_name": "Idrissi",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "SC-AZILAL",
+          "role": "ROLE_ORGANISATION_AGENT",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "agent2@sdgps.ma",
+      "password_env": "SEED_DEFAULT_PASSWORD",
+      "first_name": "Fatima",
+      "last_name": "Zahra",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "SC-HAOUZ",
+          "role": "ROLE_ORGANISATION_AGENT",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "agent3@sdgps.ma",
+      "password_env": "SEED_DEFAULT_PASSWORD",
+      "first_name": "Omar",
+      "last_name": "Saidi",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "ITKANTOPO-V2",
+          "role": "ROLE_ORGANISATION_AGENT",
+          "is_active": true
+        }
+      ]
+    }
+  ],
+  "organizations": [
+    {
+      "code": "DEMO-PROJETS",
+      "name": "Organisation Démo — Projets SDGPS",
+      "type": "PRIVATE",
+      "legal_id": "",
+      "address": "",
+      "phone": "",
+      "email": "",
+      "website": "",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "ITKANTOPO",
+      "name": "ITKANTOPO",
+      "type": "PRIVATE",
+      "legal_id": "ITKANTOPO",
+      "address": "Avenue Kamal Zebdi",
+      "phone": "+212642497285",
+      "email": "itkantopo@gmail.com",
+      "website": "https://itkantopo.com",
+      "is_active": true,
+      "is_test_data": false,
+      "is_deleted": true
+    },
+    {
+      "code": "ITKANTOPO-V2",
+      "name": "ITKANTOPO",
+      "type": "PRIVATE",
+      "legal_id": "ITKANTOPO",
+      "address": "Avenue Kamal Zebdi",
+      "phone": "+212642497285",
+      "email": "itkantopo@gmail.com",
+      "website": "https://itkantopo.com",
+      "is_active": true,
+      "is_test_data": false,
+      "is_deleted": false
+    },
+    {
+      "code": "SC-AZILAL",
+      "name": "Cadastre Azilal",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "Avenue Hassan II Route Marrakech Azilal",
+      "phone": "+212642497285",
+      "email": "cad.azilal@ancfcc.gov.ma",
+      "website": "https://ancfcc.gov.ma",
+      "is_active": true,
+      "is_test_data": false,
+      "is_deleted": false
+    },
+    {
+      "code": "SC-BENI-MELLAL",
+      "name": "Cadastre Beni Mellal",
+      "type": "PUBLIC",
+      "legal_id": "SC-BENI-MELLAL",
+      "address": "Avenue Hassan II Route Marrakech Beni Mellal",
+      "phone": "+212642497285",
+      "email": "cad.benimellal@ancfcc.gov.com",
+      "website": "https://ancfcc.gov.ma",
+      "is_active": true,
+      "is_test_data": false,
+      "is_deleted": true
+    },
+    {
+      "code": "SC-GUELIZ",
+      "name": "Cadastre Gueliz",
+      "type": "PUBLIC",
+      "legal_id": "SC-GUELIZ",
+      "address": "Avenue Kamal Zebdi",
+      "phone": "+212642497285",
+      "email": "cad.gueliz@gmail.com",
+      "website": "https://ancfcc.gov.ma",
+      "is_active": true,
+      "is_test_data": false,
+      "is_deleted": true
+    },
+    {
+      "code": "SC-HAOUZ",
+      "name": "Cadastre Haouz",
+      "type": "PUBLIC",
+      "legal_id": "SC-HAOUZ",
+      "address": "Avenue Hassan II Route Marrakech Azilal",
+      "phone": "+212642497285",
+      "email": "cad.haouz@ancfcc.gov.ma",
+      "website": "https://ancfcc.gov.ma",
+      "is_active": true,
+      "is_test_data": false,
+      "is_deleted": false
+    },
+    {
+      "code": "T-ORG-A",
+      "name": "Cabinet Tech & Innovation",
+      "type": "PRIVATE",
+      "legal_id": "RC-11111-CAS",
+      "address": "",
+      "phone": "",
+      "email": "contact@tech-innovation.ma",
+      "website": "",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "T-ORG-B",
+      "name": "Fiduciaire Atlas Conseil",
+      "type": "PRIVATE",
+      "legal_id": "RC-22222-RBA",
+      "address": "",
+      "phone": "",
+      "email": "contact@atlas-conseil.ma",
+      "website": "",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "T-ORG-C",
+      "name": "Bureau d'Études Génie Civil",
+      "type": "PRIVATE",
+      "legal_id": "RC-33333-MRK",
+      "address": "",
+      "phone": "",
+      "email": "contact@bet-geniecivil.ma",
+      "website": "",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-101849",
+      "name": "Cabinet Aspect SARL",
+      "type": "PRIVATE",
+      "legal_id": "RC-120728",
+      "address": "907 Allal Ben Abdellah, Safi",
+      "phone": "+212 589 62 17 96",
+      "email": "contact@test101849.ma",
+      "website": "https://www.test101849.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-102011",
+      "name": "Centre Manger Régionale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "867 Moulay Slimane, Marrakech",
+      "phone": "+212 545 5 33 8",
+      "email": "contact@test102011.ma",
+      "website": "https://www.test102011.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-13715",
+      "name": "Direction Ville de l'Économie",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "477 Moulay Youssef, Casablanca",
+      "phone": "+212 574 10 27 17",
+      "email": "contact@test13715.ma",
+      "website": "https://www.test13715.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-139312",
+      "name": "Société Rappeler SA",
+      "type": "PRIVATE",
+      "legal_id": "RC-905572",
+      "address": "671 Zerktouni, Tétouan",
+      "phone": "+212 597 80 32 97",
+      "email": "contact@test139312.ma",
+      "website": "https://www.test139312.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-151432",
+      "name": "Solutions Comment SA",
+      "type": "PRIVATE",
+      "legal_id": "RC-80230",
+      "address": "403 Moulay Slimane, Rabat",
+      "phone": "+212 58 14 96 91",
+      "email": "contact@test151432.ma",
+      "website": "https://www.test151432.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-153393",
+      "name": "Solutions Résistance SAS",
+      "type": "PRIVATE",
+      "legal_id": "RC-118212",
+      "address": "289 Annakhil, Fès",
+      "phone": "+212 538 36 0 49",
+      "email": "contact@test153393.ma",
+      "website": "https://www.test153393.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-158608",
+      "name": "Conseil Asseoir SARL",
+      "type": "PRIVATE",
+      "legal_id": "RC-600991",
+      "address": "412 Moulay Youssef, Tétouan",
+      "phone": "+212 542 6 47 10",
+      "email": "contact@test158608.ma",
+      "website": "https://www.test158608.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-246727",
+      "name": "Division Annoncer de Contrôle",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "214 Al Massira, Meknès",
+      "phone": "+212 537 27 67 27",
+      "email": "contact@test246727.ma",
+      "website": "https://www.test246727.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-253672",
+      "name": "Expertise Affaire & Associés",
+      "type": "PRIVATE",
+      "legal_id": "RC-121413",
+      "address": "29 Mohammed V, Marrakech",
+      "phone": "+212 598 5 91 41",
+      "email": "contact@test253672.ma",
+      "website": "https://www.test253672.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-259915",
+      "name": "Centre Sueur Centrale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "928 Al Massira, Oujda",
+      "phone": "+212 579 21 33 28",
+      "email": "contact@test259915.ma",
+      "website": "https://www.test259915.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-262633",
+      "name": "Conseil Expliquer Plus",
+      "type": "PRIVATE",
+      "legal_id": "RC-36910",
+      "address": "237 Moulay Slimane, Kénitra",
+      "phone": "+212 513 40 86 36",
+      "email": "contact@test262633.ma",
+      "website": "https://www.test262633.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-263809",
+      "name": "Centre Le Technique",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "528 Oqba Ibn Nafiaa, Safi",
+      "phone": "+212 519 36 58 47",
+      "email": "contact@test263809.ma",
+      "website": "https://www.test263809.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-265818",
+      "name": "Cabinet Forcer & Associés",
+      "type": "PRIVATE",
+      "legal_id": "RC-323144",
+      "address": "806 Mohammed V, El Jadida",
+      "phone": "+212 51 80 43 14",
+      "email": "contact@test265818.ma",
+      "website": "https://www.test265818.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-287931",
+      "name": "Délégation Gris Régionale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "744 Al Massira, Agadir",
+      "phone": "+212 580 34 83 80",
+      "email": "contact@test287931.ma",
+      "website": "https://www.test287931.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-298758",
+      "name": "Service Soleil Centrale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "509 Mohammed V, Kénitra",
+      "phone": "+212 566 12 50 59",
+      "email": "contact@test298758.ma",
+      "website": "https://www.test298758.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-331287",
+      "name": "Délégation Écarter de Contrôle",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "114 Moulay Slimane, Fès",
+      "phone": "+212 510 55 60 55",
+      "email": "contact@test331287.ma",
+      "website": "https://www.test331287.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-336466",
+      "name": "Société Chose Maroc",
+      "type": "PRIVATE",
+      "legal_id": "RC-377283",
+      "address": "388 Mohammed V, Fès",
+      "phone": "+212 581 85 19 82",
+      "email": "contact@test336466.ma",
+      "website": "https://www.test336466.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-372798",
+      "name": "Technologies Profond Elite",
+      "type": "PRIVATE",
+      "legal_id": "RC-49755",
+      "address": "268 Al Massira, Fès",
+      "phone": "+212 527 0 10 27",
+      "email": "contact@test372798.ma",
+      "website": "https://www.test372798.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-379716",
+      "name": "Technologies Masse & Associés",
+      "type": "PRIVATE",
+      "legal_id": "RC-632489",
+      "address": "189 Al Massira, Marrakech",
+      "phone": "+212 55 0 20 10",
+      "email": "contact@test379716.ma",
+      "website": "https://www.test379716.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-387666",
+      "name": "Agence Cou Régionale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "83 Moulay Slimane, Kénitra",
+      "phone": "+212 568 44 65 74",
+      "email": "contact@test387666.ma",
+      "website": "https://www.test387666.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-397107",
+      "name": "Service Apprendre Provinciale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "579 Moulay Youssef, Marrakech",
+      "phone": "+212 529 66 87 99",
+      "email": "contact@test397107.ma",
+      "website": "https://www.test397107.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-39975",
+      "name": "Service Changement de Contrôle",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "359 Mohammed V, Agadir",
+      "phone": "+212 554 79 69 85",
+      "email": "contact@test39975.ma",
+      "website": "https://www.test39975.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-411658",
+      "name": "Agence Cour de Contrôle",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "803 Oqba Ibn Nafiaa, Tétouan",
+      "phone": "+212 579 77 48 5",
+      "email": "contact@test411658.ma",
+      "website": "https://www.test411658.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-448971",
+      "name": "Ministère Conseil de l'Économie",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "483 Moulay Youssef, Tanger",
+      "phone": "+212 567 8 96 62",
+      "email": "contact@test448971.ma",
+      "website": "https://www.test448971.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-518612",
+      "name": "Expertise Emmener Maroc",
+      "type": "PRIVATE",
+      "legal_id": "RC-454489",
+      "address": "705 Moulay Slimane, Casablanca",
+      "phone": "+212 562 21 47 56",
+      "email": "contact@test518612.ma",
+      "website": "https://www.test518612.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-538616",
+      "name": "Conseil Jambe Elite",
+      "type": "PRIVATE",
+      "legal_id": "RC-995330",
+      "address": "560 Mohammed V, Agadir",
+      "phone": "+212 55 72 69 19",
+      "email": "contact@test538616.ma",
+      "website": "https://www.test538616.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-542760",
+      "name": "Conseil Dont & Associés",
+      "type": "PRIVATE",
+      "legal_id": "RC-259987",
+      "address": "554 Annakhil, Agadir",
+      "phone": "+212 516 48 22 40",
+      "email": "contact@test542760.ma",
+      "website": "https://www.test542760.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-577368",
+      "name": "Cabinet Éviter Partners",
+      "type": "PRIVATE",
+      "legal_id": "RC-79638",
+      "address": "647 Bir Anzarane, Marrakech",
+      "phone": "+212 587 48 94 31",
+      "email": "contact@test577368.ma",
+      "website": "https://www.test577368.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-581495",
+      "name": "Cabinet Secret & Associés",
+      "type": "PRIVATE",
+      "legal_id": "RC-465984",
+      "address": "456 Moulay Youssef, Kénitra",
+      "phone": "+212 523 35 12 98",
+      "email": "contact@test581495.ma",
+      "website": "https://www.test581495.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-582414",
+      "name": "Technologies Secours Elite",
+      "type": "PRIVATE",
+      "legal_id": "RC-201059",
+      "address": "761 Mohammed V, Meknès",
+      "phone": "+212 527 30 64 46",
+      "email": "contact@test582414.ma",
+      "website": "https://www.test582414.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-618883",
+      "name": "Conseil Je International",
+      "type": "PRIVATE",
+      "legal_id": "RC-186480",
+      "address": "188 Mohammed V, Oujda",
+      "phone": "+212 517 2 37 9",
+      "email": "contact@test618883.ma",
+      "website": "https://www.test618883.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-627094",
+      "name": "Division Éclat Centrale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "384 Allal Ben Abdellah, Fès",
+      "phone": "+212 540 9 26 87",
+      "email": "contact@test627094.ma",
+      "website": "https://www.test627094.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-633055",
+      "name": "Expertise Coup SAS",
+      "type": "PRIVATE",
+      "legal_id": "RC-855682",
+      "address": "944 Hassan II, Agadir",
+      "phone": "+212 546 99 94 50",
+      "email": "contact@test633055.ma",
+      "website": "https://www.test633055.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-641417",
+      "name": "Expertise Vide Plus",
+      "type": "PRIVATE",
+      "legal_id": "RC-762273",
+      "address": "918 Annakhil, Kénitra",
+      "phone": "+212 526 88 97 45",
+      "email": "contact@test641417.ma",
+      "website": "https://www.test641417.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-66479",
+      "name": "Société Quelque & Associés",
+      "type": "PRIVATE",
+      "legal_id": "RC-650839",
+      "address": "974 Mohammed V, Marrakech",
+      "phone": "+212 522 15 21 65",
+      "email": "contact@test66479.ma",
+      "website": "https://www.test66479.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-685047",
+      "name": "Société Santé SA",
+      "type": "PRIVATE",
+      "legal_id": "RC-816628",
+      "address": "762 Moulay Youssef, Meknès",
+      "phone": "+212 510 59 51 95",
+      "email": "contact@test685047.ma",
+      "website": "https://www.test685047.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-725944",
+      "name": "Expertise En International",
+      "type": "PRIVATE",
+      "legal_id": "RC-215703",
+      "address": "772 Moulay Slimane, Marrakech",
+      "phone": "+212 513 23 48 53",
+      "email": "contact@test725944.ma",
+      "website": "https://www.test725944.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-770276",
+      "name": "Technologies Dieu Elite",
+      "type": "PRIVATE",
+      "legal_id": "RC-627870",
+      "address": "696 Moulay Slimane, El Jadida",
+      "phone": "+212 554 35 83 86",
+      "email": "contact@test770276.ma",
+      "website": "https://www.test770276.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-817091",
+      "name": "Conseil Rassurer Plus",
+      "type": "PRIVATE",
+      "legal_id": "RC-965728",
+      "address": "841 Hassan II, Marrakech",
+      "phone": "+212 583 7 99 74",
+      "email": "contact@test817091.ma",
+      "website": "https://www.test817091.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-820743",
+      "name": "Service Carte Technique",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "951 Mohammed V, Safi",
+      "phone": "+212 596 6 70 60",
+      "email": "contact@test820743.ma",
+      "website": "https://www.test820743.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-857188",
+      "name": "Services Mince Elite",
+      "type": "PRIVATE",
+      "legal_id": "RC-453793",
+      "address": "327 Moulay Youssef, Meknès",
+      "phone": "+212 520 73 83 82",
+      "email": "contact@test857188.ma",
+      "website": "https://www.test857188.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-874103",
+      "name": "Services Exécuter SAS",
+      "type": "PRIVATE",
+      "legal_id": "RC-780409",
+      "address": "846 Allal Ben Abdellah, Tanger",
+      "phone": "+212 598 19 67 78",
+      "email": "contact@test874103.ma",
+      "website": "https://www.test874103.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-88480",
+      "name": "Centre Faux Centrale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "157 Allal Ben Abdellah, Rabat",
+      "phone": "+212 50 73 88 66",
+      "email": "contact@test88480.ma",
+      "website": "https://www.test88480.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-889860",
+      "name": "Cabinet Contenter SAS",
+      "type": "PRIVATE",
+      "legal_id": "RC-503698",
+      "address": "257 Al Massira, Marrakech",
+      "phone": "+212 585 77 85 39",
+      "email": "contact@test889860.ma",
+      "website": "https://www.test889860.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-925754",
+      "name": "Direction Étonner Centrale",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "913 Bir Anzarane, Tétouan",
+      "phone": "+212 582 88 40 33",
+      "email": "contact@test925754.ma",
+      "website": "https://www.test925754.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-928509",
+      "name": "Cabinet Voisin SA",
+      "type": "PRIVATE",
+      "legal_id": "RC-650666",
+      "address": "106 Riad, Tétouan",
+      "phone": "+212 517 3 89 2",
+      "email": "contact@test928509.ma",
+      "website": "https://www.test928509.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-946543",
+      "name": "Technologies Rapport SAS",
+      "type": "PRIVATE",
+      "legal_id": "RC-460178",
+      "address": "16 Allal Ben Abdellah, Kénitra",
+      "phone": "+212 539 89 89 93",
+      "email": "contact@test946543.ma",
+      "website": "https://www.test946543.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-959264",
+      "name": "Délégation Transformer de Contrôle",
+      "type": "PUBLIC",
+      "legal_id": "",
+      "address": "309 Moulay Slimane, Rabat",
+      "phone": "+212 512 30 38 25",
+      "email": "contact@test959264.ma",
+      "website": "https://www.test959264.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    },
+    {
+      "code": "TEST-97627",
+      "name": "Services Robe International",
+      "type": "PRIVATE",
+      "legal_id": "RC-602565",
+      "address": "533 Oqba Ibn Nafiaa, Rabat",
+      "phone": "+212 581 7 48 52",
+      "email": "contact@test97627.ma",
+      "website": "https://www.test97627.ma",
+      "is_active": false,
+      "is_test_data": true,
+      "is_deleted": false
+    },
+    {
+      "code": "TEST-982107",
+      "name": "Services Combat SARL",
+      "type": "PRIVATE",
+      "legal_id": "RC-954499",
+      "address": "837 Allal Ben Abdellah, Rabat",
+      "phone": "+212 558 56 57 60",
+      "email": "contact@test982107.ma",
+      "website": "https://www.test982107.ma",
+      "is_active": true,
+      "is_test_data": true,
+      "is_deleted": true
+    }
+  ],
+  "organismes_niveau1": [
+    {
+      "code": "ANCFCC",
+      "nom": "AGENCE NATIONALE DE LA CONSERVATION FONCIÈRE DU CADASTRE ET DE LA CARTOGRAPHIE",
+      "sigle": "ANCFCC"
+    },
+    {
+      "code": "ANEF",
+      "nom": "Agence Nationale des Eaux et Forets",
+      "sigle": "ANEF"
+    }
+  ],
+  "organismes_niveau2": [
+    {
+      "code": "SCA-AZILAL",
+      "nom": "Service du cadastre d'Azilal",
+      "ville": "Azilal",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-AGADIR",
+      "nom": "Service du Cadastre Agadir",
+      "ville": "Agadir",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-AL-HOCEIMA",
+      "nom": "Service du Cadastre Al Hoceima",
+      "ville": "Al Hoceima",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BEN-GUERIR",
+      "nom": "Service du Cadastre Ben Guerir",
+      "ville": "Ben Guerir",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BENI-MELLAL",
+      "nom": "Service du Cadastre Beni Mellal",
+      "ville": "Beni Mellal",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BENSLIMANE",
+      "nom": "Service du Cadastre Benslimane",
+      "ville": "Benslimane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BERKANE",
+      "nom": "Service du Cadastre Berkane",
+      "ville": "Berkane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BERRECHID",
+      "nom": "Service du Cadastre Berrechid",
+      "ville": "Berrechid",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-ANFA",
+      "nom": "Service du Cadastre Casa Anfa",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-AIN-CHOCK",
+      "nom": "Service du Cadastre Casa Aïn Chock",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-AIN-SEBAA",
+      "nom": "Service du Cadastre Casa Aïn Sebaa",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-HAY-HASSANI",
+      "nom": "Service du Cadastre Casa Hay Hassani",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-SIDI-OTHMANE",
+      "nom": "Service du Cadastre Casa Sidi Othmane",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-DAKHLA",
+      "nom": "Service du Cadastre Dakhla",
+      "ville": "Dakhla",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-EL-HAJEB",
+      "nom": "Service du Cadastre El Hajeb",
+      "ville": "El Hajeb",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-EL-JADIDA",
+      "nom": "Service du Cadastre El Jadida",
+      "ville": "El Jadida",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-EL-KELAA-DES-SRAGHNA",
+      "nom": "Service du Cadastre El Kelaa des Sraghna",
+      "ville": "El Kelaa des Sraghna",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ERRACHIDIA",
+      "nom": "Service du Cadastre Errachidia",
+      "ville": "Errachidia",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ESSAOUIRA",
+      "nom": "Service du Cadastre Essaouira",
+      "ville": "Essaouira",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-FES-MEDINA",
+      "nom": "Service du Cadastre Fès Medina",
+      "ville": "Fès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-FES-ZOUAGHA-MY-YAACOUB",
+      "nom": "Service du Cadastre Fès Zouagha My Yaacoub",
+      "ville": "Fès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-FKIH-BEN-SALAH",
+      "nom": "Service du Cadastre Fkih Ben Salah",
+      "ville": "Fkih Ben Salah",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-GUELMIM",
+      "nom": "Service du Cadastre Guelmim",
+      "ville": "Guelmim",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-IFRANE",
+      "nom": "Service du Cadastre Ifrane",
+      "ville": "Ifrane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-INZEGANE-AIT-MELLOUL",
+      "nom": "Service du Cadastre Inzegane Aït Melloul",
+      "ville": "Inzegane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KENITRA",
+      "nom": "Service du Cadastre Kenitra",
+      "ville": "Kenitra",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KHEMISSET",
+      "nom": "Service du Cadastre Khemisset",
+      "ville": "Khemisset",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KHENIFRA",
+      "nom": "Service du Cadastre Khenifra",
+      "ville": "Khenifra",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KHOURIBGA",
+      "nom": "Service du Cadastre Khouribga",
+      "ville": "Khouribga",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-LAAYOUNE",
+      "nom": "Service du Cadastre Laâyoune",
+      "ville": "Laâyoune",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-LARACHE",
+      "nom": "Service du Cadastre Larache",
+      "ville": "Larache",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MARRAKECH-SYBA",
+      "nom": "Service du Cadastre Marrakech Syba",
+      "ville": "Marrakech",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MARRAKECH-MENARA",
+      "nom": "Service du Cadastre Marrakech Menara",
+      "ville": "Marrakech",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MEKNES-AL-ISMAILIA",
+      "nom": "Service du Cadastre Meknès Al Ismailia",
+      "ville": "Meknès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MEKNES-EL-MENZEH",
+      "nom": "Service du Cadastre Meknès El Menzeh",
+      "ville": "Meknès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MIDELT",
+      "nom": "Service du Cadastre Midelt",
+      "ville": "Midelt",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MOHAMMEDIA",
+      "nom": "Service du Cadastre Mohammedia",
+      "ville": "Mohammedia",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-NADOR",
+      "nom": "Service du Cadastre Nador",
+      "ville": "Nador",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-OUARZAZATE",
+      "nom": "Service du Cadastre Ouarzazate",
+      "ville": "Ouarzazate",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-OUJDA",
+      "nom": "Service du Cadastre Oujda",
+      "ville": "Oujda",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-OUJDA-ANGAD",
+      "nom": "Service du Cadastre Oujda Angad",
+      "ville": "Oujda",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-RABAT-AGDAL-RYAD",
+      "nom": "Service du Cadastre Rabat Agdal Ryad",
+      "ville": "Rabat",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-RABAT-CENTRE",
+      "nom": "Service du Cadastre Rabat Centre",
+      "ville": "Rabat",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ROMMANI",
+      "nom": "Service du Cadastre Rommani",
+      "ville": "Rommani",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SAFI",
+      "nom": "Service du Cadastre Safi",
+      "ville": "Safi",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SALA-AL-JADIDA",
+      "nom": "Service du Cadastre Sala Al Jadida",
+      "ville": "Salé",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SALA-MEDINA",
+      "nom": "Service du Cadastre Sala Medina",
+      "ville": "Salé",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SEFROU",
+      "nom": "Service du Cadastre Sefrou",
+      "ville": "Sefrou",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SETTAT",
+      "nom": "Service du Cadastre Settat",
+      "ville": "Settat",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-HARHOURA-SKHIRAT",
+      "nom": "Service du Cadastre Harhoura-Skhirat",
+      "ville": "Témara / Aïn Atiq",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SIDI-BENNOUR",
+      "nom": "Service du Cadastre Sidi Bennour",
+      "ville": "Sidi Bennour",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SIDI-KACEM",
+      "nom": "Service du Cadastre Sidi Kacem",
+      "ville": "Sidi Kacem",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SIDI-SLIMANE",
+      "nom": "Service du Cadastre Sidi Slimane",
+      "ville": "Sidi Slimane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SOUK-ARBAA-EL-GHARB",
+      "nom": "Service du Cadastre Souk Arbaa El Gharb",
+      "ville": "Souk Arbaa El Gharb",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TANGER",
+      "nom": "Service du Cadastre Tanger",
+      "ville": "Tanger",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TANGER-BENI-MAKADA",
+      "nom": "Service du Cadastre Tanger Beni Makada",
+      "ville": "Tanger",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TAOUNATE",
+      "nom": "Service du Cadastre Taounate",
+      "ville": "Taounate",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TAROUDANT",
+      "nom": "Service du Cadastre Taroudant",
+      "ville": "Taroudant",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TAZA",
+      "nom": "Service du Cadastre Taza",
+      "ville": "Taza",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TEMARA",
+      "nom": "Service du Cadastre Témara",
+      "ville": "Témara",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TETOUAN",
+      "nom": "Service du Cadastre Tétouan",
+      "ville": "Tétouan",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TIZNIT",
+      "nom": "Service du Cadastre Tiznit",
+      "ville": "Tiznit",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ZEMAMRA-SIDI-SMAIL",
+      "nom": "Service du Cadastre Zemamra Sidi Smail",
+      "ville": "Zemamra",
+      "niveau1_code": "ANCFCC"
+    }
+  ]
+}

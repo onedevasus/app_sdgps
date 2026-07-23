@@ -1,0 +1,130 @@
+<div class="modal-overlay column-config-overlay" *ngIf="show" (click)="close()">
+  <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <i class="fas fa-columns header-icon"></i>
+        <div>
+          <h3>Organiser les colonnes</h3>
+          <span class="modal-stats">
+            <i class="fas fa-table"></i>
+            Total: {{ columns.length }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye"></i>
+            Visibles : {{ getVisibleCount() }}
+            <span class="stat-sep">|</span>
+            <i class="fas fa-eye-slash"></i>
+            Masquées : {{ columns.length - getVisibleCount() }}
+          </span>
+        </div>
+      </div>
+      <div class="modal-header-right">
+        <div class="dropdown-container" [class.open]="showColumnFilterMenu">
+          <button type="button" class="btn btn-filter-toggle"
+                  (click)="$event.stopPropagation(); toggleColumnFilterMenu()"
+                  [title]="getColumnFilterLabel()">
+            <i class="fas fa-filter"></i>
+            {{ getColumnFilterLabel() }}
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
+            <div class="dropdown-item"
+                 (click)="$event.stopPropagation(); setColumnFilter('all')"
+                 [class.active]="columnFilter === 'all'">
+              <i class="fas fa-eye"></i>
+              <span>Afficher toutes les colonnes</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'all'"></i>
+            </div>
+            <div class="dropdown-item"
+                 (click)="$event.stopPropagation(); setColumnFilter('visible')"
+                 [class.active]="columnFilter === 'visible'">
+              <i class="fas fa-eye-slash"></i>
+              <span>Afficher uniquement les colonnes visibles</span>
+              <i class="fas fa-check" *ngIf="columnFilter === 'visible'"></i>
+            </div>
+          </div>
+        </div>
+        <button class="close-btn" (click)="close()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Liste des colonnes -->
+      <div class="column-list">
+        <div class="column-item"
+             *ngFor="let col of getConfigColumns(); let i = index"
+             [class.dragging]="draggedColumnIndex === i"
+             [class.drag-over]="dragOverIndex === i"
+             draggable="true"
+             (dragstart)="onColumnDragStart(i)"
+             (dragover)="onColumnDragOver(i)"
+             (drop)="onColumnDrop(i)"
+             (dragend)="onColumnDragEnd()">
+          <div class="column-row">
+            <!-- Boutons de réorganisation (1ère colonne) -->
+            <div class="column-reorder-buttons">
+              <button type="button" class="btn-reorder" (click)="moveColumnTop(i)" [disabled]="i === 0" title="Déplacer en première position">
+                <i class="fas fa-angle-double-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" (click)="moveColumnUp(i)" [disabled]="i === 0" title="Monter d'une position">
+                <i class="fas fa-angle-up"></i>
+              </button>
+              <button type="button" class="btn-reorder" (click)="moveColumnDown(i)" [disabled]="isLastColumn(i)" title="Descendre d'une position">
+                <i class="fas fa-angle-down"></i>
+              </button>
+              <button type="button" class="btn-reorder" (click)="moveColumnBottom(i)" [disabled]="isLastColumn(i)" title="Déplacer en dernière position">
+                <i class="fas fa-angle-double-down"></i>
+              </button>
+            </div>
+
+            <!-- Visibilité (checkbox) -->
+            <div class="column-visibility-toggle" (click)="toggleColumnVisibility(col)" [title]="col.visible ? 'Masquer' : 'Afficher'">
+              <i class="fas" [ngClass]="col.visible ? 'fa-eye' : 'fa-eye-slash'"></i>
+            </div>
+
+            <!-- Info colonne (type + nom + icône info) -->
+            <div class="column-info">
+              <span class="column-type">{{ col.type }}</span>
+              <span class="column-name">{{ col.label }}</span>
+              <i class="fas fa-info-circle column-info-icon"
+                 *ngIf="getFieldDescription(col.field)"
+                 [title]="getFieldDescription(col.field)"></i>
+            </div>
+
+            <!-- Description (dernière colonne) -->
+            <div class="column-description" *ngIf="getFieldDescription(col.field)">
+              {{ getFieldDescription(col.field) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="footer-actions">
+        <button class="btn btn-action" (click)="showAllColumns()">
+          <i class="fas fa-check-double"></i>
+          Sélectionner tout
+        </button>
+        <button class="btn btn-action" (click)="hideAllColumns()">
+          <i class="fas fa-times"></i>
+          Désélectionner tout
+        </button>
+        <button class="btn btn-action" (click)="invertColumnVisibility()">
+          <i class="fas fa-exchange-alt"></i>
+          Inverser
+        </button>
+      </div>
+      <div class="footer-buttons">
+        <button class="btn btn-cancel" (click)="close()">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+        <button class="btn btn-confirm" (click)="confirm()">
+          <i class="fas fa-check"></i>
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

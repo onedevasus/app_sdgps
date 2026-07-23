@@ -1,0 +1,244 @@
+<div class="pdt">
+  <!-- ============ Barre d'outils supérieure ============ -->
+  <div class="pdt-toolbar">
+    <div class="pdt-toolbar-left">
+      <ng-container *ngIf="editable">
+        <button class="pdt-btn" (click)="addRow()" title="Ajouter une ligne"><i class="fas fa-plus"></i> Ajouter une ligne</button>
+        <button class="pdt-btn" (click)="clearRows()" [disabled]="!rowCount" title="Vider le tableau"><i class="fas fa-trash-alt"></i> Vider le tableau</button>
+        <span class="pdt-tool-sep"></span>
+      </ng-container>
+      <button class="pdt-btn" (click)="selectAll()" title="Sélectionner tout"><i class="fas fa-check-double"></i></button>
+      <button class="pdt-btn" (click)="deselectAll()" [disabled]="selected.size === 0" title="Tout désélectionner"><i class="fas fa-times"></i></button>
+      <button class="pdt-btn" (click)="invertSelection()" title="Inverser la sélection"><i class="fas fa-exchange-alt"></i></button>
+      <button class="pdt-btn" (click)="moveSelectionToTop()" [disabled]="selected.size === 0" title="Déplacer la sélection en haut"><i class="fas fa-arrow-up"></i></button>
+
+      <div class="pdt-export-wrapper" [class.open]="showExportMenu">
+        <button class="pdt-btn" (click)="$event.stopPropagation(); toggleExportMenu()" title="Exporter">
+          <i class="fas fa-file-export"></i> Exporter <i class="fas fa-chevron-down pdt-caret"></i>
+        </button>
+        <div class="pdt-dropdown" *ngIf="showExportMenu" (click)="$event.stopPropagation()">
+          <div class="pdt-dropdown-head">CSV</div>
+          <div class="pdt-dropdown-item" (click)="exportCSV(false)"><i class="fas fa-file-csv"></i> Toutes les lignes</div>
+          <div class="pdt-dropdown-item" [class.disabled]="selected.size === 0" (click)="exportCSV(true)"><i class="fas fa-check-square"></i> Sélection <span class="pdt-badge" *ngIf="selected.size">{{ selected.size }}</span></div>
+          <div class="pdt-dropdown-head">Excel (.xlsx)</div>
+          <div class="pdt-dropdown-item" (click)="exportXLSX(false)"><i class="fas fa-file-excel"></i> Toutes les lignes</div>
+          <div class="pdt-dropdown-item" [class.disabled]="selected.size === 0" (click)="exportXLSX(true)"><i class="fas fa-check-square"></i> Sélection <span class="pdt-badge" *ngIf="selected.size">{{ selected.size }}</span></div>
+        </div>
+      </div>
+
+      <button class="pdt-btn" (click)="openColumnConfig()" title="Gérer les colonnes"><i class="fas fa-columns"></i></button>
+      <button class="pdt-btn danger" (click)="openBulkDelete()" [disabled]="selected.size === 0 || busy" [title]="editable ? 'Supprimer la sélection' : 'Retirer la sélection de la vue'"><i class="fas fa-trash"></i></button>
+
+      <!-- Zone d'outils additionnels projetée par le parent (ex. remplacement des données). -->
+      <ng-content select="[pdtToolbarExtra]"></ng-content>
+    </div>
+
+    <div class="pdt-toolbar-right">
+      <span class="pdt-counts" *ngIf="showStats">Total <strong>{{ rowCount }}</strong> · Filtrées <strong>{{ filtered.length }}</strong> · Sélection <strong>{{ selected.size }}</strong></span>
+      <div class="pdt-search">
+        <i class="fas fa-search"></i>
+        <input type="text" [value]="searchText" (input)="onSearchInput($event)" placeholder="Rechercher…">
+        <button *ngIf="searchText" class="pdt-search-clear" (click)="clearSearch()" title="Effacer"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Tableau ============ -->
+  <div class="pdt-scroll">
+    <table class="pdt-table">
+      <thead>
+        <tr>
+          <th class="pdt-check-col">
+            <input type="checkbox" [checked]="allVisibleSelected" (change)="toggleSelectAll()" title="Tout sélectionner (vue)">
+          </th>
+          <th *ngFor="let col of visibleColumns" class="pdt-sortable" (click)="sortBy(col.name)"
+              [title]="col.label + ' — ' + cellTypeLabel(col.cellType) + ' (cliquer pour trier)'">
+            <span>{{ col.label }}</span>
+            <i class="pdt-type-tag" [ngClass]="{
+              'fa-hashtag': col.cellType==='number', 'fa-calendar': col.cellType==='date',
+              'fa-toggle-on': col.cellType==='boolean', 'fa-font': col.cellType==='string'
+            }" class="fas"></i>
+            <i [class]="sortIcon(sortLevelIndex(col.name) >= 0, sortDirFor(col.name))"></i>
+            <span class="pdt-sort-level" *ngIf="sortLevelIndex(col.name) >= 0">{{ sortLevelIndex(col.name) + 1 }}</span>
+          </th>
+          <th *ngIf="editable" class="pdt-act-col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of paginated; let i = index" [class.pdt-selected]="isSelected(row)">
+          <td class="pdt-check-col" (click)="$event.stopPropagation()">
+            <input type="checkbox" [checked]="isSelected(row)" (change)="toggleSelection(row)">
+          </td>
+          <td *ngFor="let col of visibleColumns" [class.pdt-num]="col.cellType==='number' || col.name==='id'">
+            <!-- Colonne ID = numéro de position (1..n), recalculé au tri, lecture seule. -->
+            <ng-container *ngIf="col.name === 'id'; else dataCell"><span class="pdt-rownum">{{ displayId(i) }}</span></ng-container>
+            <ng-template #dataCell>
+              <ng-container *ngIf="editable; else viewCell">
+                <textarea *ngIf="col.type==='textarea'" rows="1" [ngModel]="row[col.name]" (ngModelChange)="onCellInput(row, col.name, $event)" [ngModelOptions]="{standalone: true}" [placeholder]="col.label"></textarea>
+                <input *ngIf="col.type!=='textarea'" type="text" [ngModel]="row[col.name]" (ngModelChange)="onCellInput(row, col.name, $event)" [ngModelOptions]="{standalone: true}" [placeholder]="col.label">
+              </ng-container>
+              <ng-template #viewCell>{{ row[col.name] }}</ng-template>
+            </ng-template>
+          </td>
+          <td *ngIf="editable" class="pdt-act-col">
+            <button class="pdt-icon danger" (click)="removeRow(row)" title="Supprimer la ligne"><i class="fas fa-trash-alt"></i></button>
+          </td>
+        </tr>
+        <tr *ngIf="!paginated.length">
+          <td class="pdt-empty" [attr.colspan]="visibleColumnCount + (editable ? 2 : 1)">
+            <i class="fas fa-inbox"></i>
+            {{ rowCount ? 'Aucune ligne ne correspond aux filtres.' : 'Aucune donnée.' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ Footer : filtres (gauche) · pagination (droite) ============ -->
+  <div class="pdt-footer">
+    <div class="pdt-footer-left">
+      <div class="pdt-filter-wrapper">
+        <button class="pdt-btn" (click)="$event.stopPropagation(); toggleFilterMenu()">
+          <i class="fas fa-filter"></i> Filtrer <span class="pdt-dot" *ngIf="hasActiveFilter"></span>
+        </button>
+        <div class="pdt-dropdown up" *ngIf="showFilterMenu" (click)="$event.stopPropagation()">
+          <div class="pdt-dropdown-item" [class.active]="displayMode==='all' && !activeFieldFilter" (click)="setDisplayMode('all'); clearFieldFilter(); toggleFilterMenu()">
+            <i class="fas fa-list"></i> Afficher toutes les lignes
+          </div>
+          <div class="pdt-dropdown-item" [class.disabled]="selected.size === 0" [class.active]="displayMode==='selected'" (click)="selected.size && setDisplayMode('selected'); showFilterMenu=false">
+            <i class="fas fa-check-square"></i> Afficher la sélection <span class="pdt-badge" *ngIf="selected.size">{{ selected.size }}</span>
+          </div>
+          <div class="pdt-dropdown-sep"></div>
+          <div class="pdt-dropdown-item" (click)="showFieldFilterMenu = !showFieldFilterMenu">
+            <i class="fas fa-tag"></i> Filtrer par colonne <i class="fas fa-chevron-right pdt-caret-r"></i>
+          </div>
+          <div class="pdt-submenu" *ngIf="showFieldFilterMenu">
+            <div class="pdt-dropdown-item" *ngFor="let col of columns" (click)="selectFieldForFilter(col.name, col.label)">{{ col.label }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="pdt-field-filter" *ngIf="activeFieldFilter">
+        <input type="text" [placeholder]="'Filtrer par ' + activeFieldFilterLabel + '…'" [value]="fieldFilterValue" (input)="onFieldFilterInput($event)">
+        <button (click)="clearFieldFilter()" title="Effacer"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+
+    <div class="pdt-footer-right">
+      <div class="pdt-page-size">
+        <span>Lignes / page :</span>
+        <select [ngModel]="pageSize" (ngModelChange)="setPageSize($event)" [ngModelOptions]="{standalone: true}">
+          <option *ngFor="let s of pageSizeOptions" [ngValue]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="pdt-page-nav">
+        <button [disabled]="currentPage <= 1" (click)="goToFirstPage()" title="Première"><i class="fas fa-angle-double-left"></i></button>
+        <button [disabled]="currentPage <= 1" (click)="prevPage()" title="Précédente"><i class="fas fa-angle-left"></i></button>
+        <button *ngFor="let p of pageNumbers" class="pdt-page-num" [class.active]="p===currentPage" (click)="goToPage(p)">{{ p }}</button>
+        <span class="pdt-page-label">Page {{ currentPage }} / {{ totalPages }}</span>
+        <button [disabled]="currentPage >= totalPages" (click)="nextPage()" title="Suivante"><i class="fas fa-angle-right"></i></button>
+        <button [disabled]="currentPage >= totalPages" (click)="goToLastPage()" title="Dernière"><i class="fas fa-angle-double-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modale : gestion des colonnes ============ -->
+  <div class="pdt-overlay" *ngIf="showColumnConfig" (click)="cancelColumnConfig()">
+    <div class="pdt-modal pdt-colcfg" (click)="$event.stopPropagation()">
+      <div class="pdt-colcfg-head">
+        <div class="pdt-colcfg-head-left">
+          <i class="fas fa-columns pdt-colcfg-headicon"></i>
+          <div>
+            <h4>Organiser les colonnes</h4>
+            <span class="pdt-colcfg-stats">
+              <i class="fas fa-table"></i> Total : {{ getColumnStats().total }}
+              <span class="pdt-sep">|</span>
+              <i class="fas fa-eye"></i> Visibles : {{ getColumnStats().visible }}
+              <span class="pdt-sep">|</span>
+              <i class="fas fa-eye-slash"></i> Masquées : {{ getColumnStats().hidden }}
+            </span>
+          </div>
+        </div>
+        <div class="pdt-colcfg-head-right">
+          <div class="pdt-colcfg-filter" [class.open]="showColumnFilterMenu">
+            <button type="button" class="pdt-btn" (click)="toggleColumnFilterMenu($event)" [title]="getColumnFilterLabel()">
+              <i class="fas fa-filter"></i> {{ getColumnFilterLabel() }} <i class="fas fa-chevron-down pdt-caret"></i>
+            </button>
+            <div class="pdt-dropdown" *ngIf="showColumnFilterMenu" (click)="$event.stopPropagation()">
+              <div class="pdt-dropdown-item" [class.active]="columnFilter==='all'" (click)="applyColumnFilter('all')">
+                <i class="fas fa-eye"></i> Toutes les colonnes <i class="fas fa-check pdt-check" *ngIf="columnFilter==='all'"></i>
+              </div>
+              <div class="pdt-dropdown-item" [class.active]="columnFilter==='visible'" (click)="applyColumnFilter('visible')">
+                <i class="fas fa-eye-slash"></i> Colonnes visibles <i class="fas fa-check pdt-check" *ngIf="columnFilter==='visible'"></i>
+              </div>
+            </div>
+          </div>
+          <button class="pdt-icon" (click)="cancelColumnConfig()"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+
+      <div class="pdt-colcfg-body">
+        <ul class="pdt-colcfg-list">
+          <li *ngFor="let col of getFilteredColumns()" class="pdt-colcfg-item"
+              draggable="true"
+              [class.dragging]="draggedColumnIndex === columnRealIndex(col)"
+              [class.drag-over]="dragOverIndex === columnRealIndex(col)"
+              (dragstart)="onDragStart(columnRealIndex(col))"
+              (dragover)="onDragOver($event, columnRealIndex(col))"
+              (dragleave)="onDragLeave()"
+              (drop)="onDrop(columnRealIndex(col))"
+              (dragend)="onDragEnd()">
+            <div class="pdt-colcfg-row">
+              <i class="fas fa-grip-vertical pdt-grip" title="Glisser pour réordonner"></i>
+              <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.name)">
+
+              <div class="pdt-reorder">
+                <button type="button" class="pdt-reorder-btn" [disabled]="isFirstColumn(col)" (click)="moveColumnToTop(col)" title="Déplacer en première position"><i class="fas fa-angle-double-up"></i></button>
+                <button type="button" class="pdt-reorder-btn" [disabled]="isFirstColumn(col)" (click)="moveColumnUp(col)" title="Monter"><i class="fas fa-angle-up"></i></button>
+                <button type="button" class="pdt-reorder-btn" [disabled]="isLastColumn(col)" (click)="moveColumnDown(col)" title="Descendre"><i class="fas fa-angle-down"></i></button>
+                <button type="button" class="pdt-reorder-btn" [disabled]="isLastColumn(col)" (click)="moveColumnToBottom(col)" title="Déplacer en dernière position"><i class="fas fa-angle-double-down"></i></button>
+              </div>
+
+              <label class="pdt-colcfg-label">
+                <span class="pdt-colcfg-type">{{ cellTypeLabel(col.cellType) }}</span>
+                <span class="pdt-colcfg-name">{{ col.label }}</span>
+                <i class="fas fa-info-circle pdt-colcfg-info" [title]="columnDescription(col)"></i>
+              </label>
+              <div class="pdt-colcfg-desc">{{ columnDescription(col) }}</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="pdt-colcfg-foot">
+        <div class="pdt-colcfg-foot-actions">
+          <button class="pdt-btn sm" (click)="selectAllColumns()"><i class="fas fa-check-double"></i> Tout afficher</button>
+          <button class="pdt-btn sm" (click)="deselectAllColumns()"><i class="fas fa-times"></i> Tout masquer</button>
+          <button class="pdt-btn sm" (click)="invertColumnSelection()"><i class="fas fa-exchange-alt"></i> Inverser</button>
+        </div>
+        <div class="pdt-colcfg-foot-buttons">
+          <button class="pdt-btn" (click)="cancelColumnConfig()"><i class="fas fa-times"></i> Annuler</button>
+          <button class="pdt-btn primary" (click)="confirmColumnConfig()"><i class="fas fa-check"></i> OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modale : confirmation suppression en masse ============ -->
+  <div class="pdt-overlay" *ngIf="showDeleteConfirm" (click)="cancelBulkDelete()">
+    <div class="pdt-modal sm" (click)="$event.stopPropagation()">
+      <div class="pdt-modal-head">
+        <h4><i class="fas fa-triangle-exclamation"></i> Suppression</h4>
+        <button class="pdt-icon" (click)="cancelBulkDelete()"><i class="fas fa-times"></i></button>
+      </div>
+      <p class="pdt-modal-body">
+        {{ editable
+          ? 'Supprimer les ' + selected.size + ' ligne(s) sélectionnée(s) ? La suppression sera enregistrée avec la pièce.'
+          : 'Retirer les ' + selected.size + ' ligne(s) sélectionnée(s) de la vue ? (les données enregistrées ne sont pas modifiées)' }}
+      </p>
+      <div class="pdt-modal-foot">
+        <button class="pdt-btn" (click)="cancelBulkDelete()">Annuler</button>
+        <button class="pdt-btn danger" (click)="confirmBulkDelete()"><i class="fas fa-trash"></i> {{ editable ? 'Supprimer' : 'Retirer' }}</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,6 @@
+﻿ID,Point,Heure Début,Heure Fin,Durée,Type,Fichier,Epoques,Cadence,Haut. Ant. (m),Antenne,Réf. antenne
+1,SY2,21/10/2022 15:40:46,21/10/2022 16:04:52,00:24:07,Statique,3489980294P.22o,1447,00:00:01,2.000,Externe inconnu,Base du support d'antenne
+2,SY5,04/11/2022 13:36:07,04/11/2022 17:51:41,04:15:35,Statique,9378308n36.22o,15335,00:00:01,1.840,Externe inconnu,Centre de phase de l'antenne
+3,SY5,21/10/2022 11:34:00,21/10/2022 17:45:13,06:11:14,Statique,2084294l34.22o,22274,00:00:01,1.220,Externe inconnu,Centre de phase de l'antenne
+4,SY8,04/11/2022 12:59:38,04/11/2022 18:28:44,05:29:07,Statique,2084308m59.22o,19746,00:00:01,1.360,Externe inconnu,Centre de phase de l'antenne
+5,SY8,21/10/2022 10:55:27,21/10/2022 18:33:00,07:37:34,Statique,9378294k55.22o,27454,00:00:01,1.780,Externe inconnu,Centre de phase de l'antenne

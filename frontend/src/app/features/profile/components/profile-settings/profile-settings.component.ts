@@ -22,6 +22,20 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
   isPasswordLoading = false;
   showPasswordModal = false;
   isUploadingPhoto = false;  // ← AJOUT: État upload photo
+
+  // Enregistrement automatique des informations personnelles (comme les pages de tri /
+  // config des champs) : indicateur au lieu d'un bouton « Sauvegarder ».
+  savingProfile = false;
+  profileSavedFlash = false;
+  private profileSaveTimer: any = null;
+
+  // Modale de confirmation de suppression de la photo de profil.
+  showDeletePhotoModal = false;
+
+  /** Formats d'image acceptés pour la photo de profil (extensions, minuscules). */
+  readonly allowedPhotoExtensions = ['jpg', 'jpeg', 'png', 'gif', 'tiff', 'tif', 'webp'];
+  /** Libellé lisible des formats acceptés (hint + messages). */
+  readonly allowedPhotoLabel = 'JPG, JPEG, PNG, GIF, TIFF, WebP';
   
   // Contrôle de visibilité des mots de passe
   showCurrentPassword = false;
@@ -30,15 +44,15 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
   
   // Critères de validation du mot de passe
   passwordCriteria: PasswordCriterion[] = [];
-  
+
   private subscriptions = new Subscription();
-  
+
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
     public layoutService: LayoutService,
     private passwordValidationService: PasswordValidationService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
   ) {}
   
   ngOnInit(): void {
@@ -46,7 +60,12 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
     this.initForms();
     this.loadProfile();
     this.subscribeToProfileUpdates();
-    
+
+    // Enregistrement automatique (anti-rebond) à chaque modification saisie.
+    this.subscriptions.add(
+      this.profileForm.valueChanges.subscribe(() => this.queueProfileAutoSave())
+    );
+
     // Initialiser les critères de mot de passe
     this.passwordCriteria = this.passwordValidationService.getCriteria();
     
@@ -57,6 +76,7 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
   }
   
   ngOnDestroy(): void {
+    clearTimeout(this.profileSaveTimer);
     this.subscriptions.unsubscribe();
   }
   
@@ -68,8 +88,7 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
     this.profileForm = this.fb.group({
       first_name: ['', [Validators.required, Validators.minLength(2)]],
       last_name: ['', [Validators.required, Validators.minLength(2)]],
-      email: [{ value: '', disabled: true }],
-      nom_societe: ['']  // Remplace phone par nom_societe
+      email: [{ value: '', disabled: true }]
     });
     
     // Formulaire mot de passe
@@ -112,12 +131,13 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
    * Remplit le formulaire avec les données du profil
    */
   private patchFormValues(profile: UserProfile): void {
+    // `emitEvent: false` : le pré-remplissage ne doit PAS déclencher l'enregistrement
+    // automatique (qui n'écoute que les modifications saisies par l'utilisateur).
     this.profileForm.patchValue({
       first_name: profile.first_name,
       last_name: profile.last_name,
-      email: profile.email,
-      nom_societe: profile.nom_societe || ''
-    });
+      email: profile.email
+    }, { emitEvent: false });
   }
   
   /**
@@ -148,26 +168,30 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
     return null;
   }
   
+  /** Programme un enregistrement automatique (anti-rebond) après une modification saisie. */
+  private queueProfileAutoSave(): void {
+    clearTimeout(this.profileSaveTimer);
+    this.profileSaveTimer = setTimeout(() => this.autoSaveProfile(), 700);
+  }
+
   /**
-   * Sauvegarde les modifications du profil
+   * Enregistre automatiquement les informations personnelles. Un formulaire invalide n'est
+   * pas envoyé (l'indicateur reste au repos et les messages d'erreur de champ s'affichent).
    */
-  saveProfile(): void {
-    if (this.profileForm.invalid) {
-      this.toastr.warning('Veuillez corriger les erreurs du formulaire', 'Attention');
-      this.profileForm.markAllAsTouched();
-      return;
-    }
-    
-    this.isLoading = true;
+  private autoSaveProfile(): void {
+    if (this.profileForm.invalid) return;
+
+    this.savingProfile = true;
     const formData = this.profileForm.getRawValue();
-    
+
     this.subscriptions.add(
       this.profileService.updateProfile(formData).subscribe({
-        next: (response) => {
-          this.toastr.success(response.message, 'Succès');
-          this.isLoading = false;
-          
-          // Mettre à jour l'affichage dans la topbar
+        next: () => {
+          this.savingProfile = false;
+          this.profileSavedFlash = true;
+          setTimeout(() => { this.profileSavedFlash = false; }, 2500);
+
+          // Répercute le nom mis à jour dans la topbar.
           if (this.userProfile) {
             this.layoutService.setUserProfile({
               ...this.userProfile,
@@ -178,10 +202,10 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Erreur mise à jour profil:', error);
-          const errorMsg = error.error?.detail || error.error?.first_name || 
+          this.savingProfile = false;
+          const errorMsg = error.error?.detail || error.error?.first_name ||
                           error.error?.last_name || 'Erreur lors de la mise à jour';
           this.toastr.error(errorMsg, 'Erreur');
-          this.isLoading = false;
         }
       })
     );
@@ -265,6 +289,31 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
     const last = this.userProfile.last_name?.charAt(0) || '';
     return (first + last).toUpperCase();
   }
+
+  /**
+   * Libellé « humain » (non technique) du rôle — identique au menu profil de la topbar,
+   * pour une expérience cohérente. Le rôle brut (ROLE_*) n'est jamais montré.
+   */
+  roleLabel(role?: string | null): string {
+    switch (role) {
+      case 'ROLE_SUPER_ADMIN': return 'Super administrateur';
+      case 'ROLE_ADMIN_SYSTEME': return 'Administrateur de la plateforme';
+      case 'ROLE_ORGANISATION_ADMIN': return "Administrateur d'organisation";
+      case 'ROLE_ORGANISATION_AGENT': return 'Opérateur';
+      default: return 'Utilisateur';
+    }
+  }
+
+  /** Icône FontAwesome associée au rôle (chip du profil), cohérente avec la topbar. */
+  roleIcon(role?: string | null): string {
+    switch (role) {
+      case 'ROLE_SUPER_ADMIN': return 'fa-crown';
+      case 'ROLE_ADMIN_SYSTEME': return 'fa-user-shield';
+      case 'ROLE_ORGANISATION_ADMIN': return 'fa-user-tie';
+      case 'ROLE_ORGANISATION_AGENT': return 'fa-user-gear';
+      default: return 'fa-user';
+    }
+  }
   
   /**
    * Bascule la visibilité du mot de passe actuel
@@ -312,17 +361,20 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
     }
     
     const file = input.files[0];
-    
-    // Validation type de fichier
-    if (!file.type.startsWith('image/')) {
-      this.toastr.error('Veuillez sélectionner une image valide', 'Erreur');
+
+    // Validation du format (extension) : JPG, JPEG, PNG, GIF, TIFF, WebP.
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!this.allowedPhotoExtensions.includes(ext)) {
+      this.toastr.error(`Format non supporté. Formats acceptés : ${this.allowedPhotoLabel}`, 'Erreur');
+      input.value = '';
       return;
     }
-    
+
     // Validation taille (max 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB en bytes
     if (file.size > maxSize) {
       this.toastr.error('L\'image ne doit pas dépasser 5MB', 'Erreur');
+      input.value = '';
       return;
     }
     
@@ -338,14 +390,17 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
    */
   uploadProfilePicture(file: File): void {
     this.isUploadingPhoto = true;
-    
+    this.savingProfile = true;  // Reflète l'action dans l'indicateur global de la page.
+
     this.subscriptions.add(
       this.profileService.uploadProfilePicture(file).subscribe({
         next: (profile) => {
           this.userProfile = profile;
           this.isUploadingPhoto = false;
-          this.toastr.success('Photo de profil mise à jour avec succès', 'Succès');
-          
+          this.savingProfile = false;
+          this.profileSavedFlash = true;
+          setTimeout(() => { this.profileSavedFlash = false; }, 2500);
+
           // ← CORRECTION: Mettre à jour le LayoutService pour TopBar
           if (this.userProfile) {
             this.layoutService.setUserProfile({
@@ -354,6 +409,7 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
               first_name: profile.first_name,
               last_name: profile.last_name,
               role: profile.role,
+              organization_name: profile.organization_name,
               avatar: profile.profile_picture_url // ← Photo ou undefined pour fallback avatar
             });
           }
@@ -361,26 +417,39 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
         error: (error) => {
           console.error('Erreur upload photo:', error);
           this.isUploadingPhoto = false;
+          this.savingProfile = false;
           this.toastr.error('Erreur lors de l\'upload de la photo', 'Erreur');
         }
       })
     );
   }
   
+  /** Ouvre la modale de confirmation de suppression de la photo de profil. */
+  openDeletePhotoModal(): void {
+    this.showDeletePhotoModal = true;
+  }
+
+  /** Ferme la modale de confirmation (sans supprimer). */
+  closeDeletePhotoModal(): void {
+    this.showDeletePhotoModal = false;
+  }
+
   /**
-   * Supprime la photo de profil
+   * Supprime la photo de profil (après confirmation dans la modale).
    */
-  deleteProfilePicture(): void {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer votre photo de profil ?')) {
-      return;
-    }
-    
+  confirmDeletePhoto(): void {
+    this.showDeletePhotoModal = false;
+    this.savingProfile = true;  // Reflète l'action dans l'indicateur global de la page.
+
     this.subscriptions.add(
       this.profileService.deleteProfilePicture().subscribe({
         next: () => {
+          this.savingProfile = false;
+          this.profileSavedFlash = true;
+          setTimeout(() => { this.profileSavedFlash = false; }, 2500);
           // Recharger le profil pour mettre à jour l'affichage page profil
           this.loadProfile();
-          
+
           // ← CORRECTION: Mettre à jour LayoutService pour TopBar (photo = null)
           if (this.userProfile) {
             this.layoutService.setUserProfile({
@@ -389,14 +458,14 @@ export class ProfileSettingsComponent implements OnInit, OnDestroy {
               first_name: this.userProfile.first_name,
               last_name: this.userProfile.last_name,
               role: this.userProfile.role,
+              organization_name: this.userProfile.organization_name,
               avatar: undefined // ← Supprimer photo, fallback sur avatar initiales
             });
           }
-          
-          this.toastr.success('Photo de profil supprimée', 'Succès');
         },
         error: (error) => {
           console.error('Erreur suppression photo:', error);
+          this.savingProfile = false;
           this.toastr.error('Erreur lors de la suppression de la photo', 'Erreur');
         }
       })

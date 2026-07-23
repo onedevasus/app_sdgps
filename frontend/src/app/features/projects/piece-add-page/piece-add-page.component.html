@@ -1,0 +1,25 @@
+<div class="piece-page" *ngIf="ssdgps">
+  <nav class="page-crumb">
+    <button class="crumb-back" (click)="backToList()">
+      <i class="fas fa-arrow-left"></i> Retour aux pièces
+    </button>
+    <span class="crumb-title"><i class="fas fa-plus-circle"></i> Ajouter une pièce</span>
+  </nav>
+
+  <div class="page-body">
+    <app-piece-add-wizard
+      [embedded]="true"
+      [ssdgps]="ssdgps"
+      [sessions]="sessions"
+      [catalog]="catalog"
+      [existingPieces]="existingPieces"
+      [defaultSessionId]="defaultSessionId"
+      (created)="onCreated()"
+      (cancelled)="onCancelled()">
+    </app-piece-add-wizard>
+  </div>
+</div>
+
+<div class="page-loading" *ngIf="loading && !ssdgps">
+  <i class="fas fa-spinner fa-spin"></i> Chargement…
+</div>

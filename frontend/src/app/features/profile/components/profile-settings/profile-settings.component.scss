@@ -3,9 +3,10 @@
 
 .profile-settings-container {
   padding: 30px;
-  max-width: 1200px;
-  margin: 0 auto;
-  
+  max-width: none;   // Occupe toute la largeur disponible de la page
+  width: 100%;
+  margin: 0;
+
   // Style personnalisé du scrollbar
   &::-webkit-scrollbar {
     width: 8px;
@@ -55,7 +56,12 @@
 // Header de page
 .page-header {
   margin-bottom: 30px;
-  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+
   h1 {
     font-size: 2em;
     color: var(--text-color);
@@ -63,17 +69,19 @@
     display: flex;
     align-items: center;
     gap: 15px;
-    
+
     i {
       color: var(--accent-color);
     }
   }
-  
+
   .subtitle {
     color: var(--text-muted);
     font-size: 1.1em;
     margin: 0;
   }
+
+  .page-header-text { min-width: 0; }
 }
 
 // Loading Spinner
@@ -240,17 +248,23 @@
       margin: 0 0 5px 0;
     }
     
+    // Chip de rôle : cohérent avec le menu de la photo de profil (topbar) — teinte
+    // d'accent douce, bordure fine, icône, casse normale (fini le badge plein en MAJUSCULES).
     .role-badge {
-      display: inline-block;
-      padding: 5px 15px;
-      background-color: var(--accent-color);
-      color: #fff;
-      border-radius: 15px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(204, 88, 88, 0.12);
+      border: 1px solid rgba(204, 88, 88, 0.28);
+      color: var(--accent-color);
       font-size: 0.85em;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      line-height: 1;
       margin-bottom: 10px;
+
+      i { font-size: 0.95em; }
     }
     
     .help-text {
@@ -362,6 +376,31 @@
   border-top: 1px solid var(--border-color);
 }
 
+// Indicateur GLOBAL d'enregistrement automatique — badge de statut placé dans l'en-tête
+// de la page (couvre TOUTES les modifications : infos personnelles + photo). Même langage
+// visuel que les pages de tri / config des champs.
+.profile-autosave {
+  flex-shrink: 0;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+    background: var(--hover-bg);
+    color: var(--text-muted);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .saving { color: var(--accent-color); background: rgba(204, 88, 88, 0.10); border-color: rgba(204, 88, 88, 0.28); }
+  .saved { color: #16a34a; background: rgba(22, 163, 74, 0.10); border-color: rgba(22, 163, 74, 0.28); }
+  .idle i { color: var(--accent-color); }
+}
+
 // Boutons
 .btn {
   padding: 12px 24px;
@@ -408,14 +447,25 @@
   &.btn-warning {
     background-color: #f39c12;
     color: #fff;
-    
+
     &:hover:not(:disabled) {
       background-color: darken(#f39c12, 10%);
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
     }
   }
-  
+
+  &.btn-danger {
+    background-color: #e74c3c;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background-color: darken(#e74c3c, 8%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(231, 76, 60, 0.35);
+    }
+  }
+
   &.btn-toggle {
     background-color: var(--primary-color);
     color: var(--text-color);
@@ -606,6 +656,44 @@
   border-top: 1px solid var(--border-color);
 }
 
+// Modale de confirmation (suppression photo) : compacte, contenu centré, ton « danger ».
+.modal-content.modal-confirm {
+  max-width: 440px;
+
+  .modal-header h2 i { color: #e74c3c; }
+
+  .modal-body { text-align: center; }
+
+  .confirm-icon {
+    width: 62px;
+    height: 62px;
+    margin: 4px auto 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(231, 76, 60, 0.12);
+    color: #e74c3c;
+    font-size: 1.7em;
+  }
+
+  .confirm-text {
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 8px;
+  }
+
+  .confirm-hint {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .modal-actions { justify-content: center; }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -742,3 +830,6 @@
     }
   }
 }
+
+/* Le tri par défaut des tableaux de pièces est désormais rendu par le composant dédié
+   <app-piece-sort-settings> (styles dans piece-sort-settings.component.scss). */

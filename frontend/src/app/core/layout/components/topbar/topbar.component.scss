@@ -117,6 +117,35 @@
   text-decoration: none;
 }
 
+// Contenu d'un crumb : icône (optionnelle) + libellé tronqué proprement.
+.breadcrumb-item {
+  .breadcrumb-link,
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+  }
+
+  .crumb-icon { font-size: 0.9em; opacity: 0.95; flex-shrink: 0; }
+
+  .crumb-label {
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Le crumb « Accueil » (icône maison seule si compact) reste compact.
+  &:first-child .crumb-icon { font-size: 1em; }
+
+  // Crumb d'affichage (sans lien) : ni curseur main, ni changement de fond au survol.
+  &.static {
+    cursor: default;
+    &:hover { background-color: var(--breadcrumb-bg); color: var(--text-muted); }
+  }
+}
+
 // Indicateur de mode dans breadcrumb
 .mode-indicator {
   background-color: var(--breadcrumb-bg) !important;
@@ -223,45 +252,91 @@
 
 // Header du dropdown (infos utilisateur)
 .dropdown-header {
-  padding: 20px;
-  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-  border-bottom: 2px solid var(--accent-color);
+  padding: 22px 20px 18px;
+  // Halo d'accent discret derrière l'avatar, sur fond de surface (plus sobre que le
+  // dégradé + bordure d'accent d'origine).
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(204, 88, 88, 0.16), transparent 68%),
+    var(--secondary-color);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 
+  // Avatar mis en valeur par un anneau d'accent (photo comme initiales).
+  .avatar-circle.large,
+  .avatar-image.large {
+    margin-bottom: 0;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28),
+                0 0 0 3px var(--secondary-color),
+                0 0 0 4px rgba(204, 88, 88, 0.4);
+  }
+
   .user-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 3px;
     width: 100%;
+    margin-top: 14px;
 
     .user-fullname {
       font-weight: 700;
-      font-size: 1.1em;
+      font-size: 1.05em;
       color: var(--text-color);
-      margin-bottom: 2px;
+      line-height: 1.25;
     }
 
     .user-email {
-      font-size: 0.85em;
+      font-size: 0.82em;
       color: var(--text-muted);
       word-break: break-all;
     }
 
-    .badge-role {
-      display: inline-block;
-      padding: 4px 12px;
-      background-color: var(--accent-color);
-      color: #fff;
-      border-radius: 12px;
-      font-size: 0.75em;
+    // Chip de rôle : libellé humain + icône, teinte d'accent douce (fini le badge
+    // rouge plein en MAJUSCULES).
+    .user-role {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 11px;
+      padding: 5px 13px;
+      border-radius: 999px;
+      background: rgba(204, 88, 88, 0.12);
+      border: 1px solid rgba(204, 88, 88, 0.28);
+      color: var(--accent-color);
+      font-size: 0.8em;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 6px;
-      align-self: center;
+      line-height: 1;
+
+      i { font-size: 0.95em; }
+    }
+
+    // Organisation courante : pastille neutre (info secondaire sous le rôle), tronquée si
+    // le nom est long.
+    .user-org {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      margin-top: 8px;
+      padding: 5px 13px;
+      border-radius: 999px;
+      background: var(--hover-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      font-size: 0.8em;
+      font-weight: 600;
+      line-height: 1;
+
+      i { font-size: 0.95em; color: var(--text-muted); flex-shrink: 0; }
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
     }
   }
 }
@@ -271,19 +346,19 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 8px;  // ← Augmenté pour plus d'espace
+  margin-top: 10px;
   background-color: var(--secondary-color);
   border: 1px solid var(--border-color);
-  border-radius: 8px;  // ← Arrondi augmenté pour look moderne
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);  // ← Ombre plus prononcée
-  min-width: 250px;  // ← Élargi pour mieux afficher les infos
+  border-radius: 14px;
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.28);
+  min-width: 274px;
   z-index: 1000;
   overflow: hidden;
   display: none !important;  // ← CACHÉ PAR DÉFAUT (IMPORTANT!)
 
   &.show {
     display: block !important;  // ← Affiché SEULEMENT avec classe .show
-    animation: fadeIn 0.2s ease;
+    animation: fadeIn 0.18s ease;
   }
 }
 
@@ -298,43 +373,59 @@
   }
 }
 
+// Liste d'actions : items en « pilules » avec icône en pastille.
+.dropdown-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+}
+
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 12px;  // ← Augmenté pour plus d'espace
-  padding: 12px 18px;  // ← Padding augmenté
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
   color: var(--text-color);
   text-decoration: none;
-  transition: all 0.2s;
+  transition: background 0.15s ease, color 0.15s ease;
   cursor: pointer;
-  font-size: 0.95em;
+  font-size: 0.92em;
+  font-weight: 500;
+
+  i {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: var(--hover-bg);
+    color: var(--text-muted);
+    font-size: 0.95em;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
 
   &:hover {
     background-color: var(--hover-bg);
     color: var(--accent-color);
-    padding-left: 22px;  // ← Effet de glissement au hover
-  }
 
-  i {
-    width: 20px;
-    text-align: center;
-    font-size: 1.1em;
+    i { background: rgba(204, 88, 88, 0.14); color: var(--accent-color); }
   }
 
   &.logout-item {
-    color: #e74c3c;  // ← Rouge pour déconnexion
+    color: #e74c3c;
+
+    i { color: #e74c3c; }
 
     &:hover {
       background-color: rgba(231, 76, 60, 0.1);
       color: #c0392b;
+
+      i { background: rgba(231, 76, 60, 0.16); color: #c0392b; }
     }
   }
-}
-
-.dropdown-divider {
-  height: 1px;
-  background-color: var(--border-color);
-  margin: 5px 0;
 }
 
 // Toggle thème

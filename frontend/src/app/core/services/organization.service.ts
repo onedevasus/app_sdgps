@@ -3,12 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Organization } from '../models/organization.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class OrganizationService {
-  private apiUrl = 'http://localhost:8000/api/v1/organizations/'; // À adapter selon votre config
+  private apiUrl = `${environment.apiUrl}/v1/organizations/`;
 
   constructor(private http: HttpClient) { }
 
@@ -56,6 +57,27 @@ export class OrganizationService {
 
   bulkDeleteOrganizations(organizationIds: string[]): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}bulk-delete/`, {
+      organization_ids: organizationIds
+    });
+  }
+
+  // --- Corbeille : restauration & suppression définitive ---
+  restoreOrganization(id: string): Observable<Organization> {
+    return this.http.post<Organization>(`${this.apiUrl}${id}/restore/`, {});
+  }
+
+  bulkRestoreOrganizations(organizationIds: string[]): Observable<{ restored_count: number }> {
+    return this.http.post<{ restored_count: number }>(`${this.apiUrl}bulk-restore/`, {
+      organization_ids: organizationIds
+    });
+  }
+
+  permanentDeleteOrganization(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}${id}/permanent/`);
+  }
+
+  bulkPermanentDeleteOrganizations(organizationIds: string[]): Observable<{ deleted_count: number; errors: any[] }> {
+    return this.http.post<{ deleted_count: number; errors: any[] }>(`${this.apiUrl}permanent-delete/`, {
       organization_ids: organizationIds
     });
   }

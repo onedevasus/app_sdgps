@@ -1,0 +1,31 @@
+{% comment %}Encart d'en-tête répété (élément « running ») des pages de contenu.
+`mention` (optionnel) : version affichée, ajoutée entre parenthèses après le nom de la
+pièce quand les deux versions (brute / écarts) sont incluses dans le rapport.
+`slot` (optionnel, défaut `chead`) : nom de l'élément « running » alimenté par cet en-tête.
+La version brute utilise `chead` (@page contenu), les écarts `chead2` (@page contenu2), pour
+que chaque version ne tire QUE sa propre mention dans la marge haute (isolation stricte).{% endcomment %}
+<table class="content-head" style="position: running({{ slot|default:'chead' }});">
+  <tr>
+    <td class="ch-left">
+      <div class="agency">{{ header.organisme_niveau1 }}</div>
+      <div class="divider"></div>
+      {% if header.organisme_niveau2 %}<div class="service">{{ header.organisme_niveau2 }}</div>{% endif %}
+    </td>
+    <td class="ch-mid">
+      <div class="ptitle">PIÈCE N°{{ piece.index }} : {{ piece.title }}{% if mention %}<br>({{ mention }}){% endif %}</div>
+      <table class="info">
+        <tr><td class="lbl">Propriété Dite</td><td class="sep">:</td><td class="val"><span class="guill">«&nbsp;{{ header.propriete }}&nbsp;»</span></td></tr>
+        <tr><td class="lbl">Réquisition</td><td class="sep">:</td><td class="val">{{ header.requisition }}</td></tr>
+        <tr><td class="lbl">Titre</td><td class="sep">:</td><td class="val">{{ header.titre }}</td></tr>
+        <tr><td class="lbl">Nature Affaire</td><td class="sep">:</td><td class="val">{{ header.nature_affaire }}</td></tr>
+        <tr><td class="lbl">Nature SDGPS</td><td class="sep">:</td><td class="val"><span class="guill">«&nbsp;{{ header.nature_ssdgps }}&nbsp;»</span></td></tr>
+      </table>
+    </td>
+    <td class="ch-right">
+      <div class="circle">
+        <div class="c-half c-top">SDGPS N°{{ header.numero_ssdgps }}</div>
+        <div class="c-half c-bot">PIÈCE N°{{ piece.index }}</div>
+      </div>
+    </td>
+  </tr>
+</table>

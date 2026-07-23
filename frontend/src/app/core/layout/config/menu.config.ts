@@ -8,23 +8,54 @@ export const USER_MENU: MenuItem[] = [
     id: 'dashboard',
     title: 'Tableau de bord',
     icon: 'fas fa-tachometer-alt',
-    route: '/dashboard',
+    route: '/home', // accueil opérateur servi à la racine (sans préfixe « dashboard »)
     type: 'link',
+    exact: true, // évite de rester actif sur les sous-routes (/projets…)
     description: 'Vue d\'ensemble de vos projets et activités'
   },
   {
-    id: 'mes-projets',
-    title: 'Mes Projets',
+    id: 'projets',
+    title: 'Projets',
     icon: 'fas fa-project-diagram',
-    route: '/dashboard/mes-projets',
+    route: '/projets',
     type: 'link',
-    description: 'Gestion de vos projets personnels'
+    description: 'Projets, propriétés, affaires, SSDGPS & sessions'
+  },
+  {
+    // Regroupement « Paramètres » (route hors AdminGuard, accessible à l'agent).
+    id: 'parametres',
+    title: 'Paramètres',
+    icon: 'fas fa-sliders-h',
+    route: '/parametres',
+    type: 'submenu',
+    description: 'Préférences d\'affichage des pièces (tri + colonnes)',
+    children: [
+      {
+        id: 'tri-pieces',
+        title: 'Tri des pièces',
+        icon: 'fas fa-sort-amount-down',
+        route: '/parametres/tri-pieces',
+        type: 'link',
+        description: 'Champ de tri par défaut des tableaux de pièces (affichage + rapport PDF)'
+      },
+      {
+        id: 'champs-pieces',
+        title: 'Champs par défaut',
+        icon: 'fas fa-table-columns',
+        route: '/parametres/champs-pieces',
+        type: 'link',
+        description: 'Colonnes affichées par type de pièce (vues app + rapport PDF)'
+      }
+    ]
   }
 ];
 
 /**
  * Configuration du menu pour le Super Admin
  */
+const ALL_ADMIN_ROLES = ['ROLE_SUPER_ADMIN', 'ROLE_ADMIN_SYSTEME', 'ROLE_ORGANISATION_ADMIN'];
+const SUPER_OR_SYSTEME = ['ROLE_SUPER_ADMIN', 'ROLE_ADMIN_SYSTEME'];
+
 export const ADMIN_MENU: MenuItem[] = [
   {
     id: 'dashboard',
@@ -32,7 +63,9 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-tachometer-alt',
     route: '/admin/dashboard',
     type: 'link',
-    description: 'Vue d\'ensemble système'
+    exact: true, // correspondance exacte (cohérence avec le menu opérateur)
+    description: 'Vue d\'ensemble système',
+    roles: ALL_ADMIN_ROLES,
   },
   {
     id: 'organisations',
@@ -41,6 +74,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/organisations',
     type: 'link',
     description: 'CRUD des organisations',
+    roles: SUPER_OR_SYSTEME,
     children: [
       {
         id: 'liste-organisations',
@@ -48,7 +82,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-list',
         route: '/admin/organisations/liste',
         type: 'link',
-        description: 'Voir toutes les organisations'
+        description: 'Voir toutes les organisations',
+        roles: SUPER_OR_SYSTEME,
       },
       {
         id: 'ajouter-organisation',
@@ -56,7 +91,84 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-plus-circle',
         route: '/admin/organisations/ajouter',
         type: 'link',
-        description: 'Créer une nouvelle organisation'
+        description: 'Créer une nouvelle organisation',
+        roles: SUPER_OR_SYSTEME,
+      }
+    ]
+  },
+  {
+    id: 'organismes',
+    title: 'Organismes',
+    icon: 'fas fa-sitemap',
+    route: '/admin/organismes',
+    type: 'submenu',
+    description: 'Organismes premier & deuxième niveau (en-tête des rapports)',
+    roles: SUPER_OR_SYSTEME,
+    children: [
+      {
+        id: 'organismes-niveau1',
+        title: 'Premier niveau',
+        icon: 'fas fa-landmark',
+        route: '/admin/organismes/niveau1',
+        type: 'link',
+        description: 'Organismes centraux (ex. ANCFCC)',
+        roles: SUPER_OR_SYSTEME,
+      },
+      {
+        id: 'organismes-niveau2',
+        title: 'Deuxième niveau',
+        icon: 'fas fa-building',
+        route: '/admin/organismes/niveau2',
+        type: 'link',
+        description: 'Entités décentralisées rattachées',
+        roles: SUPER_OR_SYSTEME,
+      }
+    ]
+  },
+  {
+    id: 'projets',
+    title: 'Projets',
+    icon: 'fas fa-project-diagram',
+    route: '/admin/projets',
+    type: 'link',
+    description: 'Projets, propriétés, affaires, SSDGPS & sessions',
+    roles: ALL_ADMIN_ROLES,
+  },
+  {
+    id: 'parametres',
+    title: 'Paramètres',
+    icon: 'fas fa-sliders-h',
+    route: '/admin/parametres',
+    type: 'submenu',
+    description: 'Préférences d\'affichage des pièces (tri + colonnes)',
+    roles: ALL_ADMIN_ROLES,
+    children: [
+      {
+        id: 'tri-pieces',
+        title: 'Tri des pièces',
+        icon: 'fas fa-sort-amount-down',
+        route: '/admin/parametres/tri-pieces',
+        type: 'link',
+        description: 'Champ de tri par défaut des tableaux de pièces (affichage + rapport PDF)',
+        roles: ALL_ADMIN_ROLES,
+      },
+      {
+        id: 'champs-pieces',
+        title: 'Champs par défaut',
+        icon: 'fas fa-table-columns',
+        route: '/admin/parametres/champs-pieces',
+        type: 'link',
+        description: 'Colonnes affichées par type de pièce (vues app + rapport PDF)',
+        roles: ALL_ADMIN_ROLES,
+      },
+      {
+        id: 'descriptions-champs',
+        title: 'Descriptions des champs',
+        icon: 'fas fa-circle-info',
+        route: '/admin/parametres/descriptions-champs',
+        type: 'link',
+        description: 'Descriptions & infobulles des champs (communes, aide à l\'import)',
+        roles: SUPER_OR_SYSTEME,
       }
     ]
   },
@@ -67,6 +179,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/utilisateurs',
     type: 'link',
     description: 'Gestion des utilisateurs et permissions',
+    roles: ALL_ADMIN_ROLES,
     children: [
       {
         id: 'liste-utilisateurs',
@@ -74,7 +187,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-users',
         route: '/admin/utilisateurs/liste',
         type: 'link',
-        description: 'Tous les utilisateurs'
+        description: 'Tous les utilisateurs',
+        roles: ALL_ADMIN_ROLES,
       },
       {
         id: 'invitations',
@@ -82,7 +196,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-envelope-open-text',
         route: '/admin/utilisateurs/invitations',
         type: 'link',
-        description: 'Inviter Admins/Managers/Utilisateurs'
+        description: 'Inviter Admins/Managers/Utilisateurs',
+        roles: ALL_ADMIN_ROLES,
       },
       {
         id: 'roles-permissions',
@@ -90,7 +205,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-user-shield',
         route: '/admin/utilisateurs/roles',
         type: 'link',
-        description: 'Configuration RBAC'
+        description: 'Configuration RBAC',
+        roles: ALL_ADMIN_ROLES,
       }
     ]
   },
@@ -100,7 +216,8 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-history',
     route: '/admin/logs-audit',
     type: 'link',
-    description: 'Traçabilité des actions utilisateurs'
+    description: 'Traçabilité des actions utilisateurs',
+    roles: SUPER_OR_SYSTEME,
   },
   {
     id: 'supervision',
@@ -109,6 +226,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/supervision',
     type: 'link',
     description: 'Health Check & Stats globales',
+    roles: SUPER_OR_SYSTEME,
     children: [
       {
         id: 'health-check',
@@ -116,7 +234,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-heartbeat',
         route: '/admin/supervision/health',
         type: 'link',
-        description: 'État des services'
+        description: 'État des services',
+        roles: SUPER_OR_SYSTEME,
       },
       {
         id: 'stats-globales',
@@ -124,7 +243,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-chart-bar',
         route: '/admin/supervision/stats',
         type: 'link',
-        description: 'Métriques système'
+        description: 'Métriques système',
+        roles: SUPER_OR_SYSTEME,
       }
     ]
   },
@@ -135,6 +255,7 @@ export const ADMIN_MENU: MenuItem[] = [
     route: '/admin/quotas',
     type: 'link',
     description: 'Stockage & Limites projets',
+    roles: SUPER_OR_SYSTEME,
     children: [
       {
         id: 'stockage',
@@ -142,7 +263,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-hdd',
         route: '/admin/quotas/stockage',
         type: 'link',
-        description: 'Gestion du stockage'
+        description: 'Gestion du stockage',
+        roles: SUPER_OR_SYSTEME,
       },
       {
         id: 'limites-projets',
@@ -150,7 +272,8 @@ export const ADMIN_MENU: MenuItem[] = [
         icon: 'fas fa-sliders-h',
         route: '/admin/quotas/limites',
         type: 'link',
-        description: 'Configuration des quotas'
+        description: 'Configuration des quotas',
+        roles: SUPER_OR_SYSTEME,
       }
     ]
   },
@@ -160,6 +283,7 @@ export const ADMIN_MENU: MenuItem[] = [
     icon: 'fas fa-tools',
     route: '/admin/maintenance',
     type: 'link',
-    description: 'Switch global maintenance'
+    description: 'Switch global maintenance',
+    roles: SUPER_OR_SYSTEME,
   }
 ];

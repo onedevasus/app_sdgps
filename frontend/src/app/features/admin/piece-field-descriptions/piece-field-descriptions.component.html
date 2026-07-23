@@ -1,0 +1,137 @@
+<div class="pfd-page">
+  <div class="page-header">
+    <h1><i class="fas fa-circle-info"></i> Descriptions des champs des pièces</h1>
+    <p class="subtitle">
+      Décrivez chaque champ (colonne) de chaque type de pièce, et ajoutez au besoin des
+      <strong>champs personnalisés</strong>. Descriptions, infobulles et champs ajoutés sont
+      <strong>communs à tous les opérateurs</strong> : ils s'appliquent à l'affichage dans l'app,
+      au rapport PDF, à la configuration « Champs par défaut » et à l'<strong>import</strong>
+      (aide à la correspondance des colonnes).
+    </p>
+  </div>
+
+  <div class="pfd-toolbar">
+    <!-- Enregistrement automatique (plus de bouton : tout changement est sauvegardé). -->
+    <div class="pfd-autosave">
+      <span class="saving" *ngIf="saving"><i class="fas fa-spinner fa-spin"></i> Enregistrement…</span>
+      <span class="blocked" *ngIf="!saving && saveBlockedMsg"><i class="fas fa-triangle-exclamation"></i> {{ saveBlockedMsg }}</span>
+      <span class="saved" *ngIf="!saving && !saveBlockedMsg && savedFlash"><i class="fas fa-check-circle"></i> Modifications enregistrées</span>
+      <span class="idle" *ngIf="!saving && !saveBlockedMsg && !savedFlash"><i class="fas fa-bolt"></i> Les modifications sont enregistrées automatiquement</span>
+    </div>
+    <button type="button" class="btn-light" (click)="expandAll()" [disabled]="loading || loadError">
+      <i class="fas fa-angles-down"></i> Tout déplier
+    </button>
+    <button type="button" class="btn-light" (click)="collapseAll()" [disabled]="loading || loadError">
+      <i class="fas fa-angles-up"></i> Tout replier
+    </button>
+    <span class="toolbar-hint"><i class="fas fa-info-circle"></i> Vider les deux champs supprime la description.</span>
+  </div>
+
+  <!-- Zone défilable : l'en-tête et la barre d'outils restent fixes, la liste des types défile. -->
+  <div class="pfd-scroll">
+  <div class="pfd-loading" *ngIf="loading"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+  <div class="pfd-error" *ngIf="loadError && !loading">
+    <i class="fas fa-triangle-exclamation"></i> Impossible de charger les descriptions.
+  </div>
+
+  <!-- Section maître repliable (dépliée par défaut) -->
+  <div class="pfd-master" *ngIf="!loading && !loadError" [class.collapsed]="masterCollapsed">
+    <button type="button" class="pfd-master-header" (click)="toggleMaster()"
+            [attr.aria-expanded]="!masterCollapsed">
+      <i class="fas fa-layer-group"></i>
+      <span class="pfd-master-title">Descriptions des champs des pièces</span>
+      <span class="pfd-master-count">{{ types.length }} type(s) de pièce</span>
+      <i class="fas fa-chevron-down pfd-master-chevron"></i>
+    </button>
+
+    <div class="pfd-master-body">
+      <div class="pfd-grid">
+        <div class="pfd-type-block" *ngFor="let t of types" [class.collapsed]="t.collapsed">
+          <button type="button" class="pfd-type-header" (click)="toggleType(t)"
+                  [attr.aria-expanded]="!t.collapsed">
+            <span class="pfd-type"><span class="code">{{ t.code }}</span> {{ t.nom }}</span>
+            <span class="pfd-summary">{{ documentedCount(t) }} / {{ fieldCount(t) }} champ(s) documenté(s)</span>
+            <i class="fas fa-chevron-down pfd-chevron"></i>
+          </button>
+
+          <div class="pfd-type-body">
+            <!-- Champs du catalogue (nom/libellé figés) -->
+            <div class="pfd-field" *ngFor="let f of t.catalogFields">
+              <div class="pfd-field-head">
+                <span class="pfd-field-label">{{ f.label }}</span>
+                <span class="pfd-field-name">{{ f.name }}</span>
+                <span class="pfd-field-origin" *ngIf="f.origin === 'ecarts'" title="Champ propre à la version des écarts">écarts</span>
+              </div>
+              <div class="pfd-field-inputs">
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Infobulle (courte)</span>
+                  <input type="text" maxlength="255" [(ngModel)]="f.tooltip" [ngModelOptions]="{standalone: true}"
+                         (ngModelChange)="queueAutoSave()" placeholder="Résumé bref affiché au survol">
+                </label>
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Description détaillée</span>
+                  <textarea rows="2" [(ngModel)]="f.description" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="queueAutoSave()"
+                            placeholder="Consistance exacte du champ et à quoi il correspond (aide à l'import)"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <!-- Champs personnalisés (ajoutés par l'admin) -->
+            <div class="pfd-field custom" *ngFor="let cf of t.customFields; let i = index">
+              <div class="pfd-field-head">
+                <span class="pfd-field-origin custom-badge" title="Champ personnalisé (vraie colonne)">
+                  <i class="fas fa-plus"></i> personnalisé
+                </span>
+                <span class="spacer"></span>
+                <button type="button" class="btn-remove" (click)="removeCustomField(t, i)" title="Supprimer ce champ">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+              <div class="pfd-custom-meta">
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Nom technique <span class="req">*</span></span>
+                  <input type="text" [(ngModel)]="cf.name" [ngModelOptions]="{standalone: true}"
+                         (ngModelChange)="queueAutoSave()" placeholder="ex. observateur (minuscules, _)">
+                </label>
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Libellé affiché <span class="req">*</span></span>
+                  <input type="text" [(ngModel)]="cf.label" [ngModelOptions]="{standalone: true}"
+                         (ngModelChange)="queueAutoSave()" placeholder="ex. Observateur">
+                </label>
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Type de donnée</span>
+                  <select [(ngModel)]="cf.type" [ngModelOptions]="{standalone: true}" (ngModelChange)="queueAutoSave()">
+                    <option *ngFor="let ft of fieldTypes" [value]="ft.value">{{ ft.label }}</option>
+                  </select>
+                </label>
+              </div>
+              <div class="pfd-field-inputs">
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Infobulle (courte)</span>
+                  <input type="text" maxlength="255" [(ngModel)]="cf.tooltip" [ngModelOptions]="{standalone: true}"
+                         (ngModelChange)="queueAutoSave()" placeholder="Résumé bref affiché au survol">
+                </label>
+                <label class="pfd-input">
+                  <span class="pfd-input-label">Description détaillée</span>
+                  <textarea rows="2" [(ngModel)]="cf.description" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="queueAutoSave()"
+                            placeholder="Consistance exacte du champ et à quoi il correspond (aide à l'import)"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div class="pfd-empty" *ngIf="!t.catalogFields.length && !t.customFields.length">
+              <i class="fas fa-inbox"></i> Aucun champ pour ce type. Ajoutez un champ personnalisé.
+            </div>
+
+            <button type="button" class="btn-add-field" (click)="addCustomField(t)">
+              <i class="fas fa-plus"></i> Ajouter un champ à {{ t.code }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /.pfd-scroll -->
+</div>

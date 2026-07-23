@@ -113,7 +113,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             Membership.objects.create(
                 user=user,
                 organization=organization,
-                role='USER'
+                role='ROLE_ORGANISATION_AGENT'
             )
         else:
             # Mode 1: Créer une nouvelle organisation avec l'utilisateur comme ADMIN
@@ -141,7 +141,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             Membership.objects.create(
                 user=user,
                 organization=organization,
-                role='ADMIN'
+                role='ROLE_ORGANISATION_ADMIN'
             )
         
         return user

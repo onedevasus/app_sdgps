@@ -7,6 +7,10 @@ import {AppComponent} from './app.component'; // Importe le composant racine
 import {LayoutModule} from './core/layout/layout.module'; // ← AJOUT: Module Layout (Sidebar, TopBar, etc.)
 import {AuthModule} from './features/auth/auth.module'; // ← AJOUT: Module Auth (Login, Register, etc.)
 import {DashboardModule} from './features/dashboard/dashboard.module'; // ← AJOUT: Module Dashboard
+import {UsersModule} from './features/admin/users/users.module'; // ← AJOUT: Module Users
+import {OrganismesModule} from './features/admin/organismes/organismes.module'; // ← AJOUT: Module Organismes
+import {PieceFieldDescriptionsModule} from './features/admin/piece-field-descriptions/piece-field-descriptions.module'; // ← Descriptions des champs de pièces (App Admin)
+import {StorageDashboardModule} from './features/admin/storage/storage-dashboard.module'; // ← Dashboard stockage (App Admin)
 import {ToastrModule} from 'ngx-toastr';
 import {AuthInterceptor} from './core/interceptors/auth.interceptor';
 
@@ -22,6 +26,10 @@ import {AuthInterceptor} from './core/interceptors/auth.interceptor';
         LayoutModule, // ← AJOUT: Dashboard layout components
         AuthModule, // ← AJOUT: Authentication components
         DashboardModule, // ← AJOUT: Dashboard components (OrganizationList, etc.)
+        UsersModule, // ← AJOUT: User management components
+        OrganismesModule, // ← AJOUT: Organismes premier/deuxième niveau
+        PieceFieldDescriptionsModule, // ← AJOUT: Descriptions des champs de pièces (App Admin)
+        StorageDashboardModule, // ← AJOUT: Dashboard stockage (App Admin)
         ToastrModule.forRoot({
           timeOut: 3000,
           positionClass: 'toast-bottom-right', // ← Position en bas à droite

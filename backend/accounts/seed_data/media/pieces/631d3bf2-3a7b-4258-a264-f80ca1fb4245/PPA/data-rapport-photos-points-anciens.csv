@@ -1,0 +1,16 @@
+﻿ID,Nom Point,X(m),Y(m),Date Visite,Sytème Projection,Zone Projection,Fichier Image
+1,8,   353 108.16 ,   146 858.01 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,8.jpg
+2,BT10,   343 717.71 ,   152 811.69 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,BT10.jpg
+3,BT11,   347 038.65 ,   153 716.65 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,BT11.jpg
+4,CTB26,   352 759.85 ,   150 872.64 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,CTB26.jpg
+5,CTB27,   350 375.71 ,   154 806.54 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,CTB27.jpg
+6,CTB157,   358 034.45 ,   152 765.66 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,CTB157.jpg
+7,CTB158,   350 642.34 ,   148 659.34 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,CTB158.jpg
+8,CTB160,   346 768.17 ,   149 825.68 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,CTB160.jpg
+9,CTB162,   342 058.78 ,   148 455.73 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,CTB162.jpg
+10,GPS1,   353 472.07 ,   156 983.92 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,GPS1.jpg
+11,GPS2,   351 089.88 ,   160 456.96 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,GPS2.jpg
+12,GPS4,   349 621.95 ,   156 407.71 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,GPS4.jpg
+13,GPS5,   356 090.11 ,   157 601.79 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,GPS5.jpg
+14,GPS12,   344 368.39 ,   158 749.02 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,GPS12.jpg
+15,S3,   346 480.84 ,   146 482.88 ,07/04/2023,Conique Conforme Lambert,Lambert Zone I,S3.jpg

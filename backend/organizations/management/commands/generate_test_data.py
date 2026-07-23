@@ -3,6 +3,7 @@ Commande Django pour générer des données de test pour les organisations
 """
 from django.core.management.base import BaseCommand
 from accounts.models import Organization
+from accounts.seeding import forbid_in_production
 import random
 
 
@@ -23,6 +24,7 @@ class Command(BaseCommand):
         )
     
     def handle(self, *args, **options):
+        forbid_in_production()  # données de test interdites en production
         count = options['count']
         
         # Données de test réalistes

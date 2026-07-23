@@ -6,51 +6,77 @@ import {
   HttpEvent,
   HttpErrorResponse
 } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, throwError, BehaviorSubject } from 'rxjs';
+import { catchError, filter, switchMap, take } from 'rxjs/operators';
 import { Router } from '@angular/router';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
-  
-  constructor(private router: Router) {}
-  
-  intercept(
-    request: HttpRequest<any>,
-    next: HttpHandler
-  ): Observable<HttpEvent<any>> {
-    
-    // Récupérer le token JWT du localStorage
+
+  private isRefreshing = false;
+  private refreshDone$ = new BehaviorSubject<string | null>(null);
+
+  constructor(private router: Router, private authService: AuthService) {}
+
+  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     const token = localStorage.getItem('authToken');
-    
-    // Si un token existe, l'ajouter aux headers
     if (token) {
-      request = request.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      request = this.addToken(request, token);
     }
-    
-    // Gérer les erreurs HTTP
+
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
-        console.error('❌ Erreur HTTP:', error);
-        
-        // Si 401 (Non autorisé), déconnecter l'utilisateur
-        if (error.status === 401) {
-          console.warn('⚠️ Token expiré ou invalide - Déconnexion');
-          localStorage.removeItem('authToken');
-          this.router.navigate(['/auth/login']);
+        if (error.status === 401 && !request.url.includes('token/refresh')) {
+          return this.handle401(request, next);
         }
-        
-        // Si 403 (Interdit), afficher message d'erreur
         if (error.status === 403) {
           console.warn('⚠️ Accès refusé');
         }
-        
         return throwError(() => error);
       })
     );
+  }
+
+  private addToken(request: HttpRequest<any>, token: string): HttpRequest<any> {
+    return request.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+  }
+
+  private handle401(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    if (!localStorage.getItem('refreshToken')) {
+      this.forceLogout();
+      return throwError(() => new Error('Session expirée'));
+    }
+
+    if (this.isRefreshing) {
+      // Une autre requête est déjà en train de rafraîchir — attendre le résultat
+      return this.refreshDone$.pipe(
+        filter(token => token !== null),
+        take(1),
+        switchMap(token => next.handle(this.addToken(request, token!)))
+      );
+    }
+
+    this.isRefreshing = true;
+    this.refreshDone$.next(null);
+
+    return this.authService.refreshToken().pipe(
+      switchMap(newToken => {
+        this.isRefreshing = false;
+        this.refreshDone$.next(newToken);
+        return next.handle(this.addToken(request, newToken));
+      }),
+      catchError(err => {
+        this.isRefreshing = false;
+        this.forceLogout();
+        return throwError(() => err);
+      })
+    );
+  }
+
+  private forceLogout(): void {
+    console.warn('⚠️ Session expirée - Déconnexion');
+    this.authService.logout();
+    this.router.navigate(['/auth/login']);
   }
 }

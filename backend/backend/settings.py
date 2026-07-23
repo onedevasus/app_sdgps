@@ -10,23 +10,67 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
-from decouple import config  # Charger les variables d'environnement depuis .env
+from decouple import Config, RepositoryEnv, config as _autoconfig
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Vrai pendant l'exécution de la suite de tests (`manage.py test`). Sert à neutraliser
+# l'auto-seed des données de référence déclenché par le signal post_migrate (cf.
+# accounts/apps.py) : les tests doivent partir d'une base vierge.
+TESTING = 'test' in sys.argv
+
+# ============================================
+# Environnements PROGRESSIFS : development → staging → preprod → production
+# ============================================
+# Stratégie : le code remonte DEV (moi) → STAGING (équipe) → PREPROD (client) → PRODUCTION
+# (tout le monde). CHAQUE environnement a SA PROPRE base de données : on ne mélange jamais.
+#
+# Le sélecteur ENVIRONMENT vient de l'OS/shell/docker/Railway (JAMAIS d'un fichier .env, sinon
+# problème de l'œuf et la poule). On charge alors backend/.env.<environnement> :
+#   - development (défaut) → .env.development  (SQLite, base locale)
+#   - staging              → .env.staging      (PostgreSQL dédié)
+#   - preprod              → .env.preprod      (PostgreSQL dédié)
+#   - production           → .env.production   (PostgreSQL dédié)
+# Repli sur l'AutoConfig de decouple (lit os.environ + éventuel .env) si le fichier est absent
+# (ex. CI/Railway, où la config vient des variables d'environnement du service).
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
+
+# Environnements serveur (base PostgreSQL dédiée) vs développement local (SQLite).
+SERVER_ENVIRONMENTS = ('staging', 'preprod', 'production')
+# Environnements « type production » : données de démo/test INTERDITES et MASQUÉES (le client
+# en preprod et le public en production ne voient que les données réelles).
+PRODUCTION_LIKE_ENVIRONMENTS = ('preprod', 'production')
+IS_SERVER_ENV = ENVIRONMENT in SERVER_ENVIRONMENTS
+IS_PRODUCTION_LIKE = ENVIRONMENT in PRODUCTION_LIKE_ENVIRONMENTS
+
+_env_file = BASE_DIR / f'.env.{ENVIRONMENT}'
+config = Config(RepositoryEnv(str(_env_file))) if _env_file.exists() else _autoconfig
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
+# Réglages sensibles pilotés par l'environnement (variables d'env / .env.<environnement>).
+# Les valeurs par défaut ci-dessous ne conviennent QU'AU DÉVELOPPEMENT : en production, poser
+# SECRET_KEY, DEBUG=false, ALLOWED_HOSTS et CSRF_TRUSTED_ORIGINS via l'environnement (Railway…).
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-your-secret-key-here-change-in-production'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['*']
+# Liste séparée par des virgules ; '*' = tous (défaut permissif pour le dev/CI).
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='*').split(',') if h.strip()]
+
+# Origines de confiance pour les requêtes non-GET (login admin en HTTPS derrière proxy).
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in config('CSRF_TRUSTED_ORIGINS', default='').split(',') if o.strip()
+]
 
 
 # Application definition
@@ -42,11 +86,18 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'organizations',  # ← AJOUT: Gestion des organisations
+    'organismes',  # ← AJOUT: Registre organismes premier/deuxième niveau (rapport)
+    'projects',  # ← AJOUT: Domaine métier (Projet→Propriété→Affaire→SSDGPS→Session)
+    'pieces',  # ← AJOUT: Pièces SSDGPS/Session (Phase 6.5)
+    'analytics',  # ← AJOUT: Analytique de stockage (dashboard admin)
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise sert les fichiers statiques (admin/DRF) ET le build Angular (WHITENOISE_ROOT)
+    # directement depuis le conteneur, sans serveur web séparé. Juste après SecurityMiddleware.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -80,12 +131,60 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Moteur DB selon l'environnement (ENVIRONMENT est défini plus haut, depuis l'OS) :
+# SQLite en développement (base existante `db.sqlite3`),
+# PostgreSQL en production. Surchargeable explicitement via `DB_ENGINE` (utile pour la
+# migration ponctuelle des données ou pour tester Postgres en local).
+# Moteur par défaut : PostgreSQL pour les environnements serveur (staging/preprod/production),
+# SQLite en développement local. Chaque environnement pointe vers SA propre base.
+_default_engine = 'postgresql' if IS_SERVER_ENV else 'sqlite'
+DB_ENGINE = config('DB_ENGINE', default=_default_engine)
+
+# DATABASE_URL (fourni tel quel par Railway/Heroku…) prioritaire s'il est défini : une seule
+# variable décrit toute la connexion Postgres. Sinon, on retombe sur la config par moteur
+# ci-dessous (POSTGRES_* ou SQLite), inchangée.
+_DATABASE_URL = config('DATABASE_URL', default='')
+if _DATABASE_URL:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(
+            _DATABASE_URL, conn_max_age=600, ssl_require=(ENVIRONMENT == 'production')
+        )
     }
-}
+elif DB_ENGINE == 'postgresql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('POSTGRES_DB', default='sdgps'),
+            'USER': config('POSTGRES_USER', default='sdgps'),
+            'PASSWORD': config('POSTGRES_PASSWORD', default='sdgps'),
+            'HOST': config('POSTGRES_HOST', default='localhost'),
+            'PORT': config('POSTGRES_PORT', default='5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            # Chemin configurable (SQLITE_PATH) pour persister la base sur un volume Docker.
+            'NAME': config('SQLITE_PATH', default=str(BASE_DIR / 'db.sqlite3')),
+            # Base de TEST sur fichier (et non SQLite in-memory partagé `cache=shared`) : ce
+            # dernier a un problème de visibilité transactionnelle inter-connexions en CI, qui
+            # fait échouer les validateurs d'unicité générés par DRF (ex. numéro de SSDGPS
+            # unique par affaire). Le fichier garantit un comportement identique local ↔ CI.
+            'TEST': {'NAME': str(BASE_DIR / 'test_db.sqlite3')},
+        }
+    }
+
+# Alias secondaire vers l'ancienne base SQLite, défini UNIQUEMENT lors de la migration
+# ponctuelle des données (cf. commande migrate_sqlite_to_postgres). Renseigner
+# SQLITE_LEGACY_PATH dans l'environnement pour l'activer.
+_SQLITE_LEGACY_PATH = config('SQLITE_LEGACY_PATH', default='')
+if _SQLITE_LEGACY_PATH:
+    DATABASES['sqlite_legacy'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': _SQLITE_LEGACY_PATH,
+    }
 
 
 # Password validation
@@ -123,10 +222,60 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# Cible de `collectstatic` (statiques de l'admin Django / DRF), servie par WhiteNoise.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Build Angular (SPA) copié dans l'image au build Docker (cf. Dockerfile racine). S'il est
+# présent, WhiteNoise le sert À LA RACINE du site (index.html, bundles, assets) : l'app et
+# l'API partagent alors la même origine (pas de CORS). Absent en dev/CI → ignoré.
+FRONTEND_DIST_DIR = BASE_DIR / 'frontend_dist'
+if FRONTEND_DIST_DIR.exists():
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
+# Autorise les 404 statiques à retomber sur les vues Django (catch-all SPA de backend/urls.py).
+WHITENOISE_INDEX_FILE = True
 
 # Media files (User uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# --- Stockage des fichiers (uploads) -----------------------------------------------------
+# Abstraction fournisseur via django-storages : dès qu'un bucket S3 est configuré en
+# variables d'environnement, TOUS les uploads (pièces, images, avatars, logos) y sont
+# stockés ; sinon on reste sur le système de fichiers local (dev). Le backend cible l'API
+# S3, donc le fournisseur (AWS S3, Cloudflare R2, MinIO auto-hébergé…) est un simple choix
+# de configuration : migrer plus tard vers de l'auto-hébergé souverain = changer ces clés.
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
+
+if AWS_STORAGE_BUCKET_NAME:
+    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
+    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
+    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='')
+    # Endpoint explicite requis pour tout stockage S3-compatible non-AWS (R2, MinIO, OVH…).
+    AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default='') or None
+    # Domaine public/CDN optionnel (sinon URLs pré-signées vers le endpoint).
+    AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN', default='') or None
+
+    # Sécurité — données cadastrales sensibles : bucket PRIVÉ + URLs pré-signées à durée
+    # limitée. Pas d'ACL public-read ; on ne réécrit pas un objet existant (noms uniques).
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = config('AWS_QUERYSTRING_EXPIRE', default=3600, cast=int)
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+
+    STORAGES = {
+        'default': {'BACKEND': 'storages.backends.s3.S3Storage'},
+        'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+    }
+else:
+    STORAGES = {
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+    }
+
+# Pièces (Phase 6.5) — limites d'upload et d'import
+PIECE_MAX_FILE_SIZE_MB = 20
+PIECE_IMPORT_MAX_ROWS = 5000
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -137,9 +286,35 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement seulement
+# En prod (service unique), le SPA est servi par Django → MÊME origine, pas besoin de CORS.
+# On n'ouvre tout qu'en DEBUG (dev : front sur :4200, API sur un autre port). Si le front est
+# hébergé ailleurs, lister ses origines dans CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in config('CORS_ALLOWED_ORIGINS', default='').split(',') if o.strip()
+]
+# Expose Content-Disposition pour que le front puisse lire le nom de fichier proposé lors des
+# téléchargements en AJAX (ex. rapport PDF SSDGPS).
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
+
+# --- Sécurité derrière le proxy TLS (Railway termine le HTTPS) ---
+# Django voit du HTTP en interne ; cet en-tête lui indique que la requête d'origine est HTTPS.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # REST Framework settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': False,
+}
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',

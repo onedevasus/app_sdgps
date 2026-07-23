@@ -8,20 +8,29 @@
       <i [class]="(sidebarState$ | async)?.isVisible ? 'fas fa-outdent' : 'fas fa-indent'"></i>
     </button>
 
-    <!-- Fil d'Ariane (Breadcrumb) -->
+    <!-- Fil d'Ariane (Breadcrumb) : reflète la hiérarchie métier quand une page la publie
+         (Projet › Propriété › Affaire › SSDGPS › Session › Pièce), sinon repli sur l'URL. -->
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb">
-        <li *ngFor="let crumb of breadcrumbs; let last = last" 
+        <li *ngFor="let crumb of breadcrumbs; let last = last"
             class="breadcrumb-item"
-            [class.active]="last">
-          
-          <a *ngIf="!last && crumb.route" 
-             [routerLink]="crumb.route" 
-             class="breadcrumb-link">
-            {{ crumb.label }}
+            [class.active]="last || crumb.isActive"
+            [class.static]="!last && !crumb.route">
+
+          <a *ngIf="!last && crumb.route"
+             [routerLink]="crumb.route"
+             [queryParams]="crumb.queryParams || null"
+             class="breadcrumb-link"
+             [title]="crumb.label">
+            <i *ngIf="crumb.icon" class="fas crumb-icon" [ngClass]="crumb.icon"></i>
+            <span class="crumb-label">{{ crumb.label }}</span>
           </a>
-          
-          <span *ngIf="last">{{ crumb.label }}</span>
+
+          <!-- Dernier crumb (actif) OU crumb d'affichage sans lien -->
+          <span *ngIf="last || !crumb.route" [title]="crumb.label">
+            <i *ngIf="crumb.icon" class="fas crumb-icon" [ngClass]="crumb.icon"></i>
+            <span class="crumb-label">{{ crumb.label }}</span>
+          </span>
         </li>
       </ol>
     </nav>
@@ -76,17 +85,22 @@
           <div class="user-info" *ngIf="userProfile$ | async as user">
             <div class="user-fullname">{{ user.first_name }} {{ user.last_name }}</div>
             <div class="user-email">{{ user.email }}</div>
-            <div class="user-role badge-role">{{ user.role }}</div>
+            <div class="user-role">
+              <i class="fas" [ngClass]="roleIcon(user.role)"></i>
+              <span>{{ roleLabel(user.role) }}</span>
+            </div>
+            <div class="user-org" *ngIf="user.organization_name" [title]="user.organization_name">
+              <i class="fas fa-building"></i>
+              <span>{{ user.organization_name }}</span>
+            </div>
           </div>
         </div>
-
-        <div class="dropdown-divider"></div>
 
         <ul class="dropdown-menu-list">
           <li>
             <a (click)="goToProfile()" class="dropdown-item">
               <i class="fas fa-user"></i>
-              <span>Voir profil</span>
+              <span>Mon profil</span>
             </a>
           </li>
           <li>

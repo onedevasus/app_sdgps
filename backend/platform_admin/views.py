@@ -26,19 +26,11 @@ class SuperAdminProfileView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         """
-        Retourne uniquement l'utilisateur connecté
-        Sécurité: Impossible d'accéder au profil d'un autre utilisateur
+        Retourne uniquement l'utilisateur connecté (endpoint « me »). Accessible à TOUT
+        utilisateur authentifié : chacun ne peut consulter/modifier que SON PROPRE profil
+        (aucune fuite possible vers un autre compte).
         """
-        user = self.request.user
-        
-        # Vérification supplémentaire: Super Admin uniquement
-        # Utilise is_superuser ou get_primary_role()
-        if not (user.is_superuser or user.get_primary_role() == 'superadmin'):
-            logger.warning(f"Tentative d'accès non autorisé au profil par: {user.email}")
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Accès réservé aux Super Admins.")
-        
-        return user
+        return self.request.user
     
     def retrieve(self, request, *args, **kwargs):
         """
@@ -96,14 +88,8 @@ class ChangePasswordView(APIView):
             "confirm_password": "confirmation"
         }
         """
-        user = request.user
-        
-        # Vérification Super Admin
-        if not (user.is_superuser or user.get_primary_role() == 'superadmin'):
-            logger.warning(f"Tentative changement MDP non autorisé par: {user.email}")
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Accès réservé aux Super Admins.")
-        
+        user = request.user  # endpoint « me » : chacun ne change que SON propre mot de passe
+
         serializer = ChangePasswordSerializer(
             data=request.data,
             context={'request': request}
