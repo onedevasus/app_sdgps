@@ -938,6 +938,378 @@
       "nom": "Service du cadastre de Rabat",
       "ville": "Rabat",
       "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-AGADIR",
+      "nom": "Service du Cadastre Agadir",
+      "ville": "Agadir",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-AL-HOCEIMA",
+      "nom": "Service du Cadastre Al Hoceima",
+      "ville": "Al Hoceima",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BEN-GUERIR",
+      "nom": "Service du Cadastre Ben Guerir",
+      "ville": "Ben Guerir",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BENI-MELLAL",
+      "nom": "Service du Cadastre Beni Mellal",
+      "ville": "Beni Mellal",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BENSLIMANE",
+      "nom": "Service du Cadastre Benslimane",
+      "ville": "Benslimane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BERKANE",
+      "nom": "Service du Cadastre Berkane",
+      "ville": "Berkane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-BERRECHID",
+      "nom": "Service du Cadastre Berrechid",
+      "ville": "Berrechid",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-ANFA",
+      "nom": "Service du Cadastre Casa Anfa",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-AIN-CHOCK",
+      "nom": "Service du Cadastre Casa Aïn Chock",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-AIN-SEBAA",
+      "nom": "Service du Cadastre Casa Aïn Sebaa",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-HAY-HASSANI",
+      "nom": "Service du Cadastre Casa Hay Hassani",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-CASA-SIDI-OTHMANE",
+      "nom": "Service du Cadastre Casa Sidi Othmane",
+      "ville": "Casablanca",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-DAKHLA",
+      "nom": "Service du Cadastre Dakhla",
+      "ville": "Dakhla",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-EL-HAJEB",
+      "nom": "Service du Cadastre El Hajeb",
+      "ville": "El Hajeb",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-EL-JADIDA",
+      "nom": "Service du Cadastre El Jadida",
+      "ville": "El Jadida",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-EL-KELAA-DES-SRAGHNA",
+      "nom": "Service du Cadastre El Kelaa des Sraghna",
+      "ville": "El Kelaa des Sraghna",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ERRACHIDIA",
+      "nom": "Service du Cadastre Errachidia",
+      "ville": "Errachidia",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ESSAOUIRA",
+      "nom": "Service du Cadastre Essaouira",
+      "ville": "Essaouira",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-FES-MEDINA",
+      "nom": "Service du Cadastre Fès Medina",
+      "ville": "Fès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-FES-ZOUAGHA-MY-YAACOUB",
+      "nom": "Service du Cadastre Fès Zouagha My Yaacoub",
+      "ville": "Fès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-FKIH-BEN-SALAH",
+      "nom": "Service du Cadastre Fkih Ben Salah",
+      "ville": "Fkih Ben Salah",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-GUELMIM",
+      "nom": "Service du Cadastre Guelmim",
+      "ville": "Guelmim",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-IFRANE",
+      "nom": "Service du Cadastre Ifrane",
+      "ville": "Ifrane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-INZEGANE-AIT-MELLOUL",
+      "nom": "Service du Cadastre Inzegane Aït Melloul",
+      "ville": "Inzegane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KENITRA",
+      "nom": "Service du Cadastre Kenitra",
+      "ville": "Kenitra",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KHEMISSET",
+      "nom": "Service du Cadastre Khemisset",
+      "ville": "Khemisset",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KHENIFRA",
+      "nom": "Service du Cadastre Khenifra",
+      "ville": "Khenifra",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-KHOURIBGA",
+      "nom": "Service du Cadastre Khouribga",
+      "ville": "Khouribga",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-LAAYOUNE",
+      "nom": "Service du Cadastre Laâyoune",
+      "ville": "Laâyoune",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-LARACHE",
+      "nom": "Service du Cadastre Larache",
+      "ville": "Larache",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MARRAKECH-SYBA",
+      "nom": "Service du Cadastre Marrakech Syba",
+      "ville": "Marrakech",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MARRAKECH-MENARA",
+      "nom": "Service du Cadastre Marrakech Menara",
+      "ville": "Marrakech",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MEKNES-AL-ISMAILIA",
+      "nom": "Service du Cadastre Meknès Al Ismailia",
+      "ville": "Meknès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MEKNES-EL-MENZEH",
+      "nom": "Service du Cadastre Meknès El Menzeh",
+      "ville": "Meknès",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MIDELT",
+      "nom": "Service du Cadastre Midelt",
+      "ville": "Midelt",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-MOHAMMEDIA",
+      "nom": "Service du Cadastre Mohammedia",
+      "ville": "Mohammedia",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-NADOR",
+      "nom": "Service du Cadastre Nador",
+      "ville": "Nador",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-OUARZAZATE",
+      "nom": "Service du Cadastre Ouarzazate",
+      "ville": "Ouarzazate",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-OUJDA",
+      "nom": "Service du Cadastre Oujda",
+      "ville": "Oujda",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-OUJDA-ANGAD",
+      "nom": "Service du Cadastre Oujda Angad",
+      "ville": "Oujda",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-RABAT-AGDAL-RYAD",
+      "nom": "Service du Cadastre Rabat Agdal Ryad",
+      "ville": "Rabat",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-RABAT-CENTRE",
+      "nom": "Service du Cadastre Rabat Centre",
+      "ville": "Rabat",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ROMMANI",
+      "nom": "Service du Cadastre Rommani",
+      "ville": "Rommani",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SAFI",
+      "nom": "Service du Cadastre Safi",
+      "ville": "Safi",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SALA-AL-JADIDA",
+      "nom": "Service du Cadastre Sala Al Jadida",
+      "ville": "Salé",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SALA-MEDINA",
+      "nom": "Service du Cadastre Sala Medina",
+      "ville": "Salé",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SEFROU",
+      "nom": "Service du Cadastre Sefrou",
+      "ville": "Sefrou",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SETTAT",
+      "nom": "Service du Cadastre Settat",
+      "ville": "Settat",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-HARHOURA-SKHIRAT",
+      "nom": "Service du Cadastre Harhoura-Skhirat",
+      "ville": "Témara / Aïn Atiq",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SIDI-BENNOUR",
+      "nom": "Service du Cadastre Sidi Bennour",
+      "ville": "Sidi Bennour",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SIDI-KACEM",
+      "nom": "Service du Cadastre Sidi Kacem",
+      "ville": "Sidi Kacem",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SIDI-SLIMANE",
+      "nom": "Service du Cadastre Sidi Slimane",
+      "ville": "Sidi Slimane",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-SOUK-ARBAA-EL-GHARB",
+      "nom": "Service du Cadastre Souk Arbaa El Gharb",
+      "ville": "Souk Arbaa El Gharb",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TANGER",
+      "nom": "Service du Cadastre Tanger",
+      "ville": "Tanger",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TANGER-BENI-MAKADA",
+      "nom": "Service du Cadastre Tanger Beni Makada",
+      "ville": "Tanger",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TAOUNATE",
+      "nom": "Service du Cadastre Taounate",
+      "ville": "Taounate",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TAROUDANT",
+      "nom": "Service du Cadastre Taroudant",
+      "ville": "Taroudant",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TAZA",
+      "nom": "Service du Cadastre Taza",
+      "ville": "Taza",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TEMARA",
+      "nom": "Service du Cadastre Témara",
+      "ville": "Témara",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TETOUAN",
+      "nom": "Service du Cadastre Tétouan",
+      "ville": "Tétouan",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-TIZNIT",
+      "nom": "Service du Cadastre Tiznit",
+      "ville": "Tiznit",
+      "niveau1_code": "ANCFCC"
+    },
+    {
+      "code": "SCA-ZEMAMRA-SIDI-SMAIL",
+      "nom": "Service du Cadastre Zemamra Sidi Smail",
+      "ville": "Zemamra",
+      "niveau1_code": "ANCFCC"
     }
   ]
 }
