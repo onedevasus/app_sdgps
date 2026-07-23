@@ -1,4 +1,10 @@
-"""Tests de la migration 0025 (suppression du super admin par défaut admin@sdgps.com)."""
+"""Tests de la migration 0025 (suppression du super admin par défaut admin@sdgps.com).
+
+Indépendants de l'environnement : selon que `SUPER_ADMIN_EMAIL` est défini ou non, la migration
+0002 crée le super admin de base sous `admin@sdgps.com` (défaut, cas CI) ou sous un autre email
+(cas local avec .env). Les tests provisionnent donc explicitement leurs pré-conditions
+(get_or_create) au lieu de supposer un baseline particulier.
+"""
 import importlib
 
 from django.apps import apps as django_apps
@@ -9,49 +15,50 @@ from accounts.models import Membership, Organization
 
 User = get_user_model()
 
-# Nom de module commençant par un chiffre → import via importlib.
 _mig = importlib.import_module('accounts.migrations.0025_remove_default_super_admin')
 remove_default_super_admin = _mig.remove_default_super_admin
+DEFAULT_ADMIN_EMAIL = 'admin@sdgps.com'
 
 
 class RemoveDefaultSuperAdminTests(TestCase):
-    def _make_default_admin(self):
-        admin = User.objects.create_user(
-            username='admin@sdgps.com', email='admin@sdgps.com', password='x',
-            is_superuser=True, is_staff=True,
-        )
-        org = Organization.all_objects.create(
-            name='SDGPS Administration', code='SDGPSADMI-TEST', type='PUBLIC',
-        )
-        Membership.objects.create(user=admin, organization=org,
-                                  role='ROLE_ORGANISATION_ADMIN')
+    def _ensure_default_admin(self):
+        admin, _ = User.objects.get_or_create(
+            email=DEFAULT_ADMIN_EMAIL,
+            defaults={'username': DEFAULT_ADMIN_EMAIL, 'is_superuser': True, 'is_staff': True})
+        org, _ = Organization.all_objects.get_or_create(
+            code='SDGPSADMI-TEST', defaults={'name': 'SDGPS Administration', 'type': 'PUBLIC'})
+        Membership.objects.get_or_create(
+            user=admin, organization=org, defaults={'role': 'ROLE_ORGANISATION_ADMIN'})
         return admin, org
 
+    def _ensure_other_super_admin(self):
+        User.objects.get_or_create(
+            email='autre-super@sdgps.ma',
+            defaults={'username': 'autre-super@sdgps.ma', 'is_superuser': True, 'is_staff': True})
+
     def test_supprime_admin_par_defaut_et_son_org(self):
-        # La base de test contient déjà un autre super admin (migration 0002).
-        self.assertTrue(
-            User.objects.filter(is_superuser=True).exclude(email='admin@sdgps.com').exists())
-        _, org = self._make_default_admin()
+        _, org = self._ensure_default_admin()
+        self._ensure_other_super_admin()  # garantit un autre super admin (indépendant du baseline)
         remove_default_super_admin(django_apps, None)
-        self.assertFalse(User.objects.filter(email='admin@sdgps.com').exists())
+        self.assertFalse(User.objects.filter(email=DEFAULT_ADMIN_EMAIL).exists())
         self.assertFalse(Organization.all_objects.filter(pk=org.pk).exists())
 
     def test_ne_supprime_pas_si_seul_super_admin(self):
-        # Retire les autres super admins : admin@sdgps.com devient le seul → conservé (garde-fou).
-        User.objects.filter(is_superuser=True).delete()
-        _, org = self._make_default_admin()
+        self._ensure_default_admin()
+        # admin@sdgps.com devient le SEUL super admin → garde-fou : conservé.
+        User.objects.filter(is_superuser=True).exclude(email=DEFAULT_ADMIN_EMAIL).delete()
         remove_default_super_admin(django_apps, None)
-        self.assertTrue(User.objects.filter(email='admin@sdgps.com').exists())
-        self.assertTrue(Organization.all_objects.filter(pk=org.pk).exists())
+        self.assertTrue(User.objects.filter(email=DEFAULT_ADMIN_EMAIL).exists())
 
     def test_noop_si_admin_absent(self):
+        User.objects.filter(email=DEFAULT_ADMIN_EMAIL).delete()
         before = User.objects.count()
         remove_default_super_admin(django_apps, None)
         self.assertEqual(User.objects.count(), before)
 
     def test_idempotent(self):
-        self._make_default_admin()
+        self._ensure_default_admin()
+        self._ensure_other_super_admin()
         remove_default_super_admin(django_apps, None)
-        # Second passage : plus rien à supprimer, aucune erreur.
         remove_default_super_admin(django_apps, None)
-        self.assertFalse(User.objects.filter(email='admin@sdgps.com').exists())
+        self.assertFalse(User.objects.filter(email=DEFAULT_ADMIN_EMAIL).exists())
