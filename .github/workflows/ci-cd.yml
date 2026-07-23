@@ -51,7 +51,8 @@ jobs:
 
   build-and-push:
     needs: [test-backend, test-frontend]
-    if: github.ref == 'refs/heads/main'
+    # Construit et pousse l'image dans GHCR après un push/merge sur main OU develop.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,6 +88,9 @@ jobs:
 
   deploy:
     needs: build-and-push
+    # Le déploiement SSH (VPS de production) reste réservé à main : develop ne fait que
+    # produire l'image GHCR.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Déployer sur le serveur via SSH

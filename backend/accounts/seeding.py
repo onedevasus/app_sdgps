@@ -118,10 +118,13 @@ def _seed_users(users, summary, log):
         if not email:
             continue
 
+        # Mot de passe de RÉFÉRENCE : résolu via l'environnement (password_env) ou valeur
+        # littérale. Fait autorité pour les comptes seedés (cf. synchronisation ci-dessous).
+        resolved_pw = _resolve(entry, 'password')
         user = User.objects.filter(email=email).first()
         if user is None:
-            # Mot de passe : uniquement via l'environnement (password_env) ; généré si absent.
-            password = _resolve(entry, 'password') or _generate_password()
+            # Généré aléatoirement si aucun mot de passe fourni.
+            password = resolved_pw or _generate_password()
             extra = {}
             role = entry.get('role')
             if role == 'super_admin':
@@ -151,7 +154,18 @@ def _seed_users(users, summary, log):
             summary['users_created'] += 1
             log(f"  Utilisateur créé : {email}")
         else:
-            log(f"  Utilisateur déjà présent : {email}")
+            # Synchronisation du mot de passe : la variable d'env (password_env) fait autorité
+            # pour les comptes de référence. Garantit des identifiants connus/déterministes à
+            # chaque déploiement, même pour un compte créé lors d'un déploiement antérieur (le
+            # seed ne faisait avant que de la création). Ne touche RIEN si aucun mot de passe
+            # n'est fourni, ni si le mot de passe est déjà à jour (idempotent, pas d'écriture).
+            if resolved_pw and not user.check_password(resolved_pw):
+                user.set_password(resolved_pw)
+                user.save(update_fields=['password'])
+                summary['passwords_synced'] = summary.get('passwords_synced', 0) + 1
+                log(f"  Mot de passe synchronisé : {email}")
+            else:
+                log(f"  Utilisateur déjà présent : {email}")
 
         # Adhésions (idempotentes) — appliquées même si l'utilisateur pré-existe.
         for m in entry.get('memberships', []):
