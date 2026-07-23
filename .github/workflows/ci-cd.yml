@@ -1,8 +1,15 @@
 name: CI/CD
 
+# Stratégie « build once, promote » :
+#   push develop      → BUILD UNIQUE de l'image racine (Angular + Django) → GHCR :sha-<court> + :staging
+#                       puis redeploy Railway STAGING.
+#   push release/*    → AUCUN rebuild : re-tag du digest :staging → :preprod, redeploy Railway PREPROD.
+#   push main         → AUCUN rebuild : re-tag du digest :preprod → :production (+ :latest), redeploy PROD.
+# L'image livrée en production est donc EXACTEMENT celle validée en staging puis préprod.
+
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "release/**"]
   pull_request:
     branches: [main, develop]
 
@@ -49,15 +56,18 @@ jobs:
       - name: Builder le frontend
         run: npx ng build --configuration production
 
-  build-and-push:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BUILD UNIQUE (develop → STAGING). Seul job qui construit réellement l'image.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build:
     needs: [test-backend, test-frontend]
-    # Construit et pousse l'image dans GHCR après un push/merge sur main OU develop.
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    # Jobs d'image = UNIQUEMENT dans le fork (onedevasus/app_sdgps), pas dans l'upstream.
+    # → image ghcr.io/onedevasus/app_sdgps, tirée par Railway (compte onedevasus).
+    if: github.repository != 'blmerio2022/app_sdgps' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     steps:
       - uses: actions/checkout@v4
 
@@ -74,34 +84,89 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=,suffix=,format=short
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=staging
 
-      - name: Builder et pousser l'image Docker
+      - name: Builder et pousser l'image racine (app complète)
+        # context: . → Dockerfile racine (SPA Angular buildé PUIS servi par Django/WhiteNoise,
+        # service unique = image que Railway exécute).
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy:
-    needs: build-and-push
-    # Le déploiement SSH (VPS de production) reste réservé à main : develop ne fait que
-    # produire l'image GHCR.
-    if: github.ref == 'refs/heads/main'
+      - name: Redéployer STAGING sur Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+        run: |
+          npm install -g @railway/cli
+          railway redeploy --service "$RAILWAY_SERVICE" --yes
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PROMOTION PREPROD (release/* → PREPROD). Aucun rebuild : re-tag du digest staging.
+  # ─────────────────────────────────────────────────────────────────────────────
+  promote-preprod:
+    needs: [test-backend, test-frontend]
+    if: github.repository != 'blmerio2022/app_sdgps' && startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Déployer sur le serveur via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Se connecter à GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.SERVEUR_IP }}
-          username: ${{ secrets.SERVEUR_USER }}
-          key: ${{ secrets.SERVEUR_SSH_KEY }}
-          script: |
-            echo "📦 Récupération de la dernière image depuis GHCR..."
-            cd /home/projets/sdgps
-            docker compose pull backend
-            docker compose up -d --no-deps backend
-            echo "✅ Déploiement terminé"
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promouvoir le digest STAGING → :preprod (copie de manifeste, sans rebuild)
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preprod \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+
+      - name: Redéployer PREPROD sur Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PREPROD }}
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+        run: |
+          npm install -g @railway/cli
+          railway redeploy --service "$RAILWAY_SERVICE" --yes
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PROMOTION PRODUCTION (main → PRODUCTION). Aucun rebuild : re-tag du digest preprod.
+  # ─────────────────────────────────────────────────────────────────────────────
+  promote-production:
+    needs: [test-backend, test-frontend]
+    if: github.repository != 'blmerio2022/app_sdgps' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Se connecter à GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promouvoir le digest PREPROD → :production + :latest (copie de manifeste, sans rebuild)
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preprod
+
+      - name: Redéployer PRODUCTION sur Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+        run: |
+          npm install -g @railway/cli
+          railway redeploy --service "$RAILWAY_SERVICE" --yes
