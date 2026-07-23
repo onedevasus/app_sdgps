@@ -58,8 +58,9 @@ Défini dans `backend/accounts/models.py` :
   réinitialisation (email via SendGrid).
 
 **Filtrage des données de test :** `Organization.objects` utilise `OrganizationManager`
-(`accounts/managers.py`), qui exclut automatiquement les lignes `is_test_data=True` quand
-`settings.ENVIRONMENT == 'production'`. Utiliser `Organization.all_objects` pour
+(`accounts/managers.py`), qui exclut automatiquement les lignes `is_test_data=True` dans
+les environnements « type production » (`settings.IS_PRODUCTION_LIKE`, soit `preprod` **et**
+`production` — cf. `PRODUCTION_LIKE_ENVIRONMENTS`). Utiliser `Organization.all_objects` pour
 contourner le filtrage.
 
 **Changement de mot de passe forcé :** `accounts.middleware.ForcePasswordChangeMiddleware`

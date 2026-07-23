@@ -1,0 +1,35 @@
+name: Sync fork onedevasus
+
+# Miroir upstream → fork : à chaque push sur une branche de déploiement de
+# blmerio2022/app_sdgps, on recopie la branche (à l'identique, force) dans le fork
+# onedevasus/app_sdgps. Le fork exécute alors SA propre CI (tests → build image GHCR →
+# promotion → redeploy Railway), cf. ci-cd.yml.
+#
+# IMPORTANT : le push est fait avec un PAT (FORK_SYNC_TOKEN), pas GITHUB_TOKEN. Un push
+# via GITHUB_TOKEN NE déclenche PAS les workflows de la cible (anti-boucle GitHub) ; un
+# PAT, si. Le PAT doit avoir les droits `repo` + `workflow` sur le fork (les fichiers
+# .github/workflows/ font partie du miroir).
+
+on:
+  push:
+    branches: [main, develop, "release/**"]
+
+jobs:
+  mirror:
+    # Ne tourne QUE dans l'upstream (le fork possède aussi ce fichier mais ne doit pas
+    # se re-mirrorer lui-même).
+    if: github.repository == 'blmerio2022/app_sdgps'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Recopier la branche poussée dans le fork
+        env:
+          FORK_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+          FORK_REPOSITORY: ${{ vars.FORK_REPOSITORY }}
+        run: |
+          git push --force \
+            "https://x-access-token:${FORK_TOKEN}@github.com/${FORK_REPOSITORY}.git" \
+            "HEAD:refs/heads/${GITHUB_REF_NAME}"
