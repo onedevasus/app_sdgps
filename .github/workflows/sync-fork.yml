@@ -24,6 +24,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Ne PAS persister le token du bot (github-actions[bot]) dans un
+          # http.<url>.extraheader : il primerait sur le PAT injecté dans l'URL du
+          # push ci-dessous et provoquerait un 403 (le bot n'a aucun droit sur le fork).
+          persist-credentials: false
 
       - name: Recopier la branche poussée dans le fork
         env:
