@@ -60,6 +60,10 @@ backend/nul
 # Médias uploadés (fichiers utilisateur — hors code source)
 backend/media/
 
+# Artefacts de build servis à l'exécution (générés par collectstatic / build Angular embarqué)
+backend/staticfiles/
+backend/frontend_dist/
+
 # Sauvegardes automatiques (Docker, BDD, médias)
 _docker_backup/
 

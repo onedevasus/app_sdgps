@@ -40,13 +40,23 @@ config = Config(RepositoryEnv(str(_env_file))) if _env_file.exists() else _autoc
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
+# Réglages sensibles pilotés par l'environnement (variables d'env / .env.<environnement>).
+# Les valeurs par défaut ci-dessous ne conviennent QU'AU DÉVELOPPEMENT : en production, poser
+# SECRET_KEY, DEBUG=false, ALLOWED_HOSTS et CSRF_TRUSTED_ORIGINS via l'environnement (Railway…).
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-your-secret-key-here-change-in-production'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['*']
+# Liste séparée par des virgules ; '*' = tous (défaut permissif pour le dev/CI).
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='*').split(',') if h.strip()]
+
+# Origines de confiance pour les requêtes non-GET (login admin en HTTPS derrière proxy).
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in config('CSRF_TRUSTED_ORIGINS', default='').split(',') if o.strip()
+]
 
 
 # Application definition
@@ -71,6 +81,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise sert les fichiers statiques (admin/DRF) ET le build Angular (WHITENOISE_ROOT)
+    # directement depuis le conteneur, sans serveur web séparé. Juste après SecurityMiddleware.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -111,7 +124,18 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 _default_engine = 'postgresql' if ENVIRONMENT == 'production' else 'sqlite'
 DB_ENGINE = config('DB_ENGINE', default=_default_engine)
 
-if DB_ENGINE == 'postgresql':
+# DATABASE_URL (fourni tel quel par Railway/Heroku…) prioritaire s'il est défini : une seule
+# variable décrit toute la connexion Postgres. Sinon, on retombe sur la config par moteur
+# ci-dessous (POSTGRES_* ou SQLite), inchangée.
+_DATABASE_URL = config('DATABASE_URL', default='')
+if _DATABASE_URL:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(
+            _DATABASE_URL, conn_max_age=600, ssl_require=(ENVIRONMENT == 'production')
+        )
+    }
+elif DB_ENGINE == 'postgresql':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -182,6 +206,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# Cible de `collectstatic` (statiques de l'admin Django / DRF), servie par WhiteNoise.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Build Angular (SPA) copié dans l'image au build Docker (cf. Dockerfile racine). S'il est
+# présent, WhiteNoise le sert À LA RACINE du site (index.html, bundles, assets) : l'app et
+# l'API partagent alors la même origine (pas de CORS). Absent en dev/CI → ignoré.
+FRONTEND_DIST_DIR = BASE_DIR / 'frontend_dist'
+if FRONTEND_DIST_DIR.exists():
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
+# Autorise les 404 statiques à retomber sur les vues Django (catch-all SPA de backend/urls.py).
+WHITENOISE_INDEX_FILE = True
 
 # Media files (User uploads)
 MEDIA_URL = '/media/'
@@ -214,12 +249,12 @@ if AWS_STORAGE_BUCKET_NAME:
 
     STORAGES = {
         'default': {'BACKEND': 'storages.backends.s3.S3Storage'},
-        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+        'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
     }
 else:
     STORAGES = {
         'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
-        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+        'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
     }
 
 # Pièces (Phase 6.5) — limites d'upload et d'import
@@ -235,10 +270,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement seulement
-# Expose Content-Disposition pour que le front (autre origine) puisse lire le nom de
-# fichier proposé lors des téléchargements en AJAX (ex. rapport PDF SSDGPS).
+# En prod (service unique), le SPA est servi par Django → MÊME origine, pas besoin de CORS.
+# On n'ouvre tout qu'en DEBUG (dev : front sur :4200, API sur un autre port). Si le front est
+# hébergé ailleurs, lister ses origines dans CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in config('CORS_ALLOWED_ORIGINS', default='').split(',') if o.strip()
+]
+# Expose Content-Disposition pour que le front puisse lire le nom de fichier proposé lors des
+# téléchargements en AJAX (ex. rapport PDF SSDGPS).
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
+
+# --- Sécurité derrière le proxy TLS (Railway termine le HTTPS) ---
+# Django voit du HTTP en interne ; cet en-tête lui indique que la requête d'origine est HTTPS.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # REST Framework settings
 from datetime import timedelta

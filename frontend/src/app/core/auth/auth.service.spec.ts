@@ -2,13 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 
 import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 /** Fabrique un JWT factice (header.payload.signature) au payload donné. */
 function makeJwt(payload: object): string {
   return `x.${btoa(JSON.stringify(payload))}.y`;
 }
 
-const API = 'http://localhost:8085/api/auth';
+const API = `${environment.apiUrl}/auth`;
 
 describe('AuthService', () => {
   let service: AuthService;

@@ -1,0 +1,30 @@
+# Contexte de build minimal (image de prod à service unique).
+**/node_modules
+**/dist
+**/.angular
+.git
+.github
+docs
+_docker_backup
+_ppa_model*.png
+
+# Python / Django local
+**/__pycache__
+**/*.pyc
+backend/.venv
+backend/venv
+backend/db.sqlite3
+backend/test_db.sqlite3
+backend/media
+backend/staticfiles
+backend/frontend_dist
+
+# Secrets & environnements locaux (jamais dans l'image)
+**/.env
+**/.env.*
+!**/.env*.example
+
+# Divers
+**/.pytest_cache
+**/.mypy_cache
+**/*.log
