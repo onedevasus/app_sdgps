@@ -87,17 +87,7 @@
       "platform_role": null,
       "memberships": [
         {
-          "organization_code": "T-ORG-A",
-          "role": "ROLE_ORGANISATION_AGENT",
-          "is_active": false
-        },
-        {
-          "organization_code": "ITKANTOPO-V2",
-          "role": "ROLE_ORGANISATION_AGENT",
-          "is_active": false
-        },
-        {
-          "organization_code": "SC-HAOUZ",
+          "organization_code": "SC-AZILAL",
           "role": "ROLE_ORGANISATION_AGENT",
           "is_active": true
         }
@@ -113,19 +103,9 @@
       "platform_role": null,
       "memberships": [
         {
-          "organization_code": "T-ORG-B",
-          "role": "ROLE_ORGANISATION_AGENT",
-          "is_active": false
-        },
-        {
-          "organization_code": "ITKANTOPO-V2",
+          "organization_code": "SC-HAOUZ",
           "role": "ROLE_ORGANISATION_AGENT",
           "is_active": true
-        },
-        {
-          "organization_code": "TEST-411658",
-          "role": "ROLE_ORGANISATION_AGENT",
-          "is_active": false
         }
       ]
     },
@@ -138,11 +118,6 @@
       "is_staff": false,
       "platform_role": null,
       "memberships": [
-        {
-          "organization_code": "T-ORG-C",
-          "role": "ROLE_ORGANISATION_AGENT",
-          "is_active": false
-        },
         {
           "organization_code": "ITKANTOPO-V2",
           "role": "ROLE_ORGANISATION_AGENT",
