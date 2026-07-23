@@ -121,6 +121,51 @@ class RunSeedTests(TestCase):
             os.remove(path)
 
 
+class PasswordSyncTests(TestCase):
+    """Synchronisation du mot de passe des comptes de référence depuis l'environnement."""
+
+    ENTRY = {'email': 'refacct@sdgps.ma', 'password_env': 'TEST_SEED_PW',
+             'first_name': 'Ref', 'last_name': 'Acct'}
+    DATA = {'users': [ENTRY], 'organizations': [], 'organismes_niveau1': [],
+            'organismes_niveau2': []}
+
+    def _run(self):
+        return run_seed(data=self.DATA, business_data={})
+
+    def test_synchronise_le_mot_de_passe_dun_compte_existant(self):
+        User.objects.create_user(username=self.ENTRY['email'], email=self.ENTRY['email'],
+                                 password='AncienMDP@1')
+        os.environ['TEST_SEED_PW'] = 'NouveauMDP@2026'
+        try:
+            summary = self._run()
+        finally:
+            del os.environ['TEST_SEED_PW']
+        user = User.objects.get(email=self.ENTRY['email'])
+        self.assertTrue(user.check_password('NouveauMDP@2026'))
+        self.assertEqual(summary.get('passwords_synced', 0), 1)
+
+    def test_pas_de_sync_si_aucun_mot_de_passe_fourni(self):
+        User.objects.create_user(username=self.ENTRY['email'], email=self.ENTRY['email'],
+                                 password='Garde@1')
+        # TEST_SEED_PW non défini → resolved_pw vide → aucune modification.
+        summary = self._run()
+        user = User.objects.get(email=self.ENTRY['email'])
+        self.assertTrue(user.check_password('Garde@1'))
+        self.assertEqual(summary.get('passwords_synced', 0), 0)
+
+    def test_sync_idempotent(self):
+        User.objects.create_user(username=self.ENTRY['email'], email=self.ENTRY['email'],
+                                 password='AncienMDP@1')
+        os.environ['TEST_SEED_PW'] = 'MDP@2026'
+        try:
+            first = self._run()
+            second = self._run()
+        finally:
+            del os.environ['TEST_SEED_PW']
+        self.assertEqual(first.get('passwords_synced', 0), 1)
+        self.assertEqual(second.get('passwords_synced', 0), 0)
+
+
 class ProductionGuardTests(TestCase):
     """Garde-fou : les données de démo/test sont interdites en production."""
 
