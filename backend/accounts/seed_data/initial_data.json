@@ -928,18 +928,6 @@
       "niveau1_code": "ANCFCC"
     },
     {
-      "code": "SCA-CASA",
-      "nom": "Service du cadastre de Casablanca",
-      "ville": "Casablanca",
-      "niveau1_code": "ANCFCC"
-    },
-    {
-      "code": "SCA-RABAT",
-      "nom": "Service du cadastre de Rabat",
-      "ville": "Rabat",
-      "niveau1_code": "ANCFCC"
-    },
-    {
       "code": "SCA-AGADIR",
       "nom": "Service du Cadastre Agadir",
       "ville": "Agadir",
