@@ -34,6 +34,8 @@ build/
 .env
 .env.local
 .env.development
+.env.staging
+.env.preprod
 .env.production
 !.env*.example
 

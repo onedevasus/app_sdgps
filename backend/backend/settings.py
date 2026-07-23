@@ -24,15 +24,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TESTING = 'test' in sys.argv
 
 # ============================================
-# Sélection du fichier de configuration par ENVIRONNEMENT
+# Environnements PROGRESSIFS : development → staging → preprod → production
 # ============================================
-# Le sélecteur ENVIRONMENT vient de l'OS/shell/docker-compose (JAMAIS d'un fichier .env,
-# sinon problème de l'œuf et la poule). On charge alors backend/.env.<environnement> :
+# Stratégie : le code remonte DEV (moi) → STAGING (équipe) → PREPROD (client) → PRODUCTION
+# (tout le monde). CHAQUE environnement a SA PROPRE base de données : on ne mélange jamais.
+#
+# Le sélecteur ENVIRONMENT vient de l'OS/shell/docker/Railway (JAMAIS d'un fichier .env, sinon
+# problème de l'œuf et la poule). On charge alors backend/.env.<environnement> :
 #   - development (défaut) → .env.development  (SQLite, base locale)
-#   - production           → .env.production   (PostgreSQL)
+#   - staging              → .env.staging      (PostgreSQL dédié)
+#   - preprod              → .env.preprod      (PostgreSQL dédié)
+#   - production           → .env.production   (PostgreSQL dédié)
 # Repli sur l'AutoConfig de decouple (lit os.environ + éventuel .env) si le fichier est absent
-# (ex. CI, où la config vient des variables d'environnement du job).
+# (ex. CI/Railway, où la config vient des variables d'environnement du service).
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
+
+# Environnements serveur (base PostgreSQL dédiée) vs développement local (SQLite).
+SERVER_ENVIRONMENTS = ('staging', 'preprod', 'production')
+# Environnements « type production » : données de démo/test INTERDITES et MASQUÉES (le client
+# en preprod et le public en production ne voient que les données réelles).
+PRODUCTION_LIKE_ENVIRONMENTS = ('preprod', 'production')
+IS_SERVER_ENV = ENVIRONMENT in SERVER_ENVIRONMENTS
+IS_PRODUCTION_LIKE = ENVIRONMENT in PRODUCTION_LIKE_ENVIRONMENTS
+
 _env_file = BASE_DIR / f'.env.{ENVIRONMENT}'
 config = Config(RepositoryEnv(str(_env_file))) if _env_file.exists() else _autoconfig
 
@@ -121,7 +135,9 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # SQLite en développement (base existante `db.sqlite3`),
 # PostgreSQL en production. Surchargeable explicitement via `DB_ENGINE` (utile pour la
 # migration ponctuelle des données ou pour tester Postgres en local).
-_default_engine = 'postgresql' if ENVIRONMENT == 'production' else 'sqlite'
+# Moteur par défaut : PostgreSQL pour les environnements serveur (staging/preprod/production),
+# SQLite en développement local. Chaque environnement pointe vers SA propre base.
+_default_engine = 'postgresql' if IS_SERVER_ENV else 'sqlite'
 DB_ENGINE = config('DB_ENGINE', default=_default_engine)
 
 # DATABASE_URL (fourni tel quel par Railway/Heroku…) prioritaire s'il est défini : une seule
