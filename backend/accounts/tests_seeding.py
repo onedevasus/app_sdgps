@@ -69,6 +69,24 @@ class RunSeedTests(TestCase):
             n2 = OrganismeNiveau2.objects.get(code=data['code'])
             self.assertEqual(n2.niveau1.code, data['niveau1_code'])
 
+    def test_seed_admins_systeme_et_org(self):
+        run_seed()
+        for email in ('appadmin1@sdgps.ma', 'appadmin2@sdgps.ma'):
+            self.assertEqual(User.objects.get(email=email).platform_role,
+                             'ROLE_ADMIN_SYSTEME', email)
+        expected = {'orgadmin1@sdgps.ma': 'SC-AZILAL', 'orgadmin2@sdgps.ma': 'SC-HAOUZ',
+                    'orgadmin3@sdgps.ma': 'ITKANTOPO-V2'}
+        for email, code in expected.items():
+            user = User.objects.get(email=email)
+            org = Organization.all_objects.get(code=code)
+            membership = Membership.objects.get(user=user, organization=org)
+            self.assertEqual(membership.role, 'ROLE_ORGANISATION_ADMIN', email)
+
+    def test_cadazilal_pas_dans_le_seed(self):
+        run_seed()
+        self.assertFalse(
+            User.objects.filter(email='abderrazzak.cadazilal@gmail.com').exists())
+
     def test_idempotent(self):
         run_seed()
         second = run_seed()

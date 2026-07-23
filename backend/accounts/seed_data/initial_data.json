@@ -12,13 +12,70 @@
       "platform_role": null
     },
     {
-      "email": "abderrazzak.cadazilal@gmail.com",
-      "password_env": "SEED_DEFAULT_PASSWORD",
-      "first_name": "Abderrazzak",
-      "last_name": "Boulmane",
+      "email": "appadmin1@sdgps.ma",
+      "password_env": "APP_ADMIN1_PASSWORD",
+      "first_name": "Amine",
+      "last_name": "Benali",
       "is_superuser": false,
       "is_staff": false,
-      "platform_role": null
+      "platform_role": "ROLE_ADMIN_SYSTEME"
+    },
+    {
+      "email": "appadmin2@sdgps.ma",
+      "password_env": "APP_ADMIN2_PASSWORD",
+      "first_name": "Sara",
+      "last_name": "El Amrani",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": "ROLE_ADMIN_SYSTEME"
+    },
+    {
+      "email": "orgadmin1@sdgps.ma",
+      "password_env": "ORGADMIN_PASSWORD",
+      "first_name": "Karim",
+      "last_name": "Tazi",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "SC-AZILAL",
+          "role": "ROLE_ORGANISATION_ADMIN",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "orgadmin2@sdgps.ma",
+      "password_env": "ORGADMIN_PASSWORD",
+      "first_name": "Nadia",
+      "last_name": "Fassi",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "SC-HAOUZ",
+          "role": "ROLE_ORGANISATION_ADMIN",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "email": "orgadmin3@sdgps.ma",
+      "password_env": "ORGADMIN_PASSWORD",
+      "first_name": "Hicham",
+      "last_name": "Bennani",
+      "is_superuser": false,
+      "is_staff": false,
+      "platform_role": null,
+      "memberships": [
+        {
+          "organization_code": "ITKANTOPO-V2",
+          "role": "ROLE_ORGANISATION_ADMIN",
+          "is_active": true
+        }
+      ]
     },
     {
       "email": "agent1@sdgps.ma",
