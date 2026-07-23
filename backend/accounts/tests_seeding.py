@@ -83,9 +83,12 @@ class RunSeedTests(TestCase):
 
     def test_summary_retourne_les_compteurs(self):
         summary = run_seed()
-        self.assertEqual(
-            set(summary.keys()),
+        # Les compteurs de référence sont toujours présents ; le seed métier ajoute ses
+        # propres compteurs (projets_created, …, media_copied) quand des données métier
+        # sont embarquées.
+        self.assertLessEqual(
             {'users_created', 'organizations_created', 'organismes_created'},
+            set(summary.keys()),
         )
 
     def test_charge_donnees_depuis_fichier_externe(self):
