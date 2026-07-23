@@ -335,7 +335,7 @@
       "id_requisition": "R20000/10",
       "id_titre": "T9000/A",
       "organisme_niveau1_code": "ANCFCC",
-      "organisme_niveau2_code": "SCA-RABAT",
+      "organisme_niveau2_code": "SCA-RABAT-CENTRE",
       "created_at": "2026-07-07T17:56:46.352756+00:00",
       "updated_at": "2026-07-16T13:46:29.941031+00:00",
       "is_deleted": false,
