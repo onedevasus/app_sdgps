@@ -85,6 +85,9 @@
       <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount === 0" (click)="openBulkRestoreModal()" title="Restaurer la sélection">
         <i class="fas fa-undo"></i> Restaurer <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
       </button>
+      <button class="btn btn-danger sm" *ngIf="showDeleted" [disabled]="selectedCount === 0" (click)="openBulkPermanentDeleteModal()" title="Supprimer définitivement la sélection">
+        <i class="fas fa-trash-alt"></i> <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
+      </button>
     </div>
 
     <div class="search-box">
@@ -123,6 +126,9 @@
       </button>
       <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount === 0" (click)="openBulkRestoreModal()" title="Restaurer la sélection">
         <i class="fas fa-undo"></i> Restaurer <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
+      </button>
+      <button class="btn btn-danger sm" *ngIf="showDeleted" [disabled]="selectedCount === 0" (click)="openBulkPermanentDeleteModal()" title="Supprimer définitivement la sélection">
+        <i class="fas fa-trash-alt"></i> <span *ngIf="selectedCount > 0" class="btn-count">{{ selectedCount }}</span>
       </button>
     </div>
 
@@ -179,6 +185,7 @@
         <button class="icon-btn" title="Modifier" *ngIf="!it.is_deleted" (click)="openEdit(it, $event)"><i class="fas fa-pen"></i></button>
         <button class="icon-btn danger" title="Supprimer" *ngIf="!it.is_deleted" (click)="openDeleteModal(it, $event)"><i class="fas fa-trash-alt"></i></button>
         <button class="icon-btn restore" title="Restaurer" *ngIf="it.is_deleted" (click)="openRestoreModal(it); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+        <button class="icon-btn danger" title="Supprimer définitivement" *ngIf="it.is_deleted" (click)="openPermanentDeleteModal(it); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
       </div>
       <i class="fas fa-chevron-right chev" *ngIf="!isLeaf() && !it.is_deleted"></i>
     </div>
@@ -242,6 +249,7 @@
               <button class="btn-icon" title="Modifier" *ngIf="!it.is_deleted" (click)="openEdit(it, $event)"><i class="fas fa-edit"></i></button>
               <button class="btn-icon btn-icon-danger" title="Supprimer" *ngIf="!it.is_deleted" (click)="openDeleteModal(it, $event)"><i class="fas fa-trash"></i></button>
               <button class="btn-icon btn-icon-restore" title="Restaurer" *ngIf="it.is_deleted" (click)="openRestoreModal(it); $event.stopPropagation()"><i class="fas fa-undo"></i></button>
+              <button class="btn-icon btn-icon-danger" title="Supprimer définitivement" *ngIf="it.is_deleted" (click)="openPermanentDeleteModal(it); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
             </td>
           </tr>
           <tr *ngIf="filteredItems.length === 0">
@@ -677,6 +685,31 @@
       <button class="btn btn-success" (click)="confirmRestore()" [disabled]="restoring">
         <i class="fas" [ngClass]="restoring ? 'fa-spinner fa-spin' : 'fa-undo'"></i>
         {{ restoring ? 'Restauration…' : 'Restaurer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale suppression DÉFINITIVE -->
+<div class="modal-overlay" *ngIf="showPermanentDeleteModal" (click)="closePermanentDeleteModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <div class="modal-header-left">
+        <span class="header-icon danger"><i class="fas fa-exclamation-triangle"></i></span>
+        <h3>Suppression définitive</h3>
+      </div>
+      <button class="close-btn" (click)="closePermanentDeleteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" *ngIf="isBulkPermanent">Supprimer <strong>définitivement</strong> {{ selectedCount }} élément(s) sélectionné(s) ?</p>
+      <p class="confirm-text" *ngIf="!isBulkPermanent && permanentDeleteTarget">Supprimer <strong>définitivement</strong> « {{ itemLabel(permanentDeleteTarget) }} » ?</p>
+      <p class="confirm-note"><i class="fas fa-exclamation-triangle"></i> Action <strong>irréversible</strong>. Un élément contenant des sous-données ne peut être purgé qu'après les avoir supprimées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closePermanentDeleteModal()" [disabled]="permanentDeleting">Annuler</button>
+      <button class="btn btn-danger" (click)="confirmPermanentDelete()" [disabled]="permanentDeleting">
+        <i class="fas" [ngClass]="permanentDeleting ? 'fa-spinner fa-spin' : 'fa-trash-alt'"></i>
+        {{ permanentDeleting ? 'Suppression…' : 'Supprimer définitivement' }}
       </button>
     </div>
   </div>

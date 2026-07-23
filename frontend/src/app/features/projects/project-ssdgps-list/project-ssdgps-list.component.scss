@@ -127,6 +127,7 @@
   color: var(--text-muted); cursor: pointer; transition: all 0.15s; margin-left: 4px;
   &:hover:not(:disabled) { color: var(--accent-color); border-color: rgba(204, 88, 88, 0.3); background: rgba(204, 88, 88, 0.1); }
   &.btn-icon-restore:hover:not(:disabled) { color: #2ecc71; border-color: rgba(46, 204, 113, 0.3); background: rgba(46, 204, 113, 0.1); }
+  &.btn-icon-danger:hover:not(:disabled) { color: #e74c3c; border-color: rgba(231, 76, 60, 0.3); background: rgba(231, 76, 60, 0.1); }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
@@ -197,6 +198,8 @@
   &.sm { padding: 7px 12px; font-size: 13px; }
   &.btn-restore { background: rgba(46, 204, 113, 0.12); color: #2ecc71; border-color: rgba(46, 204, 113, 0.3);
     &:hover:not(:disabled) { background: #2ecc71; color: #fff; } &:disabled { opacity: 0.4; cursor: not-allowed; } }
+  &.btn-danger { background: rgba(231, 76, 60, 0.12); color: #e74c3c; border-color: rgba(231, 76, 60, 0.3);
+    &:hover:not(:disabled) { background: #e74c3c; color: #fff; } &:disabled { opacity: 0.4; cursor: not-allowed; } }
   .btn-count { background: rgba(0, 0, 0, 0.25); padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
 }
 
@@ -387,6 +390,38 @@ input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-colo
   h3 { margin: 0 0 12px; font-size: 16px; font-weight: 700; color: var(--text-color); display: flex; align-items: center; gap: 9px; i { color: var(--accent-color); } }
   p { margin: 0 0 20px; font-size: 13.5px; line-height: 1.55; color: var(--text-muted); }
   .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  &.danger h3 i { color: #e74c3c; }
+}
+
+/* Bouton de suppression (danger) dans les confirmations */
+.confirm-actions .btn-danger {
+  padding: 9px 22px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+  &:hover:not(:disabled) { box-shadow: 0 6px 16px rgba(231, 76, 60, 0.45); transform: translateY(-1px); filter: brightness(1.05); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
+}
+
+/* ===== Modale « Consulter » (détail lecture seule) ===== */
+.modal-content.detail-panel { max-width: 560px;
+  .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 4px 0; }
+  .detail-item { display: flex; flex-direction: column; gap: 3px;
+    dt { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin: 0; }
+    dd { margin: 0; font-size: 14px; color: var(--text-color); font-weight: 500; }
+  }
+}
+
+/* ===== Modale « Modifier » (formulaire) ===== */
+.modal-content.edit-panel { max-width: 480px;
+  .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px;
+    label { font-size: 12.5px; font-weight: 600; color: var(--text-color); .req { color: #e74c3c; } }
+    input, select { padding: 9px 11px; border: 1px solid var(--border-color); border-radius: 8px;
+      background: var(--secondary-color); color: var(--text-color); font-size: 14px;
+      &:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(204, 88, 88, 0.1); } }
+    .field-error { font-size: 12px; color: #e74c3c; }
+  }
 }
 
 .sort-config-panel {

@@ -109,6 +109,30 @@ class PieceViewSet(viewsets.ModelViewSet):
         qs.update(is_deleted=False, deleted_at=None, deleted_by=None)
         return Response({'restored_count': restored_count})
 
+    @action(detail=True, methods=['delete'], url_path='permanent')
+    def permanent_delete(self, request, pk=None):
+        """DELETE /…/{id}/permanent/ — suppression DÉFINITIVE d'une pièce en corbeille (scopée).
+
+        La pièce est une feuille : ses images sont supprimées en cascade.
+        """
+        instance = self._org_scoped_queryset().filter(pk=pk, is_deleted=True).first()
+        if instance is None:
+            return Response({'detail': 'Pièce non trouvée ou non supprimée.'}, status=status.HTTP_404_NOT_FOUND)
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='permanent-delete')
+    def bulk_permanent_delete(self, request):
+        """POST /…/permanent-delete/ — {"ids": [...]} — purge en masse (scopée, corbeille)."""
+        ids = request.data.get('ids', [])
+        if not isinstance(ids, list) or not ids:
+            return Response({'detail': 'La liste ids est requise.'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self._org_scoped_queryset().filter(pk__in=ids, is_deleted=True)
+        deleted_count = qs.count()
+        for instance in qs:
+            instance.delete()
+        return Response({'deleted_count': deleted_count, 'errors': []})
+
     @action(detail=False, methods=['get'])
     def catalog(self, request):
         """GET /api/v1/pieces/catalog/ — registre statique des types de pièces."""

@@ -1,0 +1,32 @@
+﻿ID,Point,Heure Début,Heure Fin,Durée,Type,Fichier,Epoques,Cadence,Haut. Ant. (m),Antenne,Réf. antenne
+1,8,20/05/2017 10:01:15,20/05/2017 12:44:45,02:43:35,Statique,91721401.T02,1963,00:00:05,0.930,R4-3 Internal,Base du support d'antenne
+2,BT10,20/05/2017 08:45:15,20/05/2017 13:13:15,04:28:05,Statique,06111400.T02,3217,00:00:05,1.270,R8s Internal,Centre de garniture de protection
+3,BT10,19/05/2017 10:08:10,19/05/2017 11:25:25,01:17:20,Statique,01291390.T02,928,00:00:05,1.270,R8s Internal,Centre de garniture de protection
+4,BT11,19/05/2017 15:43:25,19/05/2017 17:10:20,01:27:00,Statique,00751394.T02,1044,00:00:05,1.230,R8s Internal,Centre de garniture de protection
+5,BT11,19/05/2017 09:48:00,19/05/2017 15:15:50,05:27:55,Statique,00751390.T02,3935,00:00:05,1.230,R8s Internal,Centre de garniture de protection
+6,CTB26,20/05/2017 08:22:05,20/05/2017 12:59:15,04:37:15,Statique,36081401.T01,3327,00:00:05,1.250,R6-2 Internal,Base du support d'antenne
+7,CTB26,19/05/2017 14:45:00,19/05/2017 17:24:30,02:39:45,Statique,03121394.T02,639,00:00:15,1.220,R4-3 Internal,Base du support d'antenne
+8,CTB27,19/05/2017 09:21:30,19/05/2017 17:10:45,07:49:30,Statique,91721391.T02,1878,00:00:15,1.370,R4-3 Internal,Base du support d'antenne
+9,CTB157,20/05/2017 08:34:00,20/05/2017 13:06:15,04:32:20,Statique,37921401.T02,3268,00:00:05,1.290,R4-3 Internal,Base du support d'antenne
+10,CTB157,19/05/2017 13:30:10,19/05/2017 17:25:15,03:55:10,Statique,07041393.T02,2822,00:00:05,1.290,R4-3 Internal,Base du support d'antenne
+11,CTB158,20/05/2017 10:35:15,20/05/2017 12:33:20,01:58:10,Statique,07041401.T02,1418,00:00:05,1.590,R4-3 Internal,Base du support d'antenne
+12,CTB160,20/05/2017 10:54:10,20/05/2017 12:36:35,01:42:30,Statique,02851401.T02,1230,00:00:05,1.620,R8s Internal,Centre de garniture de protection
+13,CTB160,19/05/2017 16:25:00,19/05/2017 17:11:05,00:46:10,Statique,01291392.T02,554,00:00:05,1.620,R8s Internal,Centre de garniture de protection
+14,CTB162,19/05/2017 13:02:50,19/05/2017 17:11:30,04:08:45,Statique,06111393.T02,2985,00:00:05,1.400,R8s Internal,Centre de garniture de protection
+15,CTB162,20/05/2017 09:24:00,20/05/2017 12:37:15,03:13:20,Statique,01291401.T02,2320,00:00:05,1.400,R8s Internal,Centre de garniture de protection
+16,DR AMCHABBAK,19/05/2017 09:39:35,19/05/2017 11:37:25,01:57:55,Statique,07041391.T02,1415,00:00:05,1.460,R4-3 Internal,Base du support d'antenne
+17,DR BOUTOUHALT,19/05/2017 12:33:25,19/05/2017 17:16:40,04:43:20,Statique,31641392.T02,3400,00:00:05,1.220,R4-3 Internal,Base du support d'antenne
+18,FOUM JEMAA,19/05/2017 15:51:50,19/05/2017 18:15:00,02:23:15,Statique,36081392.T01,1719,00:00:05,1.540,R6-2 Internal,Base du support d'antenne
+19,GPS1,19/05/2017 10:44:20,19/05/2017 15:16:10,04:31:55,Statique,36081390.T01,3263,00:00:05,1.750,R6-2 Internal,Base du support d'antenne
+20,GPS2,19/05/2017 10:06:00,19/05/2017 11:56:15,01:50:20,Statique,31641390.T02,1324,00:00:05,1.480,R4-3 Internal,Base du support d'antenne
+21,GPS4,19/05/2017 10:11:45,19/05/2017 14:20:00,04:08:30,Statique,03121390.T02,994,00:00:15,1.400,R4-3 Internal,Base du support d'antenne
+22,GPS5,19/05/2017 10:56:10,19/05/2017 15:23:00,04:26:55,Statique,37921391.T02,3203,00:00:05,1.630,R4-3 Internal,Base du support d'antenne
+23,GPS12,19/05/2017 09:18:05,19/05/2017 11:44:10,2:26:10,Statique,06111391.T02,1754,0:00:05,1.800,R8s Internal,Centre de garniture de protection
+24,KOUDIAT SIDI BAZA,19/05/2017 14:43:45,19/05/2017 17:11:30,2:27:50,Statique,02851393.T02,1774,0:00:05,1.560,R8s Internal,Centre de garniture de protection
+25,KOUDIAT SIDI BAZA,20/05/2017 10:30:45,20/05/2017 12:39:00,2:08:20,Statique,00751401.T02,1540,0:00:05,1.390,R8s Internal,Centre de garniture de protection
+26,MEKOUSSA,19/05/2017 09:32:45,19/05/2017 11:53:30,2:20:50,Statique,02851391.T02,1690,0:00:05,1.620,R8s Internal,Centre de garniture de protection
+27,S3,20/05/2017 11:57:00,20/05/2017 12:31:15,0:34:30,Statique,03121401.T02,138,0:00:15,1.800,R4-3 Internal,Base du support d'antenne
+28,TAQYYOUT,20/05/2017 15:43:15,20/05/2017 16:45:20,1:02:10,Statique,91721403.T02,746,0:00:05,1.550,R4-3 Internal,Base du support d'antenne
+29,TAQYYOUT,20/05/2017 09:32:55,20/05/2017 12:40:05,3:07:15,Statique,31641401.T02,2247,0:00:05,1.400,R4-3 Internal,Base du support d'antenne
+30,TOUMLILINE,19/05/2017 16:38:00,19/05/2017 17:08:05,0:30:10,Statique,37921393.T02,362,0:00:05,1.660,R4-3 Internal,Base du support d'antenne
+31,TOUMLILINE,20/05/2017 16:14:00,20/05/2017 16:44:25,0:30:30,Statique,03121403.T02,366,0:00:05,1.180,R4-3 Internal,Base du support d'antenne

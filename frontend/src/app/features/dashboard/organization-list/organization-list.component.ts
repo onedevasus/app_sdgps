@@ -5,7 +5,7 @@ import { OrganizationMetadataService } from '../../../core/services/organization
 import { UserPreferencesService, ColumnMetadata } from '../../../core/services/user-preferences.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Organization } from '../../../core/models/organization.model';
-import { debounceTime, Subject } from 'rxjs';
+import { debounceTime, forkJoin, Subject } from 'rxjs';
 
 interface ColumnConfig {
   field: keyof Organization;
@@ -123,6 +123,25 @@ export class OrganizationListComponent implements OnInit {
   editOrgForm!: FormGroup;
   editing: boolean = false;
 
+  // Onglets Actifs / Corbeille
+  showDeleted = false;
+  activeOrganizations: Organization[] = [];
+  deletedOrganizations: Organization[] = [];
+  get activeCount(): number { return this.activeOrganizations.length; }
+  get deletedCount(): number { return this.deletedOrganizations.length; }
+
+  // Modal de restauration (unitaire / masse)
+  showRestoreModal = false;
+  restoreTarget: Organization | null = null;
+  isBulkRestore = false;
+  restoring = false;
+
+  // Modal de suppression définitive (unitaire / masse)
+  showPermanentDeleteModal = false;
+  permanentDeleteTarget: Organization | null = null;
+  isBulkPermanent = false;
+  permanentDeleting = false;
+
   get currentUserRole(): string {
     try {
       const token = localStorage.getItem('authToken');
@@ -193,32 +212,21 @@ export class OrganizationListComponent implements OnInit {
 
   loadOrganizations(): void {
     this.loading = true;
-    console.log('🔄 Début du chargement des organisations...');
-    console.log('Chargement des organisations API...');
-    
-    this.organizationService.getOrganizations().subscribe({
-      next: (data: Organization[]) => {
-        console.log('✅ Données reçues du service:', data);
-        console.log('Type de données:', typeof data, Array.isArray(data));
-        console.log('Nombre d\'organisations:', data.length);
-        
-        if (data.length > 0) {
-          console.log('Première organisation:', data[0]);
-        }
-        
-        this.organizations = data;
-        this.filteredOrganizations = [...data];
+    // Charge les deux listes (actives + corbeille) pour alimenter les compteurs d'onglets ;
+    // le tableau affiche celle de l'onglet courant.
+    forkJoin({
+      active: this.organizationService.getOrganizations(),
+      deleted: this.organizationService.getOrganizations({ show_deleted: 'true' }),
+    }).subscribe({
+      next: ({ active, deleted }) => {
+        this.activeOrganizations = active;
+        this.deletedOrganizations = deleted;
+        this.organizations = this.showDeleted ? deleted : active;
+        this.applyFiltersAndSort();
         this.loading = false;
-        
-        console.log('✓ organizations.length:', this.organizations.length);
-        console.log('✓ filteredOrganizations.length:', this.filteredOrganizations.length);
-        console.log('✓ paginatedOrganizations.length:', this.paginatedOrganizations.length);
       },
       error: (err: any) => {
         console.error('❌ Erreur lors du chargement des organisations:', err);
-        console.error('Status:', err.status);
-        console.error('Message:', err.message);
-        console.error('Error detail:', err.error);
         this.loading = false;
       }
     });
@@ -1675,9 +1683,112 @@ export class OrganizationListComponent implements OnInit {
           'Échec de la Suppression',
           errorMessage
         );
-        
+
         this.bulkDeleting = false;
       }
     });
+  }
+
+  // ==========================================
+  // ONGLETS ACTIFS / CORBEILLE
+  // ==========================================
+  setTab(deleted: boolean): void {
+    if (this.showDeleted === deleted) return;
+    this.showDeleted = deleted;
+    this.selectedOrganizations.clear();
+    this.searchQuery = '';
+    this.currentPage = 1;
+    this.displayMode = 'all';
+    this.organizations = deleted ? this.deletedOrganizations : this.activeOrganizations;
+    this.applyFiltersAndSort();
+  }
+
+  // --- Restauration ---
+  openRestore(org: Organization): void {
+    this.restoreTarget = org; this.isBulkRestore = false; this.showRestoreModal = true;
+  }
+  openBulkRestore(): void {
+    if (this.selectedOrganizations.size === 0) return;
+    this.restoreTarget = null; this.isBulkRestore = true; this.showRestoreModal = true;
+  }
+  closeRestore(): void { if (!this.restoring) { this.showRestoreModal = false; this.restoreTarget = null; } }
+
+  confirmRestore(): void {
+    if (this.restoring) return;
+    this.restoring = true;
+    const done = (n: number) => {
+      this.restoring = false; this.showRestoreModal = false; this.restoreTarget = null;
+      this.selectedOrganizations.clear(); this.loadOrganizations();
+      this.toastService.success('Restauration', `${n} organisation(s) restaurée(s)`);
+    };
+    const fail = () => { this.restoring = false; this.toastService.error('Erreur', 'Restauration impossible'); };
+    if (this.isBulkRestore) {
+      const ids = Array.from(this.selectedOrganizations);
+      this.organizationService.bulkRestoreOrganizations(ids).subscribe({ next: (r) => done(r.restored_count), error: fail });
+    } else if (this.restoreTarget) {
+      this.organizationService.restoreOrganization(this.restoreTarget.id).subscribe({ next: () => done(1), error: fail });
+    }
+  }
+
+  // --- Suppression définitive ---
+  openPermanentDelete(org: Organization): void {
+    this.permanentDeleteTarget = org; this.isBulkPermanent = false; this.showPermanentDeleteModal = true;
+  }
+  openBulkPermanentDelete(): void {
+    if (this.selectedOrganizations.size === 0) return;
+    this.permanentDeleteTarget = null; this.isBulkPermanent = true; this.showPermanentDeleteModal = true;
+  }
+  closePermanentDelete(): void {
+    if (!this.permanentDeleting) { this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; }
+  }
+
+  confirmPermanentDelete(): void {
+    if (this.permanentDeleting) return;
+    this.permanentDeleting = true;
+
+    const close = () => {
+      this.permanentDeleting = false;
+      this.showPermanentDeleteModal = false;
+      this.permanentDeleteTarget = null;
+    };
+    const fail = (error?: any) => {
+      close();
+      const msg = error?.error?.detail || 'Suppression définitive impossible.';
+      this.toastService.error('Suppression impossible', msg);
+    };
+
+    if (this.isBulkPermanent) {
+      const total = this.selectedOrganizations.size;
+      const ids = Array.from(this.selectedOrganizations);
+      this.organizationService.bulkPermanentDeleteOrganizations(ids).subscribe({
+        next: (res) => {
+          close();
+          this.selectedOrganizations.clear();
+          this.loadOrganizations();
+          const deleted = res.deleted_count || 0;
+          const failed = (res.errors || []).length;
+          if (deleted > 0 && failed === 0) {
+            this.toastService.success('Suppression définitive', `${deleted} organisation(s) supprimée(s) définitivement`);
+          } else if (deleted > 0 && failed > 0) {
+            this.toastService.warning('Suppression partielle',
+              `${deleted} supprimée(s) définitivement ; ${failed} non supprimée(s) (projets rattachés).`);
+          } else {
+            this.toastService.error('Aucune suppression',
+              `${total} organisation(s) non supprimée(s) : des projets y sont rattachés. Supprimez-les d'abord.`);
+          }
+        },
+        error: fail,
+      });
+    } else if (this.permanentDeleteTarget) {
+      this.organizationService.permanentDeleteOrganization(this.permanentDeleteTarget.id).subscribe({
+        next: () => {
+          close();
+          this.selectedOrganizations.clear();
+          this.loadOrganizations();
+          this.toastService.success('Suppression définitive', 'Organisation supprimée définitivement');
+        },
+        error: fail,
+      });
+    }
   }
 }

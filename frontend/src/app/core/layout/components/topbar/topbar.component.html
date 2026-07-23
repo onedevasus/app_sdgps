@@ -89,6 +89,10 @@
               <i class="fas" [ngClass]="roleIcon(user.role)"></i>
               <span>{{ roleLabel(user.role) }}</span>
             </div>
+            <div class="user-org" *ngIf="user.organization_name" [title]="user.organization_name">
+              <i class="fas fa-building"></i>
+              <span>{{ user.organization_name }}</span>
+            </div>
           </div>
         </div>
 

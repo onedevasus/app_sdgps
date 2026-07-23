@@ -109,6 +109,12 @@ export class PieceManagementPageComponent implements OnInit {
   isBulkRestore = false;
   restoring = false;
 
+  // Suppression définitive (corbeille)
+  showPermanentDeleteModal = false;
+  permanentDeleteTarget: Piece | null = null;
+  isBulkPermanent = false;
+  permanentDeleting = false;
+
   // Édition en masse du statut
   showStatusModal = false;
   bulkStatusValue = '';
@@ -822,6 +828,33 @@ export class PieceManagementPageComponent implements OnInit {
       this.piecesService.bulkRestore(ids).subscribe({ next: (res) => finish(res.restored_count), error: fail });
     } else if (this.restoreTarget) {
       this.piecesService.restore(this.restoreTarget.id).subscribe({ next: () => finish(1), error: fail });
+    }
+  }
+
+  // ============================================
+  // Suppression définitive (irréversible)
+  // ============================================
+  openPermanentDeleteModal(p: Piece): void { this.permanentDeleteTarget = p; this.isBulkPermanent = false; this.showPermanentDeleteModal = true; }
+  openBulkPermanentDeleteModal(): void { if (this.selectedCount === 0) return; this.permanentDeleteTarget = null; this.isBulkPermanent = true; this.showPermanentDeleteModal = true; }
+  closePermanentDeleteModal(): void { if (!this.permanentDeleting) { this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; } }
+
+  confirmPermanentDelete(): void {
+    if (this.permanentDeleting) return;
+    const close = () => { this.permanentDeleting = false; this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; };
+    if (this.isBulkPermanent) {
+      if (this.selectedCount === 0) return;
+      this.permanentDeleting = true;
+      const ids = Array.from(this.selectedIds);
+      this.piecesService.bulkPermanentDelete(ids).subscribe({
+        next: (res) => { close(); this.deselectAll(); this.loadPieces(); this.toast.success('Suppression définitive', `${res.deleted_count} pièce(s) supprimée(s) définitivement`); },
+        error: () => { this.permanentDeleting = false; this.toast.error('Erreur', 'Suppression définitive impossible'); },
+      });
+    } else if (this.permanentDeleteTarget) {
+      this.permanentDeleting = true;
+      this.piecesService.permanentDelete(this.permanentDeleteTarget.id).subscribe({
+        next: () => { close(); this.loadPieces(); this.toast.success('Suppression définitive', 'Pièce supprimée définitivement'); },
+        error: (e) => { this.permanentDeleting = false; this.toast.error('Suppression impossible', e?.error?.detail || 'Suppression définitive impossible'); },
+      });
     }
   }
 

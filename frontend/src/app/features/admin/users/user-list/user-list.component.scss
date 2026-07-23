@@ -3163,3 +3163,56 @@
     }
   }
 }
+
+/* ---------- Onglets Actifs / Corbeille (aligné sur la liste des projets) ---------- */
+.list-tabs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+
+  .list-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin-bottom: -1px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    i { font-size: 13px; }
+
+    &:hover { color: var(--text-color); }
+
+    &.active {
+      color: var(--accent-color);
+      border-bottom-color: var(--accent-color);
+      font-weight: 600;
+      .tab-count { background: rgba(204, 88, 88, 0.15); color: var(--accent-color); }
+    }
+
+    &.deleted.active {
+      color: #95a5a6;
+      border-bottom-color: #95a5a6;
+      .tab-count { background: rgba(149, 165, 166, 0.18); color: #95a5a6; }
+    }
+
+    .tab-count {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 1px 8px;
+      border-radius: 10px;
+      background: var(--hover-bg);
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+  }
+}

@@ -189,6 +189,12 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   isBulkRestore = false;
   restoring = false;
 
+  // Suppression définitive (corbeille)
+  showPermanentDeleteModal = false;
+  permanentDeleteTarget: any = null;
+  isBulkPermanent = false;
+  permanentDeleting = false;
+
   /** Vue à plat de tous les SSDGPS du projet (page dédiée `:id/ssdgps`). */
   viewAllSsdgps(): void {
     this.router.navigate(['ssdgps'], { relativeTo: this.route });
@@ -1058,6 +1064,58 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
       forkJoin(ids.map(id => this.restoreCall(id))).subscribe({ next: () => finish(ids.length), error: fail });
     } else if (this.restoreTarget) {
       this.restoreCall(this.restoreTarget.id).subscribe({ next: () => finish(1), error: fail });
+    }
+  }
+
+  // --- Suppression définitive (dispatch par niveau) ---
+  private permanentDeleteCall(id: string): Observable<any> {
+    const svc = this.service;
+    return {
+      propriete: () => svc.permanentDeletePropriete(id),
+      affaire: () => svc.permanentDeleteAffaire(id),
+      ssdgps: () => svc.permanentDeleteSsdgps(id),
+      session: () => svc.permanentDeleteSession(id),
+    }[this.level]();
+  }
+
+  private bulkPermanentDeleteCall(ids: string[]): Observable<{ deleted_count: number; errors: any[] }> {
+    const svc = this.service;
+    return {
+      propriete: () => svc.bulkPermanentDeleteProprietes(ids),
+      affaire: () => svc.bulkPermanentDeleteAffaires(ids),
+      ssdgps: () => svc.bulkPermanentDeleteSsdgps(ids),
+      session: () => svc.bulkPermanentDeleteSessions(ids),
+    }[this.level]();
+  }
+
+  openPermanentDeleteModal(item: any): void { this.permanentDeleteTarget = item; this.isBulkPermanent = false; this.showPermanentDeleteModal = true; }
+  openBulkPermanentDeleteModal(): void { if (this.selectedCount === 0) return; this.permanentDeleteTarget = null; this.isBulkPermanent = true; this.showPermanentDeleteModal = true; }
+  closePermanentDeleteModal(): void { if (!this.permanentDeleting) { this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; } }
+
+  confirmPermanentDelete(): void {
+    if (this.permanentDeleting) return;
+    const close = () => { this.permanentDeleting = false; this.showPermanentDeleteModal = false; this.permanentDeleteTarget = null; };
+    if (this.isBulkPermanent) {
+      if (this.selectedCount === 0) return;
+      this.permanentDeleting = true;
+      const total = this.selectedIds.size;
+      const ids = Array.from(this.selectedIds);
+      this.bulkPermanentDeleteCall(ids).subscribe({
+        next: (res) => {
+          close(); this.clearSelection(); this.loadLevel();
+          const d = res.deleted_count || 0, f = (res.errors || []).length;
+          if (d > 0 && f === 0) this.toast.success('Suppression définitive', `${d} élément(s) supprimé(s) définitivement`);
+          else if (d > 0 && f > 0) this.toast.warning('Suppression partielle', `${d} supprimé(s) ; ${f} conservé(s) (sous-données rattachées).`);
+          else this.toast.error('Aucune suppression', `${total} élément(s) non supprimé(s) : des sous-données y sont rattachées.`);
+        },
+        error: () => { this.permanentDeleting = false; this.toast.error('Erreur', 'Suppression définitive impossible'); },
+      });
+    } else if (this.permanentDeleteTarget) {
+      this.permanentDeleting = true;
+      this.permanentDeleteCall(this.permanentDeleteTarget.id).subscribe({
+        next: () => { close(); this.loadLevel(); this.toast.success('Suppression définitive', 'Élément supprimé définitivement'); },
+        error: (e) => { this.permanentDeleting = false; this.toast.error('Suppression impossible', e?.error?.detail || 'Suppression définitive impossible'); },
+      });
     }
   }
 

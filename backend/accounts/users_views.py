@@ -495,3 +495,76 @@ class UserBulkRestoreView(APIView):
             'restored_count': restored_count,
             'errors': errors,
         }, status=status.HTTP_200_OK)
+
+
+def _is_app_admin(user):
+    """Vrai pour un Super Admin ou un Admin Système (administration de l'application)."""
+    return user.is_superuser or user.get_primary_role() == 'ROLE_ADMIN_SYSTEME'
+
+
+class UserPermanentDeleteView(APIView):
+    """DELETE /api/v1/users/{id}/permanent/ — suppression DÉFINITIVE (irréversible).
+
+    Autorisée uniquement sur un utilisateur déjà en corbeille (is_deleted=True), par un
+    administrateur de l'application pouvant gérer la cible, et jamais sur soi-même.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        if not _is_app_admin(request.user):
+            return Response({'detail': "Action réservée à l'administrateur de l'application."},
+                            status=status.HTTP_403_FORBIDDEN)
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'detail': 'Utilisateur non trouvé.'}, status=status.HTTP_404_NOT_FOUND)
+        if user.pk == request.user.pk:
+            return Response({'detail': 'Vous ne pouvez pas supprimer votre propre compte.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        if not user.is_deleted:
+            return Response({'detail': 'Seul un compte en corbeille peut être supprimé définitivement.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        allowed, msg = can_manage_user(request.user, user)
+        if not allowed:
+            return Response({'detail': msg}, status=status.HTTP_403_FORBIDDEN)
+
+        email = user.email
+        user.delete()
+        logger.warning(f"Compte supprimé DÉFINITIVEMENT: {email} par {request.user.email}")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserBulkPermanentDeleteView(APIView):
+    """POST /api/v1/users/permanent-delete/ — {user_ids} — purge en masse (corbeille)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not _is_app_admin(request.user):
+            return Response({'detail': "Action réservée à l'administrateur de l'application."},
+                            status=status.HTTP_403_FORBIDDEN)
+        user_ids = request.data.get('user_ids', [])
+        if not isinstance(user_ids, list) or not user_ids:
+            return Response({'detail': 'La liste user_ids est requise et doit être non vide.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        deleted_count = 0
+        errors = []
+        for uid in user_ids:
+            if str(uid) == str(request.user.pk):
+                errors.append({'id': uid, 'detail': 'Auto-suppression interdite.'})
+                continue
+            try:
+                user = User.objects.get(pk=uid, is_deleted=True)
+            except User.DoesNotExist:
+                errors.append({'id': uid, 'detail': "Utilisateur non trouvé ou n'est pas en corbeille."})
+                continue
+            allowed, msg = can_manage_user(request.user, user)
+            if not allowed:
+                errors.append({'id': uid, 'detail': msg})
+                continue
+            email = user.email
+            user.delete()
+            logger.warning(f"Compte supprimé DÉFINITIVEMENT (bulk): {email} par {request.user.email}")
+            deleted_count += 1
+
+        return Response({'deleted_count': deleted_count, 'errors': errors}, status=status.HTTP_200_OK)

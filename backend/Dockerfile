@@ -17,6 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN chmod +x /app/docker-entrypoint.sh
+
 EXPOSE 8000
 
-CMD python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000
+# L'entrypoint attend la base, applique les migrations (+ auto-seed) puis lance la CMD.
+# `set -e` dans le script garantit un démarrage fail-fast. La CMD reste surchargeable
+# (ex. passer à gunicorn ultérieurement).
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

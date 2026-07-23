@@ -60,4 +60,25 @@ export class OrganizationService {
       organization_ids: organizationIds
     });
   }
+
+  // --- Corbeille : restauration & suppression définitive ---
+  restoreOrganization(id: string): Observable<Organization> {
+    return this.http.post<Organization>(`${this.apiUrl}${id}/restore/`, {});
+  }
+
+  bulkRestoreOrganizations(organizationIds: string[]): Observable<{ restored_count: number }> {
+    return this.http.post<{ restored_count: number }>(`${this.apiUrl}bulk-restore/`, {
+      organization_ids: organizationIds
+    });
+  }
+
+  permanentDeleteOrganization(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}${id}/permanent/`);
+  }
+
+  bulkPermanentDeleteOrganizations(organizationIds: string[]): Observable<{ deleted_count: number; errors: any[] }> {
+    return this.http.post<{ deleted_count: number; errors: any[] }>(`${this.apiUrl}permanent-delete/`, {
+      organization_ids: organizationIds
+    });
+  }
 }

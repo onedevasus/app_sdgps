@@ -14,9 +14,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve as static_serve
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -30,6 +31,22 @@ urlpatterns = [
     path('api/v1/analytics/', include('analytics.urls')),  # ← AJOUT: Analytique de stockage (admin)
 ]
 
-# Servir les fichiers médias en développement
+# Fichiers médias (uploads). En DEBUG, Django les sert nativement. En production (DEBUG=False),
+# on les sert explicitement depuis MEDIA_ROOT (volume persistant Railway) — sinon ils ne sont
+# plus accessibles. Pour un stockage S3/R2, ce sont des URLs externes → ce handler est inerte.
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
+
+# Catch-all SPA : toute route NON servie ci-dessus (ni /api, /admin, /media, ni un fichier
+# statique servi par WhiteNoise) renvoie l'index.html BRUT du build Angular (pas de passage par
+# le moteur de templates Django), pour laisser le routeur Angular gérer la navigation côté
+# client. Actif uniquement si le build est embarqué dans l'image.
+if getattr(settings, 'FRONTEND_DIST_DIR', None) and settings.FRONTEND_DIST_DIR.exists():
+    def _spa_index(request, *args, **kwargs):
+        return static_serve(request, 'index.html', document_root=settings.FRONTEND_DIST_DIR)
+
+    urlpatterns += [re_path(r'^(?!api/|admin/|media/|static/).*$', _spa_index)]

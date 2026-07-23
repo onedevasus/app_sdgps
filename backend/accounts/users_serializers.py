@@ -328,6 +328,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                     })
             if others:
                 instance.memberships.filter(is_active=True).exclude(pk=membership.pk).update(is_active=False)
+
+            # Les projets suivent leur créateur : tous les projets créés par cet utilisateur
+            # sont rattachés à sa nouvelle organisation courante (y compris les projets en
+            # corbeille, pour rester cohérent en cas de restauration).
+            from projects.models import Projet
+            Projet.objects.filter(created_by=instance).update(organization=organization)
         elif role and not is_app_admin:
             membership = instance.memberships.filter(is_active=True).first()
             if membership:

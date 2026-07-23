@@ -43,6 +43,7 @@ export interface UserProfile {
   last_name: string;    // Nom (champ Django standard)
   role: string;
   avatar?: string;
+  organization_name?: string | null;  // Organisation principale (agents / admins d'org)
   last_connection_at?: string;  // ← AJOUT: Date dernière connexion (ISO format)
 }
 

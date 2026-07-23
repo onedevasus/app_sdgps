@@ -2,6 +2,13 @@
 db.sqlite3
 media/
 
+# Secrets d'environnement — fournis au runtime via docker-compose (env_file), jamais dans
+# l'image. Les templates *.example (non sensibles) restent inclus.
+.env
+.env.local
+.env.development
+.env.production
+
 # Artefacts Python / venv / caches
 __pycache__/
 *.py[cod]

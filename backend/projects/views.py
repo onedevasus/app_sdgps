@@ -68,6 +68,7 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
     # À définir dans les sous-classes :
     org_lookup = None          # ex. 'projet__organization_id'
     parent_query_param = None  # ex. ('projet', 'projet_id')
+    child_relations = ()       # accesseurs inverses des enfants immédiats (ex. ('proprietes',))
 
     def _annotate_counts(self, qs: QuerySet) -> QuerySet:
         """
@@ -152,14 +153,72 @@ class BaseOrgScopedViewSet(viewsets.ModelViewSet):
         qs.update(is_deleted=False, deleted_at=None, deleted_by=None)
         return Response({'restored_count': restored_count}, status=status.HTTP_200_OK)
 
+    def _child_count(self, instance):
+        """Nombre de sous-éléments immédiats ENCORE ACTIFS (non supprimés) : bloque la purge
+        d'un parent tant qu'il contient des enfants visibles (purge « bottom-up »). Les
+        enfants déjà en corbeille (is_deleted=True) sont logiquement supprimés et seront
+        cascadés — ils ne bloquent pas un parent qui paraît vide dans l'UI."""
+        return sum(getattr(instance, rel).filter(is_deleted=False).count()
+                   for rel in self.child_relations)
+
+    @action(detail=True, methods=['delete'], url_path='permanent')
+    def permanent_delete(self, request, pk=None):
+        """DELETE /…/{id}/permanent/ — suppression DÉFINITIVE (irréversible), scopée.
+
+        Autorisée uniquement sur un élément en corbeille (is_deleted=True) et SANS sous-données.
+        """
+        instance = self._org_scoped_queryset().filter(pk=pk, is_deleted=True).first()
+        if instance is None:
+            return Response({'detail': 'Élément non trouvé ou non supprimé.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        blocking = self._child_count(instance)
+        if blocking:
+            return Response(
+                {'detail': f"Suppression définitive impossible : {blocking} sous-élément(s) "
+                           f"rattaché(s). Supprimez-les d'abord."},
+                status=status.HTTP_400_BAD_REQUEST)
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='permanent-delete')
+    def bulk_permanent_delete(self, request):
+        """POST /…/permanent-delete/ — {"ids": [...]} — purge en masse (scopée, corbeille)."""
+        ids = request.data.get('ids', [])
+        if not isinstance(ids, list) or not ids:
+            return Response({'detail': 'La liste ids est requise.'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self._org_scoped_queryset().filter(pk__in=ids, is_deleted=True)
+        deleted_count = 0
+        errors = []
+        for instance in qs:
+            blocking = self._child_count(instance)
+            if blocking:
+                errors.append({'id': str(instance.pk), 'detail': f"{blocking} sous-élément(s) rattaché(s)."})
+                continue
+            instance.delete()
+            deleted_count += 1
+        return Response({'deleted_count': deleted_count, 'errors': errors}, status=status.HTTP_200_OK)
+
 
 class ProjetViewSet(BaseOrgScopedViewSet):
     queryset = Projet.objects.all()
     serializer_class = ProjetSerializer
     org_lookup = 'organization_id'
+    child_relations = ('proprietes',)
 
     def _org_id_of_validated(self, serializer):
         return serializer.validated_data['organization'].id
+
+    def perform_create(self, serializer):
+        # Un projet appartient TOUJOURS à l'organisation courante de son créateur : on force
+        # `organization` sur l'organisation active de l'agent, indépendamment de la valeur
+        # envoyée. Les administrateurs (super admin / admin système), qui n'ont pas
+        # d'organisation, conservent l'organisation fournie dans la requête (contrôle RBAC de
+        # base via super().perform_create).
+        org = self.request.user.get_primary_organization()
+        if org is not None:
+            serializer.save(created_by=self.request.user, organization=org)
+        else:
+            super().perform_create(serializer)
 
     def _annotate_counts(self, qs):
         # Compteurs agrégés annotés au niveau du queryset (une seule requête, pas de N+1),
@@ -208,6 +267,7 @@ class ProprieteViewSet(BaseOrgScopedViewSet):
         'projet', 'organisme_niveau1', 'organisme_niveau2')
     serializer_class = ProprieteSerializer
     org_lookup = 'projet__organization_id'
+    child_relations = ('affaires',)
     parent_query_param = ('projet', 'projet_id')
 
     def _org_id_of_validated(self, serializer):
@@ -240,6 +300,7 @@ class AffaireViewSet(BaseOrgScopedViewSet):
     queryset = Affaire.objects.select_related('propriete__projet')
     serializer_class = AffaireSerializer
     org_lookup = 'propriete__projet__organization_id'
+    child_relations = ('ssdgps_set',)
     parent_query_param = ('propriete', 'propriete_id')
 
     def _org_id_of_validated(self, serializer):
@@ -267,6 +328,7 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
     queryset = Ssdgps.objects.select_related('affaire__propriete__projet')
     serializer_class = SsdgpsSerializer
     org_lookup = 'affaire__propriete__projet__organization_id'
+    child_relations = ('sessions', 'pieces')
     parent_query_param = ('affaire', 'affaire_id')
 
     def get_queryset(self):
@@ -288,6 +350,16 @@ class SsdgpsViewSet(BaseOrgScopedViewSet):
     def _project_creator_of_validated(self, serializer):
         return serializer.validated_data['affaire'].propriete.projet.created_by_id
 
+    def _child_count(self, instance):
+        """Sous-données réelles (encore actives) qui bloquent la purge. La session n°1
+        auto-créée d'un SSDGPS mono-session est structurelle (invisible dans l'UI) et ne
+        doit PAS bloquer : seules ses pièces comptent. Un SSDGPS multi-session est bloqué
+        par ses sessions comme par ses pièces (cohérent avec `_annotate_counts`)."""
+        n = instance.pieces.filter(is_deleted=False).count()
+        if instance.type_ssdgps == Ssdgps.TypeSSDGPS.MULTI:
+            n += instance.sessions.filter(is_deleted=False).count()
+        return n
+
     def _annotate_counts(self, qs):
         return qs.annotate(
             # Mono-session : pas de sessions (la session implicite ne compte pas) → 0.
@@ -304,6 +376,7 @@ class SessionViewSet(BaseOrgScopedViewSet):
     queryset = Session.objects.select_related('ssdgps__affaire__propriete__projet')
     serializer_class = SessionSerializer
     org_lookup = 'ssdgps__affaire__propriete__projet__organization_id'
+    child_relations = ('pieces',)
     parent_query_param = ('ssdgps', 'ssdgps_id')
 
     def _org_id_of_validated(self, serializer):

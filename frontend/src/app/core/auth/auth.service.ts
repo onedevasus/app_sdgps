@@ -3,14 +3,14 @@ import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {BehaviorSubject, Observable, throwError} from 'rxjs';
 import {catchError, map, tap} from 'rxjs/operators';
 import {AuthResponse, RegisterPayload, UserRole} from '../../features/auth/models/user.model'; // Assurez-vous que le chemin est correct
+import {environment} from '../../../environments/environment';
 
 /**
  * @constant API_URL
- * @description URL de base de l'API d'authentification.
- *              À remplacer par l'URL réelle de votre backend Django.
- *              Utilisation d'une constante pour faciliter la maintenabilité.
+ * @description URL de base de l'API d'authentification, dérivée de `environment.apiUrl`
+ *              (même origine en production, port du backend en développement).
  */
-const API_URL = 'http://localhost:8085/api/auth'; // TODO: Remplacer par l'URL de votre backend Django
+const API_URL = `${environment.apiUrl}/auth`;
 
 /**
  * @injectable

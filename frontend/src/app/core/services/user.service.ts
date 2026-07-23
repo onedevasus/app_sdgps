@@ -54,6 +54,14 @@ export class UserService {
     return this.http.post<{ restored_count: number; errors: any[] }>(`${this.apiUrl}bulk-restore/`, { user_ids: ids });
   }
 
+  permanentDeleteUser(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}${id}/permanent/`);
+  }
+
+  bulkPermanentDeleteUsers(ids: string[]): Observable<{ deleted_count: number; errors: any[] }> {
+    return this.http.post<{ deleted_count: number; errors: any[] }>(`${this.apiUrl}permanent-delete/`, { user_ids: ids });
+  }
+
   getRoles(): Observable<RoleInfo[]> {
     return this.http.get<RoleInfo[]>(`${this.apiUrl}roles/`);
   }
