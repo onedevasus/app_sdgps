@@ -27,6 +27,11 @@ textes d'interface). Respecter cette convention lors de l'ajout de code.
   `python manage.py seed_initial_data`. Aucune donnée de démo/test n'est générée dans aucun
   environnement (les commandes `seed_test_users` / `generate_test_data` / `seed_demo_orgs` ont
   été **supprimées**).
+- Réinitialiser la base à la demande (vide TOUT puis re-seed depuis les fichiers) :
+  `python manage.py reset_db`. **Destructif, confirmation graduée** : `--yes` en dev/staging ;
+  `--confirm-environment <nom exact>` en preprod/production (ex.
+  `python manage.py reset_db --confirm-environment production`). Toujours sauvegarder la base
+  avant en preprod/production.
 
 ### Frontend (à lancer depuis `frontend/`)
 - Installer les dépendances : `npm install --legacy-peer-deps` (le flag est requis à cause
