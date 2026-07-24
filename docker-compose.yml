@@ -19,7 +19,9 @@ services:
       retries: 10
 
   backend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-blmerio2022/app_sdgps}:latest
+    # Image déployable = fork onedevasus (où tourne la CI). Nécessite `docker login ghcr.io`
+    # (package privé). Surcharger via GITHUB_REPOSITORY si besoin.
+    image: ghcr.io/${GITHUB_REPOSITORY:-onedevasus/app_sdgps}:latest
     container_name: sdgps-backend
     restart: unless-stopped
     depends_on:

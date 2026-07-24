@@ -28,9 +28,15 @@ User = get_user_model()
 
 class SsdgpsSortDefaultTests(TestCase):
     def _oldest_super_admin(self):
-        # La migration 0002 crée déjà un super admin (le plus ancien) : c'est lui la « source ».
-        return (User.objects.filter(is_superuser=True)
-                .order_by('date_joined', 'email').first())
+        # Le super admin « source » vient des données d'initialisation (non rejouées en test, et
+        # la migration 0002 ne le crée plus) : on le provisionne donc explicitement ici.
+        admin = (User.objects.filter(is_superuser=True)
+                 .order_by('date_joined', 'email').first())
+        if admin is None:
+            admin = User.objects.create_user(
+                username='super@sdgps.ma', email='super@sdgps.ma',
+                password='Test@2026', is_superuser=True, is_staff=True)
+        return admin
 
     def test_repli_sans_super_admin(self):
         User.objects.filter(is_superuser=True).delete()

@@ -1,0 +1,45 @@
+name: Sync fork onedevasus
+
+# Miroir upstream → fork : à chaque push sur une branche de déploiement de
+# blmerio2022/app_sdgps, on recopie la branche (à l'identique, force) dans le fork
+# onedevasus/app_sdgps. Le fork exécute alors SA propre CI (tests → build image GHCR →
+# promotion → redeploy Railway), cf. ci-cd.yml.
+#
+# IMPORTANT : le push est fait avec un PAT (FORK_SYNC_TOKEN), pas GITHUB_TOKEN. Un push
+# via GITHUB_TOKEN NE déclenche PAS les workflows de la cible (anti-boucle GitHub) ; un
+# PAT, si. Le PAT doit avoir les droits `repo` + `workflow` sur le fork (les fichiers
+# .github/workflows/ font partie du miroir).
+
+on:
+  push:
+    branches: [main, develop]
+    # Les tags de version pilotent preprod (v*.*.*-rc.*) et production (v*.*.*) — cf. ci-cd.yml.
+    # Ils doivent donc être mirrorés vers le fork pour y déclencher le build.
+    tags: ["v*"]
+
+jobs:
+  mirror:
+    # Ne tourne QUE dans l'upstream (le fork possède aussi ce fichier mais ne doit pas
+    # se re-mirrorer lui-même).
+    if: github.repository == 'blmerio2022/app_sdgps'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Ne PAS persister le token du bot (github-actions[bot]) dans un
+          # http.<url>.extraheader : il primerait sur le PAT injecté dans l'URL du
+          # push ci-dessous et provoquerait un 403 (le bot n'a aucun droit sur le fork).
+          persist-credentials: false
+
+      - name: Recopier la branche/tag poussé dans le fork
+        env:
+          FORK_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+          FORK_REPOSITORY: ${{ vars.FORK_REPOSITORY }}
+        run: |
+          # ${GITHUB_REF} = ref complète (refs/heads/<branche> ou refs/tags/<tag>) : on préserve
+          # le TYPE de ref, pour qu'un tag arrive bien comme tag dans le fork (et y déclenche le
+          # build preprod/production).
+          git push --force \
+            "https://x-access-token:${FORK_TOKEN}@github.com/${FORK_REPOSITORY}.git" \
+            "HEAD:${GITHUB_REF}"

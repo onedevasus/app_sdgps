@@ -7,6 +7,8 @@ media/
 .env
 .env.local
 .env.development
+.env.staging
+.env.preprod
 .env.production
 
 # Artefacts Python / venv / caches

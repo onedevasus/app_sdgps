@@ -25,9 +25,12 @@ tout (`backend/settings.py`) :
   (`settings.SERVER_ENVIRONMENTS`) ;
 - active les protections « type production » pour `preprod`/`production`
   (`settings.PRODUCTION_LIKE_ENVIRONMENTS` → `IS_PRODUCTION_LIKE`) :
-  - les organisations `is_test_data=True` sont **masquées** (`OrganizationManager`) ;
-  - les commandes de **données de démo/test** sont **interdites** (`seed_demo_orgs`,
-    `generate_test_data`, `seed_test_users` via `forbid_in_production()`).
+  - les organisations `is_test_data=True` sont **masquées** (`OrganizationManager`).
+
+> **Aucune donnée de démo/test n'est générée, dans aucun environnement.** Les commandes
+> `seed_demo_orgs`, `generate_test_data` et `seed_test_users` ont été **supprimées** : tous les
+> environnements (dev/staging/preprod/production) n'utilisent que les données d'initialisation
+> (`initial_data.json`).
 
 Chaque environnement a un fichier `.env.<env>` (non versionné) ; les modèles versionnés sont
 `.env.development.example`, `.env.staging.example`, `.env.preprod.example`, `.env.production.example`.
@@ -50,29 +53,41 @@ Donc, **dans un premier temps, les 4 environnements sont initialisés avec les m
 Différenciation possible plus tard via la variable `SEED_DATA_FILE` (fichier monté par
 environnement) sans changer le code.
 
-## Flux de promotion (branches → environnements)
+## Flux de promotion (branches → environnements) — « build once, promote »
 
-Modèle recommandé (à câbler dans le CI/CD) :
+Câblé dans le CI/CD ([.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml)) :
 
 ```
-feature/* ──PR──▶ develop ──▶ STAGING      (déploiement auto sur merge)
+feature/* ──PR──▶ develop ──▶ [BUILD UNIQUE] ──▶ STAGING      (déploiement auto sur merge)
                     │
-                    └──PR──▶ release/* ──▶ PREPROD   (validation client)
+                    └──PR──▶ release/* ──▶ [re-tag, PAS de build] ──▶ PREPROD   (validation client)
                                  │
-                                 └──PR──▶ main ──▶ PRODUCTION  (live)
+                                 └──PR──▶ main ──▶ [re-tag, PAS de build] ──▶ PRODUCTION  (live)
 ```
 
+- **L'image n'est construite qu'UNE fois**, au merge sur `develop` (image racine Angular +
+  Django). Elle est poussée dans GHCR avec un tag immuable `:sha-<court>` et le tag mouvant
+  `:staging`.
+- Les promotions **ne reconstruisent jamais** l'image : elles **re-taguent le même digest**
+  (`:staging`→`:preprod`, puis `:preprod`→`:production`+`:latest`) via
+  `docker buildx imagetools create` (copie de manifeste côté registre). L'image livrée en
+  production est donc **exactement** celle validée en staging puis préprod.
 - On ne déploie jamais directement en production : un changement doit avoir traversé
-  STAGING puis PREPROD.
-- Chaque promotion = un merge vers la branche de l'environnement cible, qui déclenche le
-  build + déploiement de cet environnement (mêmes migrations + même seed).
+  STAGING puis PREPROD (garanti structurellement, chaque étage promeut le digest de l'étage
+  précédent).
 
 ## Mise en place Railway (résumé)
 
-Un **projet** Railway avec **4 environnements** (Railway « Environments ») : `development`
-(optionnel), `staging`, `preprod`, `production`. Pour chaque environnement serveur :
+Railway **consomme** l'image GHCR (il ne la construit **pas** lui-même). La CI tourne dans le fork
+`onedevasus/app_sdgps` (synchronisé depuis l'upstream `blmerio2022/app_sdgps`) et publie l'image
+sous `ghcr.io/onedevasus/app_sdgps`. Un **projet** Railway (compte onedevasus) avec ses
+environnements : `staging`, `preprod`, `production` (`development` local). Pour chaque environnement
+serveur :
 
-1. un service **PostgreSQL** dédié ;
-2. le service applicatif (image Docker racine) avec `ENVIRONMENT=<env>`, `DATABASE_URL` référencé,
-   un **volume** `/app/media`, et les secrets (`SECRET_KEY`, SendGrid, comptes seedés) ;
-3. la branche GitHub suivie correspondant au flux ci-dessus.
+1. un service **PostgreSQL** dédié (`DATABASE_URL=${{Postgres.DATABASE_URL}}`) ;
+2. le service applicatif avec **Source = image Docker** `ghcr.io/onedevasus/app_sdgps:<env>` (tag
+   mouvant), `ENVIRONMENT=<env>`, un **volume** `/app/media`, et les secrets (`SECRET_KEY`,
+   SendGrid, comptes seedés). Package privé → identifiants de registre GHCR dans Railway ;
+3. le redéploiement est **déclenché par la CI** (token de projet Railway scopé à l'environnement).
+
+Procédure détaillée pas-à-pas : voir [deploiement-railway-ghcr.md](deploiement-railway-ghcr.md).

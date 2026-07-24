@@ -1,4 +1,10 @@
-"""Tests de la migration 0027 (réconciliation de l'organisation des agents)."""
+"""Tests de la migration 0027 (réconciliation de l'organisation des agents).
+
+Les agents de démo ne sont plus créés par les migrations (`projects.0003_seed_agent_projects` a
+été neutralisée : aucune donnée de test n'est générée). Ces tests créent donc explicitement les
+comptes agents ET une adhésion « parasite » vers une autre organisation, afin de valider la
+logique de réconciliation de la migration 0027 (une unique adhésion active « Agent » vers la
+bonne organisation)."""
 import importlib
 
 from django.apps import apps as django_apps
@@ -12,9 +18,6 @@ User = get_user_model()
 _mig = importlib.import_module('accounts.migrations.0027_fix_agent_organizations')
 fix_agent_organizations = _mig.fix_agent_organizations
 
-# agent1/2/3 sont déjà créés dans la base de test par projects.0003_seed_agent_projects
-# (avec des adhésions vers T-ORG-A/B/C). Les orgs cibles SC-*/ITKANTOPO-V2, elles, ne sont
-# créées que par le seed (désactivé en test) : on les crée donc explicitement ici.
 TARGET = {
     'agent1@sdgps.ma': 'SC-AZILAL',
     'agent2@sdgps.ma': 'SC-HAOUZ',
@@ -28,8 +31,23 @@ def _ensure_target_orgs():
             code=code, defaults={'name': code, 'type': 'PUBLIC'})
 
 
+def _ensure_agents_with_parasite_membership():
+    """Crée agent1/2/3 + une adhésion vers une organisation « parasite » à nettoyer par 0027."""
+    parasite, _ = Organization.all_objects.get_or_create(
+        code='T-ORG-PARASITE',
+        defaults={'name': 'Parasite', 'type': 'PRIVATE', 'is_test_data': True})
+    for email in TARGET:
+        user = User.objects.filter(email=email).first()
+        if user is None:
+            user = User.objects.create_user(username=email, email=email, password='Test@2026')
+        Membership.objects.get_or_create(
+            user=user, organization=parasite,
+            defaults={'role': 'ROLE_ORGANISATION_AGENT', 'is_active': True})
+
+
 class FixAgentOrganizationsTests(TestCase):
     def test_reconcilie_les_trois_agents(self):
+        _ensure_agents_with_parasite_membership()
         _ensure_target_orgs()
         fix_agent_organizations(django_apps, None)
         for email, code in TARGET.items():
@@ -41,6 +59,7 @@ class FixAgentOrganizationsTests(TestCase):
             self.assertEqual(mems[0].role, 'ROLE_ORGANISATION_AGENT', email)
 
     def test_idempotent(self):
+        _ensure_agents_with_parasite_membership()
         _ensure_target_orgs()
         fix_agent_organizations(django_apps, None)
         fix_agent_organizations(django_apps, None)
@@ -50,6 +69,7 @@ class FixAgentOrganizationsTests(TestCase):
             Membership.objects.get(user=agent).organization.code, 'SC-AZILAL')
 
     def test_noop_si_org_cible_absente(self):
+        _ensure_agents_with_parasite_membership()
         # Sans créer les orgs cibles : les agents ne sont pas modifiés (garde-fou).
         agent = User.objects.get(email='agent1@sdgps.ma')
         before = Membership.objects.filter(user=agent).count()

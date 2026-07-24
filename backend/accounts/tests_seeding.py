@@ -16,7 +16,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from accounts.models import Organization, Membership
-from accounts.seeding import run_seed, forbid_in_production, load_seed_data, _resolve
+from accounts.seeding import run_seed, load_seed_data, _resolve
 from organismes.models import OrganismeNiveau1, OrganismeNiveau2
 
 User = get_user_model()
@@ -38,6 +38,18 @@ class RunSeedTests(TestCase):
                 sa = User.objects.get(email=_resolve(entry, 'email'))
                 self.assertTrue(sa.is_superuser)
                 self.assertEqual(sa.get_primary_role(), 'ROLE_SUPER_ADMIN')
+
+    def test_super_admin_identite_et_org_depuis_le_fichier(self):
+        """Le super admin vient UNIQUEMENT du fichier (la migration 0002 ne le crée plus) : son
+        nom est celui du fichier, et il n'a d'organisation que si le fichier lui en attribue une
+        (ici aucune → aucun membership)."""
+        run_seed()
+        entry = next(u for u in SEED_DATA['users'] if u.get('is_superuser'))
+        sa = User.objects.get(email=_resolve(entry, 'email'))
+        self.assertEqual(sa.first_name, entry.get('first_name', ''))
+        self.assertEqual(sa.last_name, entry.get('last_name', ''))
+        self.assertEqual(
+            Membership.objects.filter(user=sa).count(), len(entry.get('memberships', [])))
 
     def test_adhesions_des_utilisateurs(self):
         run_seed()
@@ -74,9 +86,16 @@ class RunSeedTests(TestCase):
         for email in ('appadmin1@sdgps.ma', 'appadmin2@sdgps.ma'):
             self.assertEqual(User.objects.get(email=email).platform_role,
                              'ROLE_ADMIN_SYSTEME', email)
-        expected = {'orgadmin1@sdgps.ma': 'SC-AZILAL', 'orgadmin2@sdgps.ma': 'SC-HAOUZ',
-                    'orgadmin3@sdgps.ma': 'ITKANTOPO-V2'}
-        for email, code in expected.items():
+        # Org-admins : dérivés du FICHIER de seed (source unique de vérité), sans codes en dur —
+        # le test suit ainsi automatiquement toute évolution de initial_data.json.
+        orgadmin_memberships = [
+            (_resolve(entry, 'email'), m['organization_code'])
+            for entry in SEED_DATA['users']
+            for m in entry.get('memberships', [])
+            if m.get('role') == 'ROLE_ORGANISATION_ADMIN'
+        ]
+        self.assertTrue(orgadmin_memberships, "aucun org-admin dans le seed")
+        for email, code in orgadmin_memberships:
             user = User.objects.get(email=email)
             org = Organization.all_objects.get(code=code)
             membership = Membership.objects.get(user=user, organization=org)
@@ -184,28 +203,31 @@ class PasswordSyncTests(TestCase):
         self.assertEqual(second.get('passwords_synced', 0), 0)
 
 
-class ProductionGuardTests(TestCase):
-    """Garde-fou : les données de démo/test sont interdites en environnement « type production »
-    (preprod, production) mais autorisées en development et staging."""
+class TestDataCommandsRemovedTests(TestCase):
+    """Les commandes de génération de données de démo/test ont été SUPPRIMÉES : plus aucune
+    donnée de test n'est générable, dans aucun environnement. Seules les données
+    d'initialisation (initial_data.json) sont utilisées."""
 
-    @override_settings(IS_PRODUCTION_LIKE=False)
-    def test_autorise_hors_production_like(self):
-        self.assertIsNone(forbid_in_production())
+    def test_commandes_de_test_absentes(self):
+        for name in ('seed_demo_orgs', 'generate_test_data', 'seed_test_users'):
+            with self.assertRaises(CommandError, msg=f"{name} devrait être introuvable"):
+                call_command(name)
 
-    @override_settings(IS_PRODUCTION_LIKE=True)
-    def test_bloque_en_production_like(self):
-        with self.assertRaises(CommandError):
-            forbid_in_production()
 
-    @override_settings(IS_PRODUCTION_LIKE=True)
-    def test_commande_seed_demo_orgs_bloquee(self):
-        with self.assertRaises(CommandError):
-            call_command('seed_demo_orgs')
+class NoTestDataFromMigrationsTests(TestCase):
+    """Après application des migrations (baseline de la base de test), AUCUNE donnée de démo/test
+    n'est présente : les migrations `projects.0002/0003` ont été neutralisées (no-op) et aucune
+    autre migration ne génère de données `is_test_data=True`. Garantit l'objectif « aucune donnée
+    de test dans aucun environnement »."""
 
-    @override_settings(IS_PRODUCTION_LIKE=True)
-    def test_commande_seed_test_users_bloquee(self):
-        with self.assertRaises(CommandError):
-            call_command('seed_test_users')
+    def test_aucune_organisation_is_test_data_dans_la_baseline(self):
+        self.assertEqual(Organization.all_objects.filter(is_test_data=True).count(), 0)
+
+    def test_aucune_org_ni_compte_de_demo(self):
+        for code in ('DEMO-PROJETS', 'T-ORG-A', 'T-ORG-B', 'T-ORG-C'):
+            self.assertFalse(Organization.all_objects.filter(code=code).exists(), code)
+        for email in ('agent1@sdgps.ma', 'agent2@sdgps.ma', 'agent3@sdgps.ma'):
+            self.assertFalse(User.objects.filter(email=email).exists(), email)
 
 
 class EnvironmentStrategyTests(TestCase):
@@ -215,5 +237,5 @@ class EnvironmentStrategyTests(TestCase):
         from django.conf import settings
         # Bases PostgreSQL dédiées côté serveur ; SQLite en dev local.
         self.assertEqual(settings.SERVER_ENVIRONMENTS, ('staging', 'preprod', 'production'))
-        # Données de démo/test masquées et interdites en preprod + production.
+        # Données de démo/test masquées en preprod + production.
         self.assertEqual(settings.PRODUCTION_LIKE_ENVIRONMENTS, ('preprod', 'production'))
