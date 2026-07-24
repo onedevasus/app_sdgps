@@ -86,9 +86,16 @@ class RunSeedTests(TestCase):
         for email in ('appadmin1@sdgps.ma', 'appadmin2@sdgps.ma'):
             self.assertEqual(User.objects.get(email=email).platform_role,
                              'ROLE_ADMIN_SYSTEME', email)
-        expected = {'orgadmin1@sdgps.ma': 'SC-AZILAL', 'orgadmin2@sdgps.ma': 'SC-HAOUZ',
-                    'orgadmin3@sdgps.ma': 'ITKANTOPO-V2'}
-        for email, code in expected.items():
+        # Org-admins : dérivés du FICHIER de seed (source unique de vérité), sans codes en dur —
+        # le test suit ainsi automatiquement toute évolution de initial_data.json.
+        orgadmin_memberships = [
+            (_resolve(entry, 'email'), m['organization_code'])
+            for entry in SEED_DATA['users']
+            for m in entry.get('memberships', [])
+            if m.get('role') == 'ROLE_ORGANISATION_ADMIN'
+        ]
+        self.assertTrue(orgadmin_memberships, "aucun org-admin dans le seed")
+        for email, code in orgadmin_memberships:
             user = User.objects.get(email=email)
             org = Organization.all_objects.get(code=code)
             membership = Membership.objects.get(user=user, organization=org)
