@@ -233,7 +233,15 @@ class Migration(migrations.Migration):
         ),
         
         # ==========================================
-        # 5. CRÉATION DU SUPER ADMIN
+        # 5. SUPER ADMIN — NEUTRALISÉ (source unique = initial_data.json)
         # ==========================================
-        migrations.RunPython(create_super_admin, remove_super_admin),
+        # La création du super admin (et de son organisation « SDGPS Administration » + son
+        # adhésion) a été RETIRÉE : le super admin provient désormais UNIQUEMENT des données
+        # d'initialisation (accounts/seed_data/initial_data.json, via accounts.seeding.run_seed).
+        # Ainsi son identité (first_name/last_name) et ses éventuelles organisations viennent
+        # exclusivement du fichier — plus de nom codé en dur « Admin Super » ni d'org imposée.
+        # Les fonctions create_super_admin/remove_super_admin ci-dessus ne sont donc plus câblées
+        # (conservées pour l'historique). Ne PAS toucher aux CreateModel ci-dessus : c'est le
+        # schéma initial des tables RBAC.
+        migrations.RunPython(migrations.RunPython.noop, migrations.RunPython.noop),
     ]

@@ -25,9 +25,12 @@ tout (`backend/settings.py`) :
   (`settings.SERVER_ENVIRONMENTS`) ;
 - active les protections « type production » pour `preprod`/`production`
   (`settings.PRODUCTION_LIKE_ENVIRONMENTS` → `IS_PRODUCTION_LIKE`) :
-  - les organisations `is_test_data=True` sont **masquées** (`OrganizationManager`) ;
-  - les commandes de **données de démo/test** sont **interdites** (`seed_demo_orgs`,
-    `generate_test_data`, `seed_test_users` via `forbid_in_production()`).
+  - les organisations `is_test_data=True` sont **masquées** (`OrganizationManager`).
+
+> **Aucune donnée de démo/test n'est générée, dans aucun environnement.** Les commandes
+> `seed_demo_orgs`, `generate_test_data` et `seed_test_users` ont été **supprimées** : tous les
+> environnements (dev/staging/preprod/production) n'utilisent que les données d'initialisation
+> (`initial_data.json`).
 
 Chaque environnement a un fichier `.env.<env>` (non versionné) ; les modèles versionnés sont
 `.env.development.example`, `.env.staging.example`, `.env.preprod.example`, `.env.production.example`.
