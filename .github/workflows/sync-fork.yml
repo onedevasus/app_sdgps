@@ -12,7 +12,10 @@ name: Sync fork onedevasus
 
 on:
   push:
-    branches: [main, develop, "release/**"]
+    branches: [main, develop]
+    # Les tags de version pilotent preprod (v*.*.*-rc.*) et production (v*.*.*) — cf. ci-cd.yml.
+    # Ils doivent donc être mirrorés vers le fork pour y déclencher le build.
+    tags: ["v*"]
 
 jobs:
   mirror:
@@ -29,11 +32,14 @@ jobs:
           # push ci-dessous et provoquerait un 403 (le bot n'a aucun droit sur le fork).
           persist-credentials: false
 
-      - name: Recopier la branche poussée dans le fork
+      - name: Recopier la branche/tag poussé dans le fork
         env:
           FORK_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
           FORK_REPOSITORY: ${{ vars.FORK_REPOSITORY }}
         run: |
+          # ${GITHUB_REF} = ref complète (refs/heads/<branche> ou refs/tags/<tag>) : on préserve
+          # le TYPE de ref, pour qu'un tag arrive bien comme tag dans le fork (et y déclenche le
+          # build preprod/production).
           git push --force \
             "https://x-access-token:${FORK_TOKEN}@github.com/${FORK_REPOSITORY}.git" \
-            "HEAD:refs/heads/${GITHUB_REF_NAME}"
+            "HEAD:${GITHUB_REF}"
