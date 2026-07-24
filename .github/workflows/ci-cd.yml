@@ -1,15 +1,24 @@
 name: CI/CD
 
-# Stratégie « build once, promote » :
-#   push develop      → BUILD UNIQUE de l'image racine (Angular + Django) → GHCR :sha-<court> + :staging
-#                       puis redeploy Railway STAGING.
-#   push release/*    → AUCUN rebuild : re-tag du digest :staging → :preprod, redeploy Railway PREPROD.
-#   push main         → AUCUN rebuild : re-tag du digest :preprod → :production (+ :latest), redeploy PROD.
-# L'image livrée en production est donc EXACTEMENT celle validée en staging puis préprod.
+# Stratégie « tag-based, rebuild par palier » :
+#   push develop                  → BUILD → GHCR :sha-<court> + :staging → redeploy Railway STAGING.
+#   tag git v*.*.*-rc.* (PREPROD) → BUILD depuis le tag → :<tag> + :preprod → redeploy PREPROD.
+#   tag git v*.*.* (PRODUCTION)   → BUILD depuis le tag → :<tag> + :production → redeploy PRODUCTION.
+#
+# Contrairement à l'ancienne stratégie « build once, promote », preprod et production sont ici
+# de VRAIS rebuilds depuis le TAG git (pas de promotion de digest).
+#
+# Les jobs d'image tournent UNIQUEMENT dans le fork (onedevaus/app_sdgps, où sont les tokens
+# Railway) ; l'upstream blmerio2022 y mirrore branches ET tags via sync-fork.yml.
+#
+# Distinction des tags (GitHub Actions n'a pas de regex) :
+#   - preprod    : tag qui contient « -rc. »        (ex. v2.3.0-rc.1)
+#   - production : tag SANS aucun « - »              (ex. v2.3.0) → exclut rc/alpha/beta
 
 on:
   push:
-    branches: [main, develop, "release/**"]
+    branches: [main, develop]
+    tags: ["v*"]
   pull_request:
     branches: [main, develop]
 
@@ -57,12 +66,11 @@ jobs:
         run: npx ng build --configuration production
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # BUILD UNIQUE (develop → STAGING). Seul job qui construit réellement l'image.
+  # STAGING (push develop) : BUILD → :sha-<court> + :staging → redeploy STAGING.
   # ─────────────────────────────────────────────────────────────────────────────
-  build:
+  build-staging:
     needs: [test-backend, test-frontend]
-    # Jobs d'image = UNIQUEMENT dans le fork (onedevasus/app_sdgps), pas dans l'upstream.
-    # → image ghcr.io/onedevasus/app_sdgps, tirée par Railway (compte onedevasus).
+    # Jobs d'image = UNIQUEMENT dans le fork (onedevaus/app_sdgps), pas dans l'upstream.
     if: github.repository != 'blmerio2022/app_sdgps' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
@@ -88,8 +96,7 @@ jobs:
             type=raw,value=staging
 
       - name: Builder et pousser l'image racine (app complète)
-        # context: . → Dockerfile racine (SPA Angular buildé PUIS servi par Django/WhiteNoise,
-        # service unique = image que Railway exécute).
+        # context: . → Dockerfile racine (SPA Angular buildé PUIS servi par Django/WhiteNoise).
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -107,16 +114,18 @@ jobs:
           railway redeploy --service "$RAILWAY_SERVICE" --yes
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # PROMOTION PREPROD (release/* → PREPROD). Aucun rebuild : re-tag du digest staging.
+  # PREPROD (tag v*.*.*-rc.*) : BUILD depuis le tag → :<tag> + :preprod → redeploy PREPROD.
   # ─────────────────────────────────────────────────────────────────────────────
-  promote-preprod:
+  build-preprod:
     needs: [test-backend, test-frontend]
-    if: github.repository != 'blmerio2022/app_sdgps' && startsWith(github.ref, 'refs/heads/release/')
+    if: github.repository != 'blmerio2022/app_sdgps' && startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-rc.')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Se connecter à GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -124,11 +133,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promouvoir le digest STAGING → :preprod (copie de manifeste, sans rebuild)
-        run: |
-          docker buildx imagetools create \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preprod \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+      - name: Extraire les métadonnées de l'image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ github.ref_name }}
+            type=raw,value=preprod
+
+      - name: Builder et pousser l'image (depuis le tag)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Redéployer PREPROD sur Railway
         env:
@@ -139,16 +160,18 @@ jobs:
           railway redeploy --service "$RAILWAY_SERVICE" --yes
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # PROMOTION PRODUCTION (main → PRODUCTION). Aucun rebuild : re-tag du digest preprod.
+  # PRODUCTION (tag v*.*.* sans « - ») : BUILD depuis le tag → :<tag> + :production → redeploy PROD.
   # ─────────────────────────────────────────────────────────────────────────────
-  promote-production:
+  build-production:
     needs: [test-backend, test-frontend]
-    if: github.repository != 'blmerio2022/app_sdgps' && github.ref == 'refs/heads/main'
+    if: github.repository != 'blmerio2022/app_sdgps' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Se connecter à GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -156,12 +179,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promouvoir le digest PREPROD → :production + :latest (copie de manifeste, sans rebuild)
-        run: |
-          docker buildx imagetools create \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preprod
+      - name: Extraire les métadonnées de l'image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ github.ref_name }}
+            type=raw,value=production
+
+      - name: Builder et pousser l'image (depuis le tag)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Redéployer PRODUCTION sur Railway
         env:
