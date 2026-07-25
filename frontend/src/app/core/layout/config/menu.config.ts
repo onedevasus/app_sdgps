@@ -83,7 +83,7 @@ export const ADMIN_MENU: MenuItem[] = [
     // « Liste des organisations » promue à la place de l'ancien parent « Gestion des
     // Organisations » (sous-menu supprimé, ainsi que « Ajouter une organisation »).
     id: 'organisations',
-    title: 'Liste des organisations',
+    title: 'Organisations',
     icon: 'fas fa-building',
     route: '/admin/organisations/liste',
     type: 'link',

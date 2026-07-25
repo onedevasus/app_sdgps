@@ -37,9 +37,9 @@ describe('menu.config — entrées supprimées / restructurées', () => {
     }
   });
 
-  it('« Liste des organisations » est une entrée de PREMIER niveau (sans sous-menu)', () => {
+  it('« Organisations » est une entrée de PREMIER niveau (sans sous-menu)', () => {
     const item = ADMIN_MENU.find(i => i.id === 'organisations');
-    expect(item?.title).toBe('Liste des organisations');
+    expect(item?.title).toBe('Organisations');
     expect(item?.route).toBe('/admin/organisations/liste');
     expect(item?.children).toBeFalsy();
   });
