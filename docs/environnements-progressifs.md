@@ -33,7 +33,8 @@ tout (`backend/settings.py`) :
 > (`initial_data.json`).
 
 Chaque environnement a un fichier `.env.<env>` (non versionné) ; les modèles versionnés sont
-`.env.development.example`, `.env.staging.example`, `.env.preprod.example`, `.env.production.example`.
+`.env.development.example` et `.env.production.example`. Pour **staging** et **preprod**, la config
+est posée directement en variables de service (Railway) — on part du modèle `.env.production.example`.
 
 ## Bases de données séparées
 

@@ -1,47 +1,85 @@
+# ============================================================================
+# Compose UNIQUE — l'environnement est piloté par la variable ENVIRONMENT, qui
+# mappe automatiquement le fichier de config backend/.env.<ENVIRONMENT>.
+# ============================================================================
+# Sélection de l'environnement + des services via ENVIRONMENT et les PROFILS :
+#
+#   Développement (SQLite + ng serve) :
+#     ENVIRONMENT=development docker compose --profile dev up -d
+#
+#   Local « type serveur » (PostgreSQL) — staging | preprod | production :
+#     ENVIRONMENT=production docker compose --profile postgres up -d
+#
+# Le fichier backend/.env.<ENVIRONMENT> fournit TOUTE la config (DEBUG, POSTGRES_*,
+# SendGrid, seed…) — c'est le mapping « environnement ↔ .env » demandé. Il est
+# `required: false` : absent (ex. CI/Railway), la config vient des variables du service.
+#
+# NB déploiement réel : la production tourne sur Railway/GHCR via le Dockerfile racine
+# (SPA buildé + gunicorn, même origine). Ce compose sert l'orchestration LOCALE.
+# ----------------------------------------------------------------------------
+
 services:
+  # --- PostgreSQL : uniquement pour les environnements serveur (profil `postgres`). ---
   db:
     image: postgres:16-alpine
     container_name: sdgps-db
+    profiles: ["postgres"]
     restart: unless-stopped
+    # Les identifiants viennent du MÊME .env que le backend → pas de mismatch de mot de
+    # passe (POSTGRES_DB/USER/PASSWORD lus directement par l'image postgres).
     env_file:
-      - ./backend/.env.production
-    environment:
-      # Alimente l'initialisation du serveur Postgres depuis les variables POSTGRES_* du .env.
-      POSTGRES_DB: ${POSTGRES_DB:-sdgps}
-      POSTGRES_USER: ${POSTGRES_USER:-sdgps}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sdgps}
+      - path: ./backend/.env.${ENVIRONMENT:-development}
+        required: false
     volumes:
       - backend_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sdgps} -d ${POSTGRES_DB:-sdgps}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-sdgps} -d $${POSTGRES_DB:-sdgps}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  # --- Backend Django (toujours démarré). ---
   backend:
-    # Image déployable = fork onedevasus (où tourne la CI). Nécessite `docker login ghcr.io`
-    # (package privé). Surcharger via GITHUB_REPOSITORY si besoin.
-    image: ghcr.io/${GITHUB_REPOSITORY:-onedevasus/app_sdgps}:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sdgps-backend:${ENVIRONMENT:-development}
     container_name: sdgps-backend
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
+    # runserver --noreload : stable sous Docker Desktop Windows (l'autoreloader crashe sur
+    # I/O des fichiers montés). Le code étant monté, `docker restart` recharge les modifs.
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
+    environment:
+      # ENVIRONMENT vient de l'OS/shell (jamais du .env) et sélectionne le fichier de config.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    env_file:
+      - path: ./backend/.env.${ENVIRONMENT:-development}
+        required: false
+    volumes:
+      # Source montée : itération sans rebuild + réutilise la base SQLite seedée de l'hôte
+      # (en dev). En env serveur, la base est PostgreSQL (service `db`), SQLite est ignorée.
+      - ./backend:/app
+      - backend_media:/app/media
     ports:
       - "8085:8000"
-    env_file:
-      - ./backend/.env.production
-    environment:
-      # Déploiement = production → PostgreSQL (indépendamment du .env versionné).
-      ENVIRONMENT: production
-      # Dans le réseau Docker, la base est joignable via le nom de service `db`.
-      POSTGRES_HOST: db
+
+  # --- Frontend Angular (dev server) : profil `dev` uniquement. ---
+  frontend:
+    image: node:18-slim
+    container_name: sdgps-frontend
+    profiles: ["dev"]
+    working_dir: /fe
+    # node_modules Windows de l'hôte = binaires incompatibles Linux → install dans le
+    # conteneur (volume nommé, persistant). `--poll` : watcher de fichiers via polling
+    # (les events natifs ne traversent pas le bind Windows).
+    command: sh -lc "npm ci --legacy-peer-deps && npx ng serve --host 0.0.0.0 --port 4205 --poll 2000 --disable-host-check"
     volumes:
-      - backend_media:/app/media
-      # Données d'initialisation externes (optionnel) : monter un fichier JSON et pointer
-      # SEED_DATA_FILE dessus dans .env.production pour surcharger le fichier embarqué.
-      # - ./backend/config/initial_data.json:/app/config/initial_data.json:ro
+      - ./frontend:/fe
+      - frontend_node_modules:/fe/node_modules
+    ports:
+      - "4205:4205"
 
 volumes:
   backend_media:
   backend_pgdata:
+  frontend_node_modules:
