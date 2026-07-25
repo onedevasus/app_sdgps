@@ -2,17 +2,23 @@
 # Compose UNIQUE — l'environnement est piloté par la variable ENVIRONMENT, qui
 # mappe automatiquement le fichier de config backend/.env.<ENVIRONMENT>.
 # ============================================================================
-# Sélection de l'environnement + des services via ENVIRONMENT et les PROFILS :
+# Sélection de l'environnement via --env-file (un SEUL fichier pilote tout : ENVIRONMENT,
+# ports hôte, config conteneur). Ports hôte par environnement :
+#   dev 8085/4205 · staging 8086/4206 · preprod 8087/4207 · production 8088/4208
+# (BACKEND_PORT / FRONTEND_PORT définis dans chaque backend/.env.<env>).
 #
-#   Développement (SQLite + ng serve) :
-#     ENVIRONMENT=development docker compose --profile dev up -d
+#   Développement (SQLite) :
+#     docker compose --env-file backend/.env.development --profile dev up -d
 #
 #   Local « type serveur » (PostgreSQL) — staging | preprod | production :
-#     ENVIRONMENT=production docker compose --profile postgres up -d
+#     docker compose --env-file backend/.env.staging    --profile postgres up -d
+#     docker compose --env-file backend/.env.preprod    --profile postgres up -d
+#     docker compose --env-file backend/.env.production  --profile postgres up -d
 #
+# Chaque env a container + volume + ports DISTINCTS → ils peuvent coexister.
 # Le fichier backend/.env.<ENVIRONMENT> fournit TOUTE la config (DEBUG, POSTGRES_*,
-# SendGrid, seed…) — c'est le mapping « environnement ↔ .env » demandé. Il est
-# `required: false` : absent (ex. CI/Railway), la config vient des variables du service.
+# SendGrid, seed…). Il est `required: false` : absent (ex. CI/Railway), la config vient
+# des variables du service.
 #
 # NB déploiement réel : la production tourne sur Railway/GHCR via le Dockerfile racine
 # (SPA buildé + gunicorn, même origine). Ce compose sert l'orchestration LOCALE.
@@ -46,7 +52,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: sdgps-backend:${ENVIRONMENT:-development}
-    container_name: sdgps-backend
+    container_name: sdgps-backend-${ENVIRONMENT:-development}
     restart: unless-stopped
     # runserver --noreload : stable sous Docker Desktop Windows (l'autoreloader crashe sur
     # I/O des fichiers montés). Le code étant monté, `docker restart` recharge les modifs.
@@ -63,23 +69,30 @@ services:
       - ./backend:/app
       - backend_media:/app/media
     ports:
-      - "8085:8000"
+      # Port hôte par environnement (dev 8085 / staging 8086 / preprod 8087 / prod 8088),
+      # fourni par BACKEND_PORT dans backend/.env.<env> (via --env-file au lancement).
+      - "${BACKEND_PORT:-8085}:8000"
 
-  # --- Frontend Angular (dev server) : profil `dev` uniquement. ---
+  # --- Frontend Angular (dev server) : présent pour tous les environnements. ---
   frontend:
     image: node:18-slim
-    container_name: sdgps-frontend
-    profiles: ["dev"]
+    # Container par environnement → les frontends de plusieurs env peuvent coexister.
+    container_name: sdgps-frontend-${ENVIRONMENT:-development}
+    # Actif en dev ET en env serveur (profil postgres).
+    profiles: ["dev", "postgres"]
     working_dir: /fe
     # node_modules Windows de l'hôte = binaires incompatibles Linux → install dans le
-    # conteneur (volume nommé, persistant). `--poll` : watcher de fichiers via polling
-    # (les events natifs ne traversent pas le bind Windows).
-    command: sh -lc "npm ci --legacy-peer-deps && npx ng serve --host 0.0.0.0 --port 4205 --poll 2000 --disable-host-check"
+    # conteneur (volume nommé, partagé). Install IDEMPOTENTE (`ng` déjà présent → on saute)
+    # pour ne pas réinstaller/écraser quand plusieurs env tournent en parallèle.
+    # `--poll` : watcher via polling (les events natifs ne traversent pas le bind Windows).
+    command: sh -lc "[ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps; npx ng serve --host 0.0.0.0 --port 4205 --poll 2000 --disable-host-check"
     volumes:
       - ./frontend:/fe
       - frontend_node_modules:/fe/node_modules
     ports:
-      - "4205:4205"
+      # Port hôte par environnement (dev 4205 / staging 4206 / preprod 4207 / prod 4208),
+      # fourni par FRONTEND_PORT dans backend/.env.<env>.
+      - "${FRONTEND_PORT:-4205}:4205"
 
 volumes:
   # Noms réels interpolés par environnement → données isolées entre dev/staging/preprod/prod.
