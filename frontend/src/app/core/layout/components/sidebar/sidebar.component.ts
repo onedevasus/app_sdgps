@@ -23,12 +23,14 @@ export class SidebarComponent implements OnInit {
   ngOnInit(): void {}
 
   /**
-   * Basculer l'expansion d'un sous-menu
+   * Basculer l'expansion d'un sous-menu (mode ACCORDÉON : ouvrir une entrée referme toutes
+   * les autres — une seule reste dépliée à la fois).
    */
   toggleSubmenu(menuId: string): void {
     if (this.expandedMenus.has(menuId)) {
       this.expandedMenus.delete(menuId);
     } else {
+      this.expandedMenus.clear(); // referme les autres sous-menus
       this.expandedMenus.add(menuId);
     }
   }

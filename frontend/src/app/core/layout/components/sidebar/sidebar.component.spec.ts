@@ -23,6 +23,14 @@ describe('SidebarComponent', () => {
     expect(cmp.isExpanded('projets')).toBeFalse();
   });
 
+  it('accordéon : ouvrir un sous-menu referme les autres', () => {
+    cmp.toggleSubmenu('a');
+    expect(cmp.isExpanded('a')).toBeTrue();
+    cmp.toggleSubmenu('b');
+    expect(cmp.isExpanded('b')).toBeTrue();
+    expect(cmp.isExpanded('a')).toBeFalse(); // 'a' s'est replié automatiquement
+  });
+
   it('onNavigate réduit la sidebar', () => {
     cmp.onNavigate();
     expect(layoutService.collapseSidebar).toHaveBeenCalled();
