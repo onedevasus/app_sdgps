@@ -80,18 +80,23 @@ services:
     container_name: sdgps-frontend-${ENVIRONMENT:-development}
     # Actif en dev ET en env serveur (profil postgres).
     profiles: ["dev", "postgres"]
+    # ENVIRONMENT choisit la configuration Angular (donc environment.<env>.ts → bon apiUrl).
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
     working_dir: /fe
     # node_modules Windows de l'hôte = binaires incompatibles Linux → install dans le
     # conteneur (volume nommé, partagé). Install IDEMPOTENTE (`ng` déjà présent → on saute)
     # pour ne pas réinstaller/écraser quand plusieurs env tournent en parallèle.
     # `--poll` : watcher via polling (les events natifs ne traversent pas le bind Windows).
-    command: sh -lc "[ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps; npx ng serve --host 0.0.0.0 --port 4205 --poll 2000 --disable-host-check"
+    # Mapping env → config Angular : development/staging/preprod tel quel, production → production-local
+    # (le nom 'production' est réservé au build Railway même-origine). $$ = évalué par le shell conteneur.
+    command: sh -lc '[ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps; CONF="$${ENVIRONMENT:-development}"; [ "$$CONF" = production ] && CONF=production-local; npx ng serve --configuration="$$CONF" --host 0.0.0.0 --port 4205 --poll 2000 --disable-host-check'
     volumes:
       - ./frontend:/fe
       - frontend_node_modules:/fe/node_modules
     ports:
       # Port hôte par environnement (dev 4205 / staging 4206 / preprod 4207 / prod 4208),
-      # fourni par FRONTEND_PORT dans backend/.env.<env>.
+      # fourni par FRONTEND_PORT dans backend/.env.<env>. Cible = 4205 (port de `ng serve`).
       - "${FRONTEND_PORT:-4205}:4205"
 
 volumes:
@@ -100,4 +105,6 @@ volumes:
     name: sdgps_media_${ENVIRONMENT:-development}
   backend_pgdata:
     name: sdgps_pgdata_${ENVIRONMENT:-development}
+  # Volume par PROJET (nom préfixé par COMPOSE_PROJECT_NAME) → chaque env installe son
+  # propre node_modules une fois, sans course concurrente entre env lancés en parallèle.
   frontend_node_modules:
