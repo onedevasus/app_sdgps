@@ -203,15 +203,6 @@ export const ADMIN_MENU: MenuItem[] = [
         roles: ALL_ADMIN_ROLES,
       },
       {
-        id: 'invitations',
-        title: 'Invitations',
-        icon: 'fas fa-envelope-open-text',
-        route: '/admin/utilisateurs/invitations',
-        type: 'link',
-        description: 'Inviter Admins/Managers/Utilisateurs',
-        roles: ALL_ADMIN_ROLES,
-      },
-      {
         id: 'roles-permissions',
         title: 'Rôles & Permissions',
         icon: 'fas fa-user-shield',
@@ -223,79 +214,13 @@ export const ADMIN_MENU: MenuItem[] = [
     ]
   },
   {
-    id: 'logs-audit',
-    title: 'Logs d\'Audit',
-    icon: 'fas fa-history',
-    route: '/admin/logs-audit',
+    // Espace de stockage promu en entrée de premier niveau (ex-sous-entrée de « Gestion des Quotas »).
+    id: 'stockage',
+    title: 'Espace de stockage',
+    icon: 'fas fa-hdd',
+    route: '/admin/quotas/stockage',
     type: 'link',
-    description: 'Traçabilité des actions utilisateurs',
-    roles: SUPER_OR_SYSTEME,
-  },
-  {
-    id: 'supervision',
-    title: 'Supervision Système',
-    icon: 'fas fa-chart-line',
-    route: '/admin/supervision',
-    type: 'link',
-    description: 'Health Check & Stats globales',
-    roles: SUPER_OR_SYSTEME,
-    children: [
-      {
-        id: 'health-check',
-        title: 'Health Check',
-        icon: 'fas fa-heartbeat',
-        route: '/admin/supervision/health',
-        type: 'link',
-        description: 'État des services',
-        roles: SUPER_OR_SYSTEME,
-      },
-      {
-        id: 'stats-globales',
-        title: 'Statistiques',
-        icon: 'fas fa-chart-bar',
-        route: '/admin/supervision/stats',
-        type: 'link',
-        description: 'Métriques système',
-        roles: SUPER_OR_SYSTEME,
-      }
-    ]
-  },
-  {
-    id: 'quotas',
-    title: 'Gestion des Quotas',
-    icon: 'fas fa-database',
-    route: '/admin/quotas',
-    type: 'link',
-    description: 'Stockage & Limites projets',
-    roles: SUPER_OR_SYSTEME,
-    children: [
-      {
-        id: 'stockage',
-        title: 'Espace de stockage',
-        icon: 'fas fa-hdd',
-        route: '/admin/quotas/stockage',
-        type: 'link',
-        description: 'Gestion du stockage',
-        roles: SUPER_OR_SYSTEME,
-      },
-      {
-        id: 'limites-projets',
-        title: 'Limites projets',
-        icon: 'fas fa-sliders-h',
-        route: '/admin/quotas/limites',
-        type: 'link',
-        description: 'Configuration des quotas',
-        roles: SUPER_OR_SYSTEME,
-      }
-    ]
-  },
-  {
-    id: 'maintenance',
-    title: 'Mode Maintenance',
-    icon: 'fas fa-tools',
-    route: '/admin/maintenance',
-    type: 'link',
-    description: 'Switch global maintenance',
+    description: 'Gestion du stockage',
     roles: SUPER_OR_SYSTEME,
   }
 ];

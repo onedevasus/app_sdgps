@@ -23,3 +23,23 @@ describe('menu.config — Tableau de bord par rôle', () => {
     expect(item?.roles).not.toContain('ROLE_ORGANISATION_ADMIN');
   });
 });
+
+describe('menu.config — entrées supprimées / restructurées', () => {
+  const allIds = (items: any[]): string[] =>
+    items.flatMap(i => [i.id, ...allIds(i.children || [])]);
+
+  it('les entrées supprimées ne sont plus présentes (à tout niveau)', () => {
+    const ids = allIds(ADMIN_MENU);
+    for (const removed of ['invitations', 'logs-audit', 'supervision', 'health-check',
+                           'stats-globales', 'maintenance', 'quotas', 'limites-projets']) {
+      expect(ids).withContext(`"${removed}" doit être supprimé`).not.toContain(removed);
+    }
+  });
+
+  it('« Espace de stockage » est une entrée de PREMIER niveau', () => {
+    const item = ADMIN_MENU.find(i => i.id === 'stockage');
+    expect(item).withContext('stockage top-level attendu').toBeTruthy();
+    expect(item?.route).toBe('/admin/quotas/stockage');
+    expect(item?.children).toBeFalsy();
+  });
+});
