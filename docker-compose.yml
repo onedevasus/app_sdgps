@@ -7,8 +7,11 @@
 #   dev 8085/4205 · staging 8086/4206 · preprod 8087/4207 · production 8088/4208
 # (BACKEND_PORT / FRONTEND_PORT définis dans chaque backend/.env.<env>).
 #
-#   Développement (SQLite) :
-#     docker compose --env-file backend/.env.development --profile dev up -d
+# Ce compose orchestre le BACKEND (+ PostgreSQL pour les env serveur). Le FRONTEND tourne
+# en NATIF (ng serve) — voir la note dans la section `frontend` plus bas.
+#
+#   Développement (SQLite, pas de db) :
+#     docker compose --env-file backend/.env.development up -d backend
 #
 #   Local « type serveur » (PostgreSQL) — staging | preprod | production :
 #     docker compose --env-file backend/.env.staging    --profile postgres up -d
@@ -73,34 +76,15 @@ services:
       # fourni par BACKEND_PORT dans backend/.env.<env> (via --env-file au lancement).
       - "${BACKEND_PORT:-8085}:8000"
 
-  # --- Frontend Angular (dev server) : présent pour tous les environnements. ---
-  frontend:
-    # Image dev buildée UNE fois (node_modules cuits) → aucun `npm ci` au runtime,
-    # donc plus de lenteur/ECONNRESET quand plusieurs env démarrent en parallèle.
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    image: sdgps-frontend-dev:latest
-    # Container par environnement → les frontends de plusieurs env peuvent coexister.
-    container_name: sdgps-frontend-${ENVIRONMENT:-development}
-    # Actif en dev ET en env serveur (profil postgres).
-    profiles: ["dev", "postgres"]
-    # ENVIRONMENT choisit la configuration Angular (donc environment.<env>.ts → bon apiUrl).
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-    working_dir: /fe
-    # `--poll` : watcher via polling (les events natifs ne traversent pas le bind Windows).
-    # Mapping env → config Angular : development/staging/preprod tel quel, production → production-local
-    # (le nom 'production' est réservé au build Railway même-origine). $$ = évalué par le shell conteneur.
-    command: sh -lc 'CONF="$${ENVIRONMENT:-development}"; [ "$$CONF" = production ] && CONF=production-local; npx ng serve --configuration="$$CONF" --host 0.0.0.0 --port 4205 --poll 2000 --disable-host-check'
-    volumes:
-      - ./frontend:/fe
-      # Volume anonyme : préserve le node_modules de l'IMAGE (non masqué par le bind Windows).
-      - /fe/node_modules
-    ports:
-      # Port hôte par environnement (dev 4205 / staging 4206 / preprod 4207 / prod 4208),
-      # fourni par FRONTEND_PORT dans backend/.env.<env>. Cible = 4205 (port de `ng serve`).
-      - "${FRONTEND_PORT:-4205}:4205"
+  # --- Frontend Angular : PAS de service Docker (volontaire). ---
+  # Le `npm ci` dans Docker est instable sur cette machine (réseau WSL2 → ECONNRESET).
+  # Le frontend tourne donc en NATIF (node hôte), avec les mêmes configs Angular par env :
+  #   cd frontend
+  #   npx ng serve --configuration=development     --port 4205 --host localhost   # → API :8085
+  #   npx ng serve --configuration=staging         --port 4206 --host localhost   # → API :8086
+  #   npx ng serve --configuration=preprod         --port 4207 --host localhost   # → API :8087
+  #   npx ng serve --configuration=production-local --port 4208 --host localhost  # → API :8088
+  # (frontend/Dockerfile.dev reste dispo comme fallback si le réseau npm-in-Docker est réparé.)
 
 volumes:
   # Noms réels interpolés par environnement → données isolées entre dev/staging/preprod/prod.
