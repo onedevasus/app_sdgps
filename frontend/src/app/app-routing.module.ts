@@ -45,9 +45,12 @@ const routes: Routes = [
         pathMatch: 'full'
       },
       {
+        // Tableau de bord admin (Super Admin / Admin Système) : réutilise l'accueil
+        // opérateur (`HomeModule` : KPI + projets récents). Voir aussi la redirection
+        // post-login `getPostLoginRoute()` dans AuthService.
         path: 'dashboard',
-        component: PlaceholderComponent,
-        data: { title: 'Dashboard Admin' }
+        loadChildren: () => import('./features/home/home.module').then(m => m.HomeModule),
+        data: { title: 'Tableau de bord' }
       },
       {
         path: 'organisations',
