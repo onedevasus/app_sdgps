@@ -308,11 +308,11 @@ export class AuthService {
      * @method getPostLoginRoute
      * @returns string La route d'atterrissage après connexion selon le rôle.
      * @description Super Admin & Admin Système atterrissent sur le tableau de bord admin
-     *              (`/admin/dashboard`, qui rend l'accueil `HomeModule`). Les autres rôles
-     *              (Admin/Agent d'organisation) gardent l'accueil opérateur `/home`.
+     *              (`/admin/dashboard`, qui rend l'accueil `HomeModule`). Les rôles
+     *              d'organisation (Admin/Agent) atterrissent sur `/dashboard` (même HomeModule).
      */
     getPostLoginRoute(): string {
-        return this.isPlatformAdmin() ? '/admin/dashboard' : '/home';
+        return this.isPlatformAdmin() ? '/admin/dashboard' : '/dashboard';
     }
 
     /**

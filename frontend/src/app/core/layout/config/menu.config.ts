@@ -8,7 +8,7 @@ export const USER_MENU: MenuItem[] = [
     id: 'dashboard',
     title: 'Tableau de bord',
     icon: 'fas fa-tachometer-alt',
-    route: '/home', // accueil opérateur servi à la racine (sans préfixe « dashboard »)
+    route: '/dashboard', // tableau de bord opérateur (Agent d'organisation)
     type: 'link',
     exact: true, // évite de rester actif sur les sous-routes (/projets…)
     description: 'Vue d\'ensemble de vos projets et activités'
@@ -58,6 +58,7 @@ const SUPER_OR_SYSTEME = ['ROLE_SUPER_ADMIN', 'ROLE_ADMIN_SYSTEME'];
 
 export const ADMIN_MENU: MenuItem[] = [
   {
+    // Super Admin & Admin Système → tableau de bord admin.
     id: 'dashboard',
     title: 'Tableau de bord',
     icon: 'fas fa-tachometer-alt',
@@ -65,7 +66,18 @@ export const ADMIN_MENU: MenuItem[] = [
     type: 'link',
     exact: true, // correspondance exacte (cohérence avec le menu opérateur)
     description: 'Vue d\'ensemble système',
-    roles: ALL_ADMIN_ROLES,
+    roles: SUPER_OR_SYSTEME,
+  },
+  {
+    // Admin d'organisation → tableau de bord opérateur /dashboard (même page que l'Agent).
+    id: 'dashboard-org',
+    title: 'Tableau de bord',
+    icon: 'fas fa-tachometer-alt',
+    route: '/dashboard',
+    type: 'link',
+    exact: true,
+    description: 'Vue d\'ensemble de vos projets et activités',
+    roles: ['ROLE_ORGANISATION_ADMIN'],
   },
   {
     id: 'organisations',

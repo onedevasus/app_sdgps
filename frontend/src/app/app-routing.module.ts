@@ -187,14 +187,21 @@ const routes: Routes = [
     children: [
       {
         path: '',
-        redirectTo: 'home',
+        redirectTo: 'dashboard',
         pathMatch: 'full'
       },
       {
-        // Accueil opérateur : tableau de bord synthétique (KPI + projets récents).
-        path: 'home',
+        // Tableau de bord opérateur (KPI + projets récents) — Admin & Agent d'organisation.
+        // NB : /admin/dashboard (super-admin / admin système) rend le même HomeModule.
+        path: 'dashboard',
         loadChildren: () => import('./features/home/home.module').then(m => m.HomeModule),
         data: { title: 'Tableau de bord' }
+      },
+      {
+        // Ancienne URL de l'accueil opérateur → /dashboard (compat liens/redirections).
+        path: 'home',
+        redirectTo: 'dashboard',
+        pathMatch: 'full'
       },
       {
         path: 'mes-projets',
@@ -220,9 +227,9 @@ const routes: Routes = [
         data: { title: 'Paramètres' }
       },
       {
-        // Sous-chemin opérateur inconnu → accueil (évite de dépendre du backtracking du path vide).
+        // Sous-chemin opérateur inconnu → tableau de bord (évite de dépendre du backtracking du path vide).
         path: '**',
-        redirectTo: 'home'
+        redirectTo: 'dashboard'
       }
     ]
   }
