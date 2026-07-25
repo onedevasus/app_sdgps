@@ -22,7 +22,9 @@ services:
   # --- PostgreSQL : uniquement pour les environnements serveur (profil `postgres`). ---
   db:
     image: postgres:16-alpine
-    container_name: sdgps-db
+    # Container + volume PAR environnement : staging/preprod/production ne partagent
+    # jamais la même base locale (règle « chaque env a SA propre base »).
+    container_name: sdgps-db-${ENVIRONMENT:-development}
     profiles: ["postgres"]
     restart: unless-stopped
     # Les identifiants viennent du MÊME .env que le backend → pas de mismatch de mot de
@@ -80,6 +82,9 @@ services:
       - "4205:4205"
 
 volumes:
+  # Noms réels interpolés par environnement → données isolées entre dev/staging/preprod/prod.
   backend_media:
+    name: sdgps_media_${ENVIRONMENT:-development}
   backend_pgdata:
+    name: sdgps_pgdata_${ENVIRONMENT:-development}
   frontend_node_modules:
