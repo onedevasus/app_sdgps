@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { LayoutService } from '../../services/layout.service';
 import { MenuItem, SidebarState } from '../../interfaces/menu.interface';
 import { Observable } from 'rxjs';
@@ -14,7 +15,7 @@ export class SidebarComponent implements OnInit {
   sidebarState$: Observable<SidebarState>;
   expandedMenus: Set<string> = new Set();
 
-  constructor(public layoutService: LayoutService) {
+  constructor(public layoutService: LayoutService, private router: Router) {
     this.menuItems$ = this.layoutService.menuItems$;
     this.sidebarState$ = this.layoutService.sidebarState$;
   }
@@ -37,6 +38,22 @@ export class SidebarComponent implements OnInit {
    */
   isExpanded(menuId: string): boolean {
     return this.expandedMenus.has(menuId);
+  }
+
+  /**
+   * Clic sur une entrée de premier niveau AVEC sous-menu : bascule le dépli et, lorsqu'on
+   * OUVRE le sous-menu, navigue automatiquement vers sa PREMIÈRE sous-entrée. En refermant,
+   * on ne navigue pas.
+   */
+  openSubmenu(item: MenuItem): void {
+    const willOpen = !this.isExpanded(item.id);
+    this.toggleSubmenu(item.id);
+    if (willOpen) {
+      const firstRoute = item.children?.[0]?.route;
+      if (firstRoute) {
+        this.router.navigate([firstRoute]);
+      }
+    }
   }
 
   /**
