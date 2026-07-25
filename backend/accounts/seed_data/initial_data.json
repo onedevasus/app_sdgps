@@ -13,7 +13,7 @@
     },
     {
       "email": "appadmin1@sdgps.ma",
-      "password_env": "APP_ADMIN1_PASSWORD",
+      "password_env": "APP_ADMIN_PASSWORD",
       "first_name": "Amine",
       "last_name": "Benali",
       "is_superuser": false,
@@ -22,7 +22,7 @@
     },
     {
       "email": "appadmin2@sdgps.ma",
-      "password_env": "APP_ADMIN2_PASSWORD",
+      "password_env": "APP_ADMIN_PASSWORD",
       "first_name": "Sara",
       "last_name": "El Amrani",
       "is_superuser": false,
