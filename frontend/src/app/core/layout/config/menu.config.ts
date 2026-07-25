@@ -80,33 +80,15 @@ export const ADMIN_MENU: MenuItem[] = [
     roles: ['ROLE_ORGANISATION_ADMIN'],
   },
   {
+    // « Liste des organisations » promue à la place de l'ancien parent « Gestion des
+    // Organisations » (sous-menu supprimé, ainsi que « Ajouter une organisation »).
     id: 'organisations',
-    title: 'Gestion des Organisations',
+    title: 'Liste des organisations',
     icon: 'fas fa-building',
-    route: '/admin/organisations',
+    route: '/admin/organisations/liste',
     type: 'link',
-    description: 'CRUD des organisations',
+    description: 'Voir toutes les organisations',
     roles: SUPER_OR_SYSTEME,
-    children: [
-      {
-        id: 'liste-organisations',
-        title: 'Liste des organisations',
-        icon: 'fas fa-list',
-        route: '/admin/organisations/liste',
-        type: 'link',
-        description: 'Voir toutes les organisations',
-        roles: SUPER_OR_SYSTEME,
-      },
-      {
-        id: 'ajouter-organisation',
-        title: 'Ajouter une organisation',
-        icon: 'fas fa-plus-circle',
-        route: '/admin/organisations/ajouter',
-        type: 'link',
-        description: 'Créer une nouvelle organisation',
-        roles: SUPER_OR_SYSTEME,
-      }
-    ]
   },
   {
     id: 'organismes',

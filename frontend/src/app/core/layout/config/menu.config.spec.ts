@@ -31,9 +31,17 @@ describe('menu.config — entrées supprimées / restructurées', () => {
   it('les entrées supprimées ne sont plus présentes (à tout niveau)', () => {
     const ids = allIds(ADMIN_MENU);
     for (const removed of ['invitations', 'logs-audit', 'supervision', 'health-check',
-                           'stats-globales', 'maintenance', 'quotas', 'limites-projets']) {
+                           'stats-globales', 'maintenance', 'quotas', 'limites-projets',
+                           'ajouter-organisation', 'liste-organisations']) {
       expect(ids).withContext(`"${removed}" doit être supprimé`).not.toContain(removed);
     }
+  });
+
+  it('« Liste des organisations » est une entrée de PREMIER niveau (sans sous-menu)', () => {
+    const item = ADMIN_MENU.find(i => i.id === 'organisations');
+    expect(item?.title).toBe('Liste des organisations');
+    expect(item?.route).toBe('/admin/organisations/liste');
+    expect(item?.children).toBeFalsy();
   });
 
   it('« Espace de stockage » est une entrée de PREMIER niveau', () => {
