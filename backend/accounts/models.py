@@ -4,7 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import timedelta
 from .managers import OrganizationManager
-from .piece_defaults import default_piece_sort_config, default_piece_fields_config, default_ssdgps_sort_config
+from .piece_defaults import default_piece_sort_config, default_piece_fields_config, default_ssdgps_sort_config, default_org_sort_config
 
 
 class Organization(models.Model):
@@ -337,6 +337,15 @@ class CustomUser(AbstractUser):
         default=default_ssdgps_sort_config, blank=True,
         verbose_name="Tri multi-niveaux de la liste des SSDGPS",
         help_text="Niveaux de tri (champ + sens) par défaut du tableau de la liste des SSDGPS."
+    )
+
+    # Tri MULTI-NIVEAUX par défaut du tableau de la LISTE DES ORGANISATIONS (miroir SSDGPS).
+    # Forme : liste ordonnée `[{'field': '<colonne>', 'dir': 'asc'|'desc'}, ..]` (niveau 1 =
+    # prioritaire). Défaut = config du super admin (source), repli sur le tri par nom.
+    org_sort_config = models.JSONField(
+        default=default_org_sort_config, blank=True,
+        verbose_name="Tri multi-niveaux de la liste des organisations",
+        help_text="Niveaux de tri (champ + sens) par défaut du tableau de la liste des organisations."
     )
 
     class Meta:

@@ -323,3 +323,32 @@ def default_ssdgps_sort_config():
     admin ; à défaut, repli sur `DEFAULT_SSDGPS_SORT_CONFIG` (tri par numéro croissant)."""
     cfg = superadmin_ssdgps_sort_config()
     return copy.deepcopy(cfg if cfg else DEFAULT_SSDGPS_SORT_CONFIG)
+
+
+# --- Tri MULTI-NIVEAUX de la liste des ORGANISATIONS (miroir du tri SSDGPS) --------------
+DEFAULT_ORG_SORT_CONFIG = [{'field': 'name', 'dir': 'asc'}]
+
+
+def superadmin_org_sort_config():
+    """Config de tri multi-niveaux de la liste des ORGANISATIONS du super admin de référence,
+    ou `None` si indisponible (aucun super admin, ou config vide). Super admin le plus ancien.
+
+    Même logique défensive que `superadmin_ssdgps_sort_config` : le savepoint `atomic()` est
+    INDISPENSABLE (la valeur par défaut est évaluée pendant la migration qui CRÉE la colonne)."""
+    from django.contrib.auth import get_user_model
+    try:
+        with transaction.atomic():
+            User = get_user_model()
+            admin = (User.objects.filter(is_superuser=True)
+                     .order_by('date_joined', 'email').first())
+            cfg = getattr(admin, 'org_sort_config', None) if admin else None
+        return cfg or None
+    except Exception:
+        return None
+
+
+def default_org_sort_config():
+    """Valeur par défaut du champ `org_sort_config` (copie profonde). Source = config du super
+    admin ; à défaut, repli sur `DEFAULT_ORG_SORT_CONFIG` (tri par nom croissant)."""
+    cfg = superadmin_org_sort_config()
+    return copy.deepcopy(cfg if cfg else DEFAULT_ORG_SORT_CONFIG)

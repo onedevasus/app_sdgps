@@ -694,3 +694,66 @@ class SsdgpsSortConfigResetView(APIView):
         request.user.ssdgps_sort_config = copy.deepcopy(source)
         request.user.save(update_fields=['ssdgps_sort_config'])
         return Response(request.user.ssdgps_sort_config, status=status.HTTP_200_OK)
+
+
+# Colonnes triables du tableau de la liste des ORGANISATIONS (allowlist de validation serveur).
+ORG_SORT_FIELDS = {
+    'code', 'name', 'type_display', 'legal_id', 'address', 'phone', 'email', 'website',
+    'is_active', 'member_count', 'created_by_email', 'modified_by_email', 'is_test_data',
+    'created_at', 'updated_at',
+}
+
+
+class OrgSortConfigView(APIView):
+    """Tri MULTI-NIVEAUX par défaut du tableau de la liste des ORGANISATIONS, propre à l'opérateur.
+
+    GET/PUT /api/auth/me/org-sort-config/
+    Corps PUT : liste ordonnée `[{'field': '<colonne>', 'dir': 'asc'|'desc'}, ..]` (niveau 1 =
+    prioritaire). Champs validés contre `ORG_SORT_FIELDS` ; doublons supprimés ; `dir`
+    normalisé (défaut 'asc'). Miroir de `SsdgpsSortConfigView`."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(request.user.org_sort_config or [], status=status.HTTP_200_OK)
+
+    def put(self, request):
+        data = request.data
+        if not isinstance(data, list):
+            return Response({'detail': "Une liste de niveaux [{field, dir}] est attendue."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cleaned, seen = [], set()
+        for level in data:
+            if not isinstance(level, dict):
+                return Response({'detail': "Chaque niveau doit être un objet {field, dir}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            field = (level.get('field') or '').strip()
+            if field not in ORG_SORT_FIELDS:
+                return Response({'detail': f"Champ de tri invalide : « {field} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if field in seen:
+                continue  # un champ ne peut apparaître qu'une fois
+            seen.add(field)
+            cleaned.append({'field': field, 'dir': 'desc' if level.get('dir') == 'desc' else 'asc'})
+        request.user.org_sort_config = cleaned
+        request.user.save(update_fields=['org_sort_config'])
+        return Response(cleaned, status=status.HTTP_200_OK)
+
+
+class OrgSortConfigResetView(APIView):
+    """Réinitialise le tri multi-niveaux de la liste des ORGANISATIONS de l'opérateur avec la
+    configuration SOURCE (compte super admin). POST .../reset/ → config appliquée, ou 400 si
+    aucune source disponible."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import copy
+        from .piece_defaults import superadmin_org_sort_config
+        source = superadmin_org_sort_config()
+        if not source:
+            return Response(
+                {'detail': "Aucune configuration source disponible : le compte administrateur "
+                           "n'a pas encore de tri des organisations configuré."},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.org_sort_config = copy.deepcopy(source)
+        request.user.save(update_fields=['org_sort_config'])
+        return Response(request.user.org_sort_config, status=status.HTTP_200_OK)

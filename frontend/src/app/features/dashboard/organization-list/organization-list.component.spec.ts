@@ -19,6 +19,7 @@ describe('OrganizationListComponent (logique)', () => {
       {} as any, {} as any, {} as any,
       { markForCheck: () => {} } as any,
       {} as any, {} as any,
+      { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any,
     );
     cmp.organizations = [...orgs];
     cmp.filteredOrganizations = [...orgs];
@@ -40,6 +41,56 @@ describe('OrganizationListComponent (logique)', () => {
       expect(cmp.getSortIcon('name')).toBe('fas fa-sort');
       cmp.sort('name');
       expect(cmp.getSortIcon('name')).toBe('fas fa-sort-up');
+    });
+  });
+
+  describe('tri multi-niveaux', () => {
+    it('compareByLevels : niveau 1 puis départage par niveau 2', () => {
+      // is_active desc → true (Alpha 3, Gamma 7) avant false (Beta 1) ; départage member_count desc.
+      cmp.sortLevels = [{ field: 'is_active', dir: 'desc' }, { field: 'member_count', dir: 'desc' }];
+      (cmp as any).applyFiltersAndSort();
+      expect(cmp.filteredOrganizations.map(o => o.id)).toEqual(['3', '1', '2']);
+    });
+    it('le tri multi-niveaux prime sur le tri mono-colonne', () => {
+      cmp.sortColumn = 'name'; cmp.sortDirection = 'asc';
+      cmp.sortLevels = [{ field: 'member_count', dir: 'asc' }];
+      (cmp as any).applyFiltersAndSort();
+      expect(cmp.filteredOrganizations.map(o => o.member_count)).toEqual([1, 3, 7]);
+    });
+    it('sortLevelOf / sortDirOf', () => {
+      cmp.sortLevels = [{ field: 'name', dir: 'asc' }, { field: 'code', dir: 'desc' }];
+      expect(cmp.sortLevelOf('name')).toBe(1);
+      expect(cmp.sortLevelOf('code')).toBe(2);
+      expect(cmp.sortLevelOf('email')).toBe(0);
+      expect(cmp.sortDirOf('code')).toBe('desc');
+    });
+    it('addLevel ajoute un champ inutilisé (pas de doublon), removeLevel retire', () => {
+      cmp.sortLevels = [];
+      cmp.addLevel();
+      const first = cmp.sortLevels[0].field;
+      cmp.addLevel();
+      expect(cmp.sortLevels.length).toBe(2);
+      expect(cmp.sortLevels[1].field).not.toBe(first);
+      cmp.removeLevel(0);
+      expect(cmp.sortLevels.length).toBe(1);
+    });
+    it('changeLevelField refuse un doublon', () => {
+      cmp.sortLevels = [{ field: 'name', dir: 'asc' }, { field: 'code', dir: 'asc' }];
+      cmp.changeLevelField(1, 'name');
+      expect(cmp.sortLevels[1].field).toBe('code');
+    });
+    it('sortSummary résume les niveaux', () => {
+      cmp.sortLevels = [{ field: 'name', dir: 'asc' }];
+      expect(cmp.sortSummary).toContain('Nom');
+      cmp.sortLevels = [];
+      expect(cmp.sortSummary).toBe('Aucun tri');
+    });
+    it('fieldsForLevel exclut les champs utilisés ailleurs', () => {
+      const lv0 = { field: 'name', dir: 'asc' } as any;
+      cmp.sortLevels = [lv0, { field: 'code', dir: 'asc' }];
+      const available = cmp.fieldsForLevel(lv0).map(f => f.field);
+      expect(available).toContain('name');
+      expect(available).not.toContain('code');
     });
   });
 
@@ -182,6 +233,7 @@ describe('OrganizationListComponent (logique)', () => {
       toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
       cmp = new OrganizationListComponent(
         orgService, {} as any, {} as any, { markForCheck: () => {} } as any, {} as any, toast,
+        { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any,
       );
       cmp.activeOrganizations = [{ id: '1', name: 'Active' }] as any;
       cmp.deletedOrganizations = [{ id: '2', name: 'Deleted' }] as any;

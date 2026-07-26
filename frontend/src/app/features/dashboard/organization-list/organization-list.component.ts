@@ -4,6 +4,7 @@ import { OrganizationService } from '../../../core/services/organization.service
 import { OrganizationMetadataService } from '../../../core/services/organization-metadata.service';
 import { UserPreferencesService, ColumnMetadata } from '../../../core/services/user-preferences.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { OrgSortConfigService, OrgSortLevel } from '../../../core/services/org-sort-config.service';
 import { Organization } from '../../../core/models/organization.model';
 import { debounceTime, forkJoin, Subject } from 'rxjs';
 
@@ -14,6 +15,25 @@ interface ColumnConfig {
   width?: string;
   type?: 'text' | 'number' | 'date' | 'email' | 'boolean'; // Type de données
 }
+
+/** Colonnes triables (allowlist alignée sur le backend ORG_SORT_FIELDS), avec libellé. */
+const SORTABLE_FIELDS: { field: string; label: string }[] = [
+  { field: 'code', label: 'Code' },
+  { field: 'name', label: 'Nom' },
+  { field: 'type_display', label: 'Type' },
+  { field: 'legal_id', label: 'ID Légal' },
+  { field: 'address', label: 'Adresse' },
+  { field: 'phone', label: 'Téléphone' },
+  { field: 'email', label: 'Email' },
+  { field: 'website', label: 'Site Web' },
+  { field: 'is_active', label: 'Statut' },
+  { field: 'member_count', label: 'Membres' },
+  { field: 'created_by_email', label: 'Créé par' },
+  { field: 'modified_by_email', label: 'Modifié par' },
+  { field: 'is_test_data', label: 'Type de données' },
+  { field: 'created_at', label: 'Date Création' },
+  { field: 'updated_at', label: 'Date Modification' },
+];
 
 @Component({
   selector: 'app-organization-list',
@@ -47,10 +67,22 @@ export class OrganizationListComponent implements OnInit {
     { field: 'updated_at', label: 'Date Modification', visible: false, width: '150px', type: 'date' }
   ];
 
-  // Tri
+  // Tri mono-colonne (clic en-tête) — conservé comme repli quand aucun tri multi-niveaux.
   sortColumn: keyof Organization | null = null;
   sortDirection: 'asc' | 'desc' = 'asc';
-  
+
+  // --- Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — miroir des SSDGPS ---
+  /** Niveaux de tri appliqués au tableau (niveau 0 = prioritaire). */
+  sortLevels: OrgSortLevel[] = [];
+  /** Champs triables proposés dans le panneau de configuration. */
+  readonly sortableFields = SORTABLE_FIELDS;
+  showSortConfig = false;
+  savingSort = false;
+  savedSortFlash = false;
+  resettingSort = false;
+  showResetConfirm = false;
+  private sortSaveTimer: any;
+
   // Filtrage
   searchQuery: string = '';
   typeFilter: string = 'all';
@@ -166,7 +198,8 @@ export class OrganizationListComponent implements OnInit {
     private preferencesService: UserPreferencesService,
     private cdr: ChangeDetectorRef,
     private fb: FormBuilder,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private orgSortConfigService: OrgSortConfigService
   ) { }
 
   ngOnInit(): void {
@@ -184,7 +217,8 @@ export class OrganizationListComponent implements OnInit {
     });
     
     this.loadOrganizations();
-    
+    this.loadSortConfig();
+
     // Fermer les menus en cliquant en dehors
     this.boundHandleClickOutside = this.handleClickOutside.bind(this);
     document.addEventListener('click', this.boundHandleClickOutside);
@@ -716,6 +750,137 @@ export class OrganizationListComponent implements OnInit {
     return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
   }
 
+  // ============================================
+  // Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — miroir des SSDGPS
+  // ============================================
+  /** Charge le tri multi-niveaux de l'opérateur (hérité du super admin par défaut). */
+  private loadSortConfig(): void {
+    this.orgSortConfigService.get().subscribe(levels => {
+      this.sortLevels = levels;
+      this.applyFiltersAndSort();
+      this.cdr.markForCheck();
+    });
+  }
+
+  /** Comparateur multi-niveaux : parcourt les niveaux dans l'ordre, le premier départage. */
+  private compareByLevels(a: Organization, b: Organization): number {
+    for (const lvl of this.sortLevels) {
+      const va = this.fieldSortValue(a, lvl.field);
+      const vb = this.fieldSortValue(b, lvl.field);
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      if (cmp !== 0) return lvl.dir === 'desc' ? -cmp : cmp;
+    }
+    return 0;
+  }
+  private fieldSortValue(o: Organization, field: string): number | string {
+    const v = (o as any)[field];
+    if (v == null) return '';
+    if (typeof v === 'boolean') return v ? 1 : 0;
+    return typeof v === 'string' ? v.toLowerCase() : v;
+  }
+
+  /** Rang (1..n) du champ dans le tri multi-niveaux, ou 0 s'il n'est pas trié. */
+  sortLevelOf(field: string): number {
+    const i = this.sortLevels.findIndex(l => l.field === field);
+    return i < 0 ? 0 : i + 1;
+  }
+  /** Sens de tri du champ ('asc'/'desc') s'il est trié, sinon ''. */
+  sortDirOf(field: string): '' | 'asc' | 'desc' {
+    return this.sortLevels.find(l => l.field === field)?.dir || '';
+  }
+  fieldLabel(field: string): string {
+    return this.sortableFields.find(f => f.field === field)?.label || field;
+  }
+  get sortSummary(): string {
+    if (!this.sortLevels.length) return 'Aucun tri';
+    return this.sortLevels
+      .map(l => `${this.fieldLabel(l.field)} ${l.dir === 'desc' ? '↓' : '↑'}`)
+      .join('  ·  ');
+  }
+
+  // --- Panneau de configuration ---
+  openSortConfig(): void { this.showSortConfig = true; }
+  closeSortConfig(): void { this.showSortConfig = false; }
+
+  /** Champs disponibles pour un niveau donné : tous sauf ceux déjà choisis ailleurs. */
+  fieldsForLevel(current: OrgSortLevel): { field: string; label: string }[] {
+    const used = new Set(this.sortLevels.filter(l => l !== current).map(l => l.field));
+    return this.sortableFields.filter(f => !used.has(f.field));
+  }
+  private firstUnusedField(): string | null {
+    const used = new Set(this.sortLevels.map(l => l.field));
+    return this.sortableFields.find(f => !used.has(f.field))?.field || null;
+  }
+  get canAddLevel(): boolean { return this.sortLevels.length < this.sortableFields.length; }
+
+  addLevel(): void {
+    const field = this.firstUnusedField();
+    if (!field) return;
+    this.sortLevels = [...this.sortLevels, { field, dir: 'asc' }];
+    this.applyLevelsChange();
+  }
+  removeLevel(i: number): void {
+    this.sortLevels = this.sortLevels.filter((_, k) => k !== i);
+    this.applyLevelsChange();
+  }
+  moveLevelUp(i: number): void {
+    if (i <= 0) return;
+    const l = [...this.sortLevels]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; this.sortLevels = l; this.applyLevelsChange();
+  }
+  moveLevelDown(i: number): void {
+    if (i >= this.sortLevels.length - 1) return;
+    const l = [...this.sortLevels]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; this.sortLevels = l; this.applyLevelsChange();
+  }
+  changeLevelField(i: number, field: string): void {
+    if (this.sortLevels.some((l, k) => k !== i && l.field === field)) return; // pas de doublon
+    this.sortLevels[i] = { ...this.sortLevels[i], field };
+    this.sortLevels = [...this.sortLevels];
+    this.applyLevelsChange();
+  }
+  changeLevelDir(i: number, dir: 'asc' | 'desc'): void {
+    this.sortLevels[i] = { ...this.sortLevels[i], dir };
+    this.sortLevels = [...this.sortLevels];
+    this.applyLevelsChange();
+  }
+
+  /** Ré-applique le tri à l'écran + enregistrement automatique (anti-rebond). */
+  private applyLevelsChange(): void {
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+    clearTimeout(this.sortSaveTimer);
+    this.sortSaveTimer = setTimeout(() => this.saveSortConfig(), 500);
+  }
+  private saveSortConfig(): void {
+    this.savingSort = true;
+    this.orgSortConfigService.save(this.sortLevels).subscribe({
+      next: (saved) => {
+        this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
+        this.applyFiltersAndSort();
+        setTimeout(() => { this.savedSortFlash = false; }, 2500);
+      },
+      error: () => { this.savingSort = false; this.toastService.error('Erreur', 'Enregistrement du tri impossible'); },
+    });
+  }
+
+  // --- Réinitialisation avec la configuration SOURCE (compte administrateur) ---
+  askResetSort(): void { if (!this.resettingSort) this.showResetConfirm = true; }
+  cancelResetSort(): void { this.showResetConfirm = false; }
+  confirmResetSort(): void {
+    if (this.resettingSort) return;
+    this.resettingSort = true;
+    this.orgSortConfigService.resetToSource().subscribe({
+      next: (levels) => {
+        this.sortLevels = levels; this.resettingSort = false; this.showResetConfirm = false;
+        this.currentPage = 1; this.applyFiltersAndSort();
+        this.toastService.success('Succès', 'Tri réinitialisé avec la configuration source');
+      },
+      error: (e) => {
+        this.resettingSort = false; this.showResetConfirm = false;
+        this.toastService.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
+      },
+    });
+  }
+
   // --- Gestion des menus ---
   toggleExportMenu(): void {
     this.showExportMenu = !this.showExportMenu;
@@ -853,15 +1018,17 @@ export class OrganizationListComponent implements OnInit {
       });
     }
 
-    // Tri
-    if (this.sortColumn) {
+    // Tri : le tri MULTI-NIVEAUX prime ; à défaut, repli sur le tri mono-colonne (clic en-tête).
+    if (this.sortLevels.length) {
+      result.sort((a, b) => this.compareByLevels(a, b));
+    } else if (this.sortColumn) {
       result.sort((a, b) => {
         const valueA = a[this.sortColumn as keyof Organization];
         const valueB = b[this.sortColumn as keyof Organization];
-        
+
         if (valueA == null) return 1;
         if (valueB == null) return -1;
-        
+
         let comparison = 0;
         if (typeof valueA === 'string' && typeof valueB === 'string') {
           comparison = valueA.localeCompare(valueB);
@@ -870,7 +1037,7 @@ export class OrganizationListComponent implements OnInit {
         } else {
           comparison = String(valueA).localeCompare(String(valueB));
         }
-        
+
         return this.sortDirection === 'asc' ? comparison : -comparison;
       });
     }
