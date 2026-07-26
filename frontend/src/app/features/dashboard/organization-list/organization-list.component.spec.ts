@@ -153,10 +153,6 @@ describe('OrganizationListComponent (logique)', () => {
       expect(cmp.formatTypeDisplay('PRIVATE', 'x')).toBe('Entreprise');
       expect(cmp.formatTypeDisplay('AUTRE', 'Libellé')).toBe('Libellé');
     });
-    it('getTestDataText', () => {
-      expect(cmp.getTestDataText(true)).toBe('TEST');
-      expect(cmp.getTestDataText(false)).toBe('RÉEL');
-    });
     it('formatDate renvoie un tiret si vide', () => {
       expect(cmp.formatDate('')).toBe('-');
       expect(cmp.formatDate('2026-07-21T10:00:00Z')).toContain('2026');

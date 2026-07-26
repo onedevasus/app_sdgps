@@ -524,14 +524,9 @@ class OrganizationMetadataView(APIView):
                 'required': False,
                 'visible_by_default': False,
             },
-            'is_test_data': {
-                'field': 'is_test_data',
-                'label': 'Type de données',
-                'description': 'Indique si cette organisation est une donnée de test (True) ou réelle (False). En production, les données de test sont automatiquement masquées.',
-                'type': 'BooleanField',
-                'required': False,
-                'visible_by_default': False,
-            },
+            # NB : `is_test_data` n'est plus une colonne de l'app (retirée du tableau des
+            # organisations et de la fiche de détail). Le champ reste en base : il pilote le
+            # filtrage automatique des données de test en production (cf. `OrganizationManager`).
             'full_path': {
                 'field': 'full_path',
                 'label': 'Chemin hiérarchique',

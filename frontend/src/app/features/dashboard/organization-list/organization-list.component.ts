@@ -33,7 +33,6 @@ const SORTABLE_FIELDS: { field: string; label: string }[] = [
   { field: 'website', label: 'Site Web' },
   { field: 'is_active', label: 'Statut' },
   { field: 'member_count', label: 'Membres' },
-  { field: 'is_test_data', label: 'Type de données' },
   // Colonnes d'audit standard : libellés unifiés (cf. CLAUDE.md).
   ...AUDIT_COLUMN_ORDER.map(field => ({ field, label: AUDIT_COLUMN_LABELS[field] })),
 ];
@@ -63,7 +62,6 @@ export class OrganizationListComponent implements OnInit {
     { field: 'website', label: 'Site Web', visible: false, width: '180px', type: 'text' },
     { field: 'is_active', label: 'Statut', visible: true, width: '100px', type: 'boolean' },
     { field: 'member_count', label: 'Membres', visible: true, width: '90px', type: 'number' },
-    { field: 'is_test_data', label: 'Type de données', visible: false, width: '130px', type: 'boolean' },
     // Colonnes d'audit standard (libellés unifiés via `auditColumns()`, cf. CLAUDE.md).
     ...(auditColumns() as unknown as ColumnConfig[]),
   ];
@@ -420,7 +418,6 @@ export class OrganizationListComponent implements OnInit {
     is_active: "Statut d'activité de l'organisation",
     member_count: 'Nombre total de membres actifs appartenant à cette organisation',
     modified_by_email: 'Utilisateur ayant effectué la dernière modification de cette organisation',
-    is_test_data: 'Indique si cette organisation est une donnée de test (True) ou réelle (False). En production, les données de test sont automatiquement masquées.',
     // Colonnes d'audit standard : descriptions unifiées (cf. CLAUDE.md).
     ...AUDIT_COLUMN_DESCRIPTIONS,
   };
@@ -1054,14 +1051,6 @@ export class OrganizationListComponent implements OnInit {
     if (typeValue === 'PUBLIC') return 'Administration';
     if (typeValue === 'PRIVATE') return 'Entreprise';
     return fullLabel;
-  }
-
-  getTestDataBadgeClass(isTestData: boolean | undefined): string {
-    return isTestData ? 'badge badge-warning' : 'badge badge-secondary';
-  }
-
-  getTestDataText(isTestData: boolean | undefined): string {
-    return isTestData ? 'TEST' : 'RÉEL';
   }
 
   formatDate(dateString: string): string {
