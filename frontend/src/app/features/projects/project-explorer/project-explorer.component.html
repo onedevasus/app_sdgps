@@ -260,10 +260,9 @@
                 [class.is-sorted]="sortLevelOf(col.field)"
                 (click)="openSort()"
                 (contextmenu)="onColumnHeaderRightClick($event, col)"
-                [title]="'Configurer le tri multi-niveaux — ' + getFieldDescription(col.field)">
+                appTableHeaderTooltip [tipLabel]="col.label" [tipDescription]="getFieldDescription(col.field)" [tipType]="col.type" [tipSortLevel]="sortLevelOf(col.field)" [tipSortDir]="sortDirOf(col.field)">
               <span>{{ col.label }}</span>
-              <span class="sort-badge" *ngIf="sortLevelOf(col.field)"
-                    [title]="'Niveau de tri ' + sortLevelOf(col.field) + ' — ' + (sortDirOf(col.field) === 'desc' ? 'décroissant' : 'croissant')">
+              <span class="sort-badge" *ngIf="sortLevelOf(col.field)">
                 <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>
                 <i class="fas" [class.fa-arrow-up-short-wide]="sortDirOf(col.field) === 'asc'"
                    [class.fa-arrow-down-wide-short]="sortDirOf(col.field) === 'desc'"></i>
