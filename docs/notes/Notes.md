@@ -8,6 +8,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -69,36 +71,29 @@
     - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees.
     - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
     - Finaliser l'interface graphique UI/UX
+      - desactivation admin django
+      - config des colonnes affichees pour chaque tableau, par defaut config du superadmin.
+      - revision des colonnes des entietes
+        - ajout colonne nbr pieces dans sous entitees du projet
 
   
 
-  - Ajouter le modale de tri des lignes d'un tableau pour tous tableaux de l'app : projets/proprietes/affaires/ssdgps/sessions/pieces.
-  - Fonctionnalite espace stockage utilisee par les donnees de l'app dans l'espace admin.
-
-
-  - Plan des tests frontend + backend
-      - ecrire tous les tests de toutes les fonctionnalites de l'app : frontend + backend
-      - maj le fichier de configs des workflow GitHub Actions
-      - Ajoute instruction global pour les ai assistants de coding pour qu'ils redigent les tests pour chaque nouvelle fonctionnalite ajoutee dans le codebase.
-
-  - Plan Migration de la bdd vers postgresql
-    - migrer la bdd existante vers Postgresql
-    - migrer egalement les donnees existantes actuellement dans la bdd sqlite vers la bdd Postgresql
-    - Faire en sorte que a chaque reinitialisation de la bdd les donnees suivantes sont ajoutees automatiquement :\
-      - donnees des utilisateurs : 1 superadmin + 2 admins de l'app.
-      - liste predefinies des organisations
-      - liste predefinies des organismes premier niveau + deuxieme niveau.
+  
 
 
   - Plan de deployement : developement + tests + production
-    - Generer plan de deployement dans "D:\BOULMANE\PycharmProjects\perso\ancfcc\app-sdgps\docs\plans\plans_claude_code"
-      - inclure la migration de la bdd depuis sqlite3 vers postgresql.
-      - 
-      - inclure phase de resolution les problemes de securite
-      - inclure l'automatisation du process d'integration et deployement des maj via les outiles DevOps.
-      - ajoute l'etape de monitoring de l'app avec outiles : Sentry + Prometheus + Grafana + UptimeRobot
+    - restructuration des fichiers .env des 4 environnements + docker-compose
+      - restructurer les deux fichiers: .env.development + .env.production (fait)
+      - ajout des env de staging + preprod  (fait)
+      - mapper les env avec services dans dockercompose (chaque environnement avec sa propre bdd et service backend propre)
+      - mapper les noms des services avec 4 environnemts
+      - tests dans dev + staging
+      - automatiser process maj des deploiement locaux comme deploiement railway
+
+    - inclure phase de resolution les problemes de securite
+    - inclure l'automatisation du process d'integration et deployement des maj via les outiles DevOps. (fait)
+    - ajoute l'etape de monitoring de l'app avec outiles : Sentry + Prometheus + Grafana + UptimeRobot
       
-    - executer plan de deploiement
 
  
 
@@ -107,7 +102,7 @@
 Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
 
 - Fonctionnalites futures:
-  - Ajouter une page de changelog + versionning de l'app 
+  - Ajouter une page de changelog + ajouter version dans l'app
   - Fonctionnalite gestion stockage des fichiers de l'app avec un fournisseur du service stockage.
   - 
 
@@ -242,7 +237,9 @@ git log --oneline --grep="wip: auto-save" --max-count=20
 
 ### Prompte redemarrage serveurs backend + frontend
 
-force le redemarrage/relance des deux serveurs frontend et backend (vrai serveur backend via docker) en arriere plan (ne pas afficher de fenetres terminal dans windows). relance backend sur port 8085 et frontend sur le port 4205. ne jamais stopper les autres process deja dans les autres ports par exemples : 8080/ 8081 ... ou bien 4200/4201 ...
+force le redemarrage/relance des deux serveurs frontend et backend (vrai serveur backend via docker) en arriere plan (ne pas afficher de fenetres terminal dans windows) en utilisant l'environnement de development depuis la confi des environnements. relance backend sur port 8085 et frontend sur le port 4205. ne jamais stopper les autres process deja dans les autres ports par exemples : 8080/ 8081 ... ou bien 4200/4201 ...
+
+relance frontend de l'environnemnt development sur port 4205.
 
 ## Redaction du CPS de l'app
 

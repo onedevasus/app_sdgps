@@ -171,3 +171,37 @@ assistants de codage IA comme aux contributeurs humains (cf. `AGENTS.md`).
 - Les composants Angular utilisent **SCSS** par défaut (schematics de `angular.json`).
 - Référence de design : `docs/ui-design-spec.md` ; notes de travail dans `docs/notes/`,
   plans dans `docs/plans/PLAN_DEV.md`.
+- **Tri multi-niveaux (parité obligatoire entre toutes les pages).** La fonctionnalité de tri
+  multi-niveaux des tableaux (bouton « Trier » + modale de configuration) doit avoir **le même
+  design, le même style et les mêmes options partout dans l'app**. Options standard de la modale :
+  niveaux ordonnables (placer en premier/monter/descendre/placer en dernier + retirer),
+  **« Effacer le tri »** (vide tous les niveaux), **« Réinitialiser avec la configuration source »**
+  (hérite du compte administrateur), ajout de niveau, enregistrement automatique. Le bouton
+  « Trier » a un état par défaut (aucun tri) lisible et un état actif accentué (`.btn-sort-multi`).
+  - **Composant partagé (à privilégier pour toute NOUVELLE liste).**
+    `shared/components/multi-level-sort/` — composant présentationnel `<app-multi-level-sort>`
+    (bouton + modale, design identique aux organisations) + helpers `multi-level-sort.util.ts`
+    (`compareByLevels`, `sortLevelOf`, `sortDirOf`). Persistance générique par utilisateur via
+    `core/services/table-sort-config.service.ts` (clé de tableau) → backend
+    `CustomUser.table_sort_configs` + endpoints `me/table-sort-config/<key>/` (+ `/reset/`),
+    allowlists dans `accounts/views.py::TABLE_SORT_FIELDS`. Le parent conserve `sortLevels`,
+    branche `[levels]`/`(levelsChange)`/`(resetToSource)`, applique `compareByLevels` et affiche
+    les marqueurs d'en-tête (`.sort-badge`). Intégré ainsi (clés `TABLE_SORT_FIELDS`) :
+    **utilisateurs** (`users`), **projets** (`projects`), **explorateur de projet** — un tableau
+    par niveau : `project_proprietes` / `project_affaires` / `project_ssdgps` / `project_sessions`
+    (l'explorateur garde une config de tri **par niveau** dans `sortLevelsByLevel`), et **liste
+    des pièces d'un rapport SSDGPS** (`pieces`). Quand le bouton et l'en-tête vivent dans des
+    blocs `*ngIf` frères, ouvrir la modale via `@ViewChild(MultiLevelSortComponent)` + `openSort()`
+    (une variable de template `#sorter` n'est pas visible d'une vue embarquée à l'autre).
+    ⚠️ Le tri des **pièces** ci-dessus porte sur la **liste** des pièces d'un rapport ; il est
+    distinct du tri des **données internes** d'une pièce (`piece_sort_config`, par type, via
+    *Profil → Paramètres de tri des pièces*) — ne pas confondre.
+  - **Toutes les listes utilisent désormais le composant partagé** (plus aucune copie inline du
+    bouton/modale). Les 3 surfaces « historiques » — liste des organisations
+    (`features/dashboard/organization-list`), listes des organismes niveau 1 & 2
+    (`features/admin/organismes/organisme-list`), liste des SSDGPS
+    (`features/projects/project-ssdgps-list`) — ont été **migrées** vers `<app-multi-level-sort>`
+    tout en conservant leurs services/endpoints backend **dédiés** (`org-sort-config`,
+    `organisme-sort-config`, `ssdgps-sort-config`) : seule l'UI est mutualisée. Le parent garde
+    `sortLevels`, `sortLevelOf`/`sortDirOf`, `compareByLevels`, `onSortLevelsChange`, `onResetSort`,
+    et ouvre la modale via `@ViewChild(MultiLevelSortComponent)` + `openSortConfig()`.

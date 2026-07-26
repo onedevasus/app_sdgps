@@ -11,9 +11,10 @@ describe('ProjectListComponent (getters & pagination)', () => {
   let cmp: ProjectListComponent;
 
   beforeEach(() => {
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectListComponent(
       {} as any, {} as any, {} as any, {} as any,
-      new FormBuilder(), {} as any, {} as any, {} as any,
+      new FormBuilder(), {} as any, {} as any, {} as any, sortStub,
     );
   });
 
@@ -70,8 +71,9 @@ describe('ProjectListComponent (suppression définitive)', () => {
   beforeEach(() => {
     service = jasmine.createSpyObj('ProjectsService', ['permanentDeleteProjet', 'bulkPermanentDeleteProjets']);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectListComponent(
-      service, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any,
+      service, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortStub,
     );
     spyOn(cmp, 'load');
   });
@@ -96,5 +98,61 @@ describe('ProjectListComponent (suppression définitive)', () => {
     cmp.openBulkPermanentDeleteModal();
     cmp.confirmPermanentDelete();
     expect(toast.error).toHaveBeenCalled();
+  });
+});
+
+describe('ProjectListComponent (tri multi-niveaux)', () => {
+  let cmp: ProjectListComponent;
+  let toast: any;
+  let sortSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    sortSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    cmp = new ProjectListComponent(
+      {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortSvc,
+    );
+    spyOn<any>(cmp, 'savePreferences');
+  });
+
+  it('applyFiltersAndSort applique le tri multi-niveaux (prioritaire sur le mono-colonne)', () => {
+    cmp.activeProjets = [
+      { id: '1', nom_projet: 'Alpha', code_projet: 'Z', is_deleted: false },
+      { id: '2', nom_projet: 'Alpha', code_projet: 'A', is_deleted: false },
+      { id: '3', nom_projet: 'Beta', code_projet: 'M', is_deleted: false },
+    ] as any;
+    cmp.showDeleted = false;
+    (cmp as any).manualOrder = null;
+    cmp.sortLevels = [{ field: 'nom_projet', dir: 'asc' }, { field: 'code_projet', dir: 'asc' }];
+    cmp.applyFiltersAndSort();
+    expect(cmp.filteredProjets.map(p => p.id)).toEqual(['2', '1', '3']);
+  });
+
+  it('sortLevelOf / sortDirOf reflètent les niveaux', () => {
+    cmp.sortLevels = [{ field: 'code_projet', dir: 'desc' }];
+    expect(cmp.sortLevelOf('code_projet')).toBe(1);
+    expect(cmp.sortDirOf('code_projet')).toBe('desc');
+    expect(cmp.sortLevelOf('statut')).toBe(0);
+  });
+
+  it('onResetSort appelle le service pour la clé « projects »', () => {
+    cmp.activeProjets = [];
+    sortSvc.resetToSource.and.returnValue(of([{ field: 'nom_projet', dir: 'asc' }]));
+    cmp.onResetSort();
+    expect(sortSvc.resetToSource).toHaveBeenCalledWith('projects');
+    expect(cmp.sortLevels).toEqual([{ field: 'nom_projet', dir: 'asc' }]);
+  });
+
+  it('openSortFromContext ferme le menu contextuel et ouvre la modale de tri', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).sortCmp = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
   });
 });

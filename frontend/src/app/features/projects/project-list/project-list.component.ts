@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, forkJoin } from 'rxjs';
@@ -10,6 +10,9 @@ import { OrganizationService } from '../../../core/services/organization.service
 import { ToastService } from '../../../core/services/toast.service';
 import { Projet, STATUT_OPTIONS } from '../../../core/models/project.model';
 import { Organization } from '../../../core/models/organization.model';
+import { TableSortConfigService, OrgSortLevel } from '../../../core/services/table-sort-config.service';
+import { SortableField, compareByLevels, sortLevelOf, sortDirOf } from '../../../shared/components/multi-level-sort/multi-level-sort.util';
+import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 
 interface ColumnConfig {
   field: string;
@@ -74,9 +77,35 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   activeFieldFilterLabel = '';
   fieldFilterValue = '';
 
-  // Tri
+  // Tri mono-colonne (clic en-tête) — repli quand aucun tri multi-niveaux.
   sortColumn = 'created_at';
   sortDirection: 'asc' | 'desc' = 'desc';
+
+  // --- Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — parité liste organisations ---
+  private readonly SORT_KEY = 'projects';
+  readonly sortableFields: SortableField[] = [
+    { field: 'code_projet', label: 'Code' },
+    { field: 'nom_projet', label: 'Nom du projet' },
+    { field: 'statut', label: 'Statut' },
+    { field: 'organization_name', label: 'Organisation' },
+    { field: 'nbr_total_proprietes', label: 'Propriétés' },
+    { field: 'nbr_total_affaires', label: 'Affaires' },
+    { field: 'nbr_total_ssdgps', label: 'SSDGPS' },
+    { field: 'nbr_total_sessions', label: 'Sessions' },
+    { field: 'nbr_total_pieces', label: 'Nb Pièces' },
+    { field: 'created_at', label: 'Date de création' },
+    { field: 'updated_at', label: 'Dernière modification' },
+    { field: 'created_by_email', label: 'Créé par' },
+    { field: 'updated_by_email', label: 'Modifié par' },
+    { field: 'is_deleted', label: 'Supprimé' },
+    { field: 'deleted_at', label: 'Date de suppression' },
+    { field: 'deleted_by_email', label: 'Supprimé par' },
+  ];
+  sortLevels: OrgSortLevel[] = [];
+  savingSort = false;
+  savedSortFlash = false;
+  resettingSort = false;
+  private sortSaveTimer: any;
 
   // Sélection
   selectedIds = new Set<string>();
@@ -129,6 +158,9 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   showFilterMenu = false;
   showFieldFilterMenu = false;
 
+  // Tri multi-niveaux (composant partagé) — ouverture programmatique depuis le menu contextuel.
+  @ViewChild(MultiLevelSortComponent) private sortCmp?: MultiLevelSortComponent;
+
   // Menus contextuels
   showColumnContextMenu = false;
   showRowContextMenu = false;
@@ -149,6 +181,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private breadcrumb: BreadcrumbService,
+    private sortConfigService: TableSortConfigService,
   ) {
     this.form = this.fb.group({
       nom_projet: ['', Validators.required],
@@ -170,6 +203,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.viewMode = (localStorage.getItem(VIEW_MODE_KEY) as 'cards' | 'table') || 'table';
     this.loadPreferences();
     this.load();
+    this.loadSortConfig();
     this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
     document.addEventListener('click', this.boundHandleClickOutside);
 
@@ -301,6 +335,9 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         const ib = idx.has(b.id) ? idx.get(b.id)! : Number.MAX_SAFE_INTEGER;
         return ia - ib;
       });
+    } else if (this.sortLevels.length) {
+      // Le tri MULTI-NIVEAUX prime sur le tri mono-colonne.
+      result.sort((a, b) => compareByLevels(a, b, this.sortLevels));
     } else {
       result.sort((a, b) => {
         let valA: any, valB: any;
@@ -392,6 +429,57 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   getSortIcon(column: string): string {
     if (this.sortColumn !== column) return 'fas fa-sort';
     return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  }
+
+  // ============================================
+  // Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — parité liste organisations
+  // ============================================
+  sortLevelOf(field: string): number { return sortLevelOf(this.sortLevels, field); }
+  sortDirOf(field: string): '' | 'asc' | 'desc' { return sortDirOf(this.sortLevels, field); }
+
+  private loadSortConfig(): void {
+    this.sortConfigService.get(this.SORT_KEY).subscribe(levels => {
+      this.sortLevels = levels;
+      this.applyFiltersAndSort();
+    });
+  }
+
+  /** Réception d'une modification depuis la modale : applique + enregistrement auto (anti-rebond). */
+  onSortLevelsChange(levels: OrgSortLevel[]): void {
+    this.sortLevels = levels;
+    this.manualOrder = null;
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+    clearTimeout(this.sortSaveTimer);
+    this.sortSaveTimer = setTimeout(() => this.saveSortConfig(), 500);
+  }
+  private saveSortConfig(): void {
+    this.savingSort = true;
+    this.sortConfigService.save(this.SORT_KEY, this.sortLevels).subscribe({
+      next: (saved) => {
+        this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
+        this.applyFiltersAndSort();
+        setTimeout(() => { this.savedSortFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingSort = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement du tri impossible'); },
+    });
+  }
+
+  /** Réinitialise le tri avec la configuration SOURCE (compte administrateur). */
+  onResetSort(): void {
+    if (this.resettingSort) return;
+    this.resettingSort = true;
+    this.sortConfigService.resetToSource(this.SORT_KEY).subscribe({
+      next: (levels) => {
+        this.sortLevels = levels; this.resettingSort = false;
+        this.manualOrder = null; this.currentPage = 1; this.applyFiltersAndSort();
+        this.toast.success('Succès', 'Tri réinitialisé avec la configuration source');
+      },
+      error: (e) => {
+        this.resettingSort = false;
+        this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
+      },
+    });
   }
 
   formatDate(value: any): string {
@@ -529,6 +617,8 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.showColumnContextMenu = false; this.contextMenuColumn = null;
   }
   openColumnConfigFromContext(): void { this.showColumnContextMenu = false; this.openColumnConfig(); }
+  /** Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
+  openSortFromContext(): void { this.showColumnContextMenu = false; this.sortCmp?.open(); }
 
   getTypeLabel(type?: string): string {
     return { text: 'TEXTE', date: 'DATE', number: 'NOMBRE', status: 'STATUT', boolean: 'BOOLÉEN', actions: 'ACTIONS' }[type || 'text'] || 'TEXTE';

@@ -45,6 +45,8 @@ describe('OrganizationListComponent (logique)', () => {
   });
 
   describe('tri multi-niveaux', () => {
+    // La modale (ajout/retrait/déplacement/effacement des niveaux) est désormais dans le composant
+    // partagé <app-multi-level-sort> (testé séparément). Ici : application du tri + branchements.
     it('compareByLevels : niveau 1 puis départage par niveau 2', () => {
       // is_active desc → true (Alpha 3, Gamma 7) avant false (Beta 1) ; départage member_count desc.
       cmp.sortLevels = [{ field: 'is_active', dir: 'desc' }, { field: 'member_count', dir: 'desc' }];
@@ -64,44 +66,11 @@ describe('OrganizationListComponent (logique)', () => {
       expect(cmp.sortLevelOf('email')).toBe(0);
       expect(cmp.sortDirOf('code')).toBe('desc');
     });
-    it('addLevel ajoute un champ inutilisé (pas de doublon), removeLevel retire', () => {
+    it('onSortLevelsChange applique les niveaux reçus de la modale partagée', () => {
       cmp.sortLevels = [];
-      cmp.addLevel();
-      const first = cmp.sortLevels[0].field;
-      cmp.addLevel();
-      expect(cmp.sortLevels.length).toBe(2);
-      expect(cmp.sortLevels[1].field).not.toBe(first);
-      cmp.removeLevel(0);
-      expect(cmp.sortLevels.length).toBe(1);
-    });
-    it('changeLevelField refuse un doublon', () => {
-      cmp.sortLevels = [{ field: 'name', dir: 'asc' }, { field: 'code', dir: 'asc' }];
-      cmp.changeLevelField(1, 'name');
-      expect(cmp.sortLevels[1].field).toBe('code');
-    });
-    it('sortSummary résume les niveaux', () => {
-      cmp.sortLevels = [{ field: 'name', dir: 'asc' }];
-      expect(cmp.sortSummary).toContain('Nom');
-      cmp.sortLevels = [];
-      expect(cmp.sortSummary).toBe('Aucun tri');
-    });
-    it('fieldsForLevel exclut les champs utilisés ailleurs', () => {
-      const lv0 = { field: 'name', dir: 'asc' } as any;
-      cmp.sortLevels = [lv0, { field: 'code', dir: 'asc' }];
-      const available = cmp.fieldsForLevel(lv0).map(f => f.field);
-      expect(available).toContain('name');
-      expect(available).not.toContain('code');
-    });
-    it('openSortConfig ouvre la modale', () => {
-      cmp.showSortConfig = false;
-      cmp.openSortConfig();
-      expect(cmp.showSortConfig).toBeTrue();
-    });
-    it('openSortConfigFromContext ferme le menu contextuel et ouvre la modale', () => {
-      cmp.showColumnContextMenu = true;
-      cmp.openSortConfigFromContext();
-      expect(cmp.showColumnContextMenu).toBeFalse();
-      expect(cmp.showSortConfig).toBeTrue();
+      cmp.onSortLevelsChange([{ field: 'member_count', dir: 'asc' }]);
+      expect(cmp.sortLevels).toEqual([{ field: 'member_count', dir: 'asc' }]);
+      expect(cmp.filteredOrganizations.map(o => o.member_count)).toEqual([1, 3, 7]);
     });
   });
 

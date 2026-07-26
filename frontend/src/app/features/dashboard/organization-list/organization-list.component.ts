@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { OrganizationMetadataService } from '../../../core/services/organization-metadata.service';
@@ -6,6 +6,7 @@ import { UserPreferencesService, ColumnMetadata } from '../../../core/services/u
 import { ToastService } from '../../../core/services/toast.service';
 import { OrgSortConfigService, OrgSortLevel } from '../../../core/services/org-sort-config.service';
 import { Organization } from '../../../core/models/organization.model';
+import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { debounceTime, forkJoin, Subject } from 'rxjs';
 
 interface ColumnConfig {
@@ -76,11 +77,10 @@ export class OrganizationListComponent implements OnInit {
   sortLevels: OrgSortLevel[] = [];
   /** Champs triables proposés dans le panneau de configuration. */
   readonly sortableFields = SORTABLE_FIELDS;
-  showSortConfig = false;
+  @ViewChild(MultiLevelSortComponent) private sortCmp?: MultiLevelSortComponent;
   savingSort = false;
   savedSortFlash = false;
   resettingSort = false;
-  showResetConfirm = false;
   private sortSaveTimer: any;
 
   // Filtrage
@@ -796,63 +796,12 @@ export class OrganizationListComponent implements OnInit {
   sortDirOf(field: string): '' | 'asc' | 'desc' {
     return this.sortLevels.find(l => l.field === field)?.dir || '';
   }
-  fieldLabel(field: string): string {
-    return this.sortableFields.find(f => f.field === field)?.label || field;
-  }
-  get sortSummary(): string {
-    if (!this.sortLevels.length) return 'Aucun tri';
-    return this.sortLevels
-      .map(l => `${this.fieldLabel(l.field)} ${l.dir === 'desc' ? '↓' : '↑'}`)
-      .join('  ·  ');
-  }
+  /** Ouvre la modale de tri (composant partagé). */
+  openSortConfig(): void { this.sortCmp?.open(); }
 
-  // --- Panneau de configuration ---
-  openSortConfig(): void { this.showSortConfig = true; }
-  closeSortConfig(): void { this.showSortConfig = false; }
-
-  /** Champs disponibles pour un niveau donné : tous sauf ceux déjà choisis ailleurs. */
-  fieldsForLevel(current: OrgSortLevel): { field: string; label: string }[] {
-    const used = new Set(this.sortLevels.filter(l => l !== current).map(l => l.field));
-    return this.sortableFields.filter(f => !used.has(f.field));
-  }
-  private firstUnusedField(): string | null {
-    const used = new Set(this.sortLevels.map(l => l.field));
-    return this.sortableFields.find(f => !used.has(f.field))?.field || null;
-  }
-  get canAddLevel(): boolean { return this.sortLevels.length < this.sortableFields.length; }
-
-  addLevel(): void {
-    const field = this.firstUnusedField();
-    if (!field) return;
-    this.sortLevels = [...this.sortLevels, { field, dir: 'asc' }];
-    this.applyLevelsChange();
-  }
-  removeLevel(i: number): void {
-    this.sortLevels = this.sortLevels.filter((_, k) => k !== i);
-    this.applyLevelsChange();
-  }
-  moveLevelUp(i: number): void {
-    if (i <= 0) return;
-    const l = [...this.sortLevels]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; this.sortLevels = l; this.applyLevelsChange();
-  }
-  moveLevelDown(i: number): void {
-    if (i >= this.sortLevels.length - 1) return;
-    const l = [...this.sortLevels]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; this.sortLevels = l; this.applyLevelsChange();
-  }
-  changeLevelField(i: number, field: string): void {
-    if (this.sortLevels.some((l, k) => k !== i && l.field === field)) return; // pas de doublon
-    this.sortLevels[i] = { ...this.sortLevels[i], field };
-    this.sortLevels = [...this.sortLevels];
-    this.applyLevelsChange();
-  }
-  changeLevelDir(i: number, dir: 'asc' | 'desc'): void {
-    this.sortLevels[i] = { ...this.sortLevels[i], dir };
-    this.sortLevels = [...this.sortLevels];
-    this.applyLevelsChange();
-  }
-
-  /** Ré-applique le tri à l'écran + enregistrement automatique (anti-rebond). */
-  private applyLevelsChange(): void {
+  /** Réception d'une modification depuis la modale partagée : applique + enregistrement auto. */
+  onSortLevelsChange(levels: OrgSortLevel[]): void {
+    this.sortLevels = levels;
     this.currentPage = 1;
     this.applyFiltersAndSort();
     clearTimeout(this.sortSaveTimer);
@@ -866,24 +815,22 @@ export class OrganizationListComponent implements OnInit {
         this.applyFiltersAndSort();
         setTimeout(() => { this.savedSortFlash = false; }, 2500);
       },
-      error: () => { this.savingSort = false; this.toastService.error('Erreur', 'Enregistrement du tri impossible'); },
+      error: (err) => { this.savingSort = false; this.toastService.error('Erreur', err?.error?.detail || 'Enregistrement du tri impossible'); },
     });
   }
 
   // --- Réinitialisation avec la configuration SOURCE (compte administrateur) ---
-  askResetSort(): void { if (!this.resettingSort) this.showResetConfirm = true; }
-  cancelResetSort(): void { this.showResetConfirm = false; }
-  confirmResetSort(): void {
+  onResetSort(): void {
     if (this.resettingSort) return;
     this.resettingSort = true;
     this.orgSortConfigService.resetToSource().subscribe({
       next: (levels) => {
-        this.sortLevels = levels; this.resettingSort = false; this.showResetConfirm = false;
+        this.sortLevels = levels; this.resettingSort = false;
         this.currentPage = 1; this.applyFiltersAndSort();
         this.toastService.success('Succès', 'Tri réinitialisé avec la configuration source');
       },
       error: (e) => {
-        this.resettingSort = false; this.showResetConfirm = false;
+        this.resettingSort = false;
         this.toastService.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
       },
     });

@@ -108,13 +108,18 @@
 
       <!-- Groupe droit : Ajouter et Recherche -->
       <div class="toolbar-right">
-        <!-- Tri multi-niveaux -->
-        <button class="btn btn-sort-multi" [class.active]="sortLevels.length"
-                (click)="openSortConfig()" title="Configurer le tri multi-niveaux">
-          <i class="fas fa-sort-amount-down"></i>
-          <span>Trier</span>
-          <span class="sort-count" *ngIf="sortLevels.length">{{ sortLevels.length }}</span>
-        </button>
+        <!-- Tri multi-niveaux (composant partagé) -->
+        <app-multi-level-sort
+          [sortableFields]="sortableFields"
+          [levels]="sortLevels"
+          title="Tri multi-niveaux des organisations"
+          emptyHint="Aucun niveau de tri — ordre par défaut du serveur."
+          [saving]="savingSort"
+          [savedFlash]="savedSortFlash"
+          [resetting]="resettingSort"
+          (levelsChange)="onSortLevelsChange($event)"
+          (resetToSource)="onResetSort()">
+        </app-multi-level-sort>
 
         <!-- Bouton Ajouter une organisation (onglet Actifs uniquement) -->
         <button
@@ -1580,81 +1585,4 @@
   </div>
 </div>
 
-<!-- ===== Panneau de configuration du tri MULTI-NIVEAUX de la liste des organisations ===== -->
-<div class="modal-overlay" *ngIf="showSortConfig" (click)="closeSortConfig()">
-  <div class="modal-content sort-config-panel" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h3><i class="fas fa-sort-amount-down header-icon"></i> Tri multi-niveaux des organisations</h3>
-      <button class="close-btn" (click)="closeSortConfig()"><i class="fas fa-times"></i></button>
-    </div>
-
-    <div class="modal-body">
-      <p class="panel-hint">
-        Définissez un ou <strong>plusieurs niveaux de tri</strong> (le niveau 1 est prioritaire,
-        le niveau 2 départage les égalités, etc.), chacun croissant ou décroissant. Le tri par
-        défaut est <strong>hérité du compte administrateur</strong> et peut être réinitialisé.
-      </p>
-
-      <div class="sort-autosave">
-        <span class="saving" *ngIf="savingSort"><i class="fas fa-spinner fa-spin"></i> Enregistrement…</span>
-        <span class="saved" *ngIf="!savingSort && savedSortFlash"><i class="fas fa-check-circle"></i> Modifications enregistrées</span>
-        <span class="idle" *ngIf="!savingSort && !savedSortFlash"><i class="fas fa-bolt"></i> Les modifications sont enregistrées automatiquement</span>
-        <span class="spacer"></span>
-        <button type="button" class="btn-reset-source" [disabled]="resettingSort" (click)="askResetSort()"
-                title="Remplacer votre tri par la configuration par défaut (compte administrateur)">
-          <i class="fas" [class.fa-spinner]="resettingSort" [class.fa-spin]="resettingSort" [class.fa-arrows-rotate]="!resettingSort"></i>
-          Réinitialiser avec la configuration source
-        </button>
-      </div>
-
-      <div class="sort-levels-empty" *ngIf="!sortLevels.length">
-        <i class="fas fa-info-circle"></i> Aucun niveau de tri — ordre par défaut du serveur.
-      </div>
-
-      <div class="sort-levels">
-        <div class="sort-level" *ngFor="let lv of sortLevels; let i = index">
-          <span class="level-badge">{{ i + 1 }}</span>
-          <select class="level-field" [ngModel]="lv.field" (ngModelChange)="changeLevelField(i, $event)">
-            <option *ngFor="let f of fieldsForLevel(lv)" [value]="f.field">{{ f.label }}</option>
-          </select>
-          <select class="level-dir" [ngModel]="lv.dir" (ngModelChange)="changeLevelDir(i, $event)">
-            <option value="asc">Croissant ↑</option>
-            <option value="desc">Décroissant ↓</option>
-          </select>
-          <div class="level-actions">
-            <button type="button" title="Monter" [disabled]="i === 0" (click)="moveLevelUp(i)"><i class="fas fa-arrow-up"></i></button>
-            <button type="button" title="Descendre" [disabled]="i === sortLevels.length - 1" (click)="moveLevelDown(i)"><i class="fas fa-arrow-down"></i></button>
-            <button type="button" class="danger" title="Retirer" (click)="removeLevel(i)"><i class="fas fa-times"></i></button>
-          </div>
-        </div>
-      </div>
-
-      <button type="button" class="btn-add-level" [disabled]="!canAddLevel" (click)="addLevel()">
-        <i class="fas fa-plus"></i> Ajouter un niveau de tri
-      </button>
-    </div>
-
-    <div class="modal-footer">
-      <span class="sort-summary"><i class="fas fa-list-ol"></i> {{ sortSummary }}</span>
-      <button class="btn-confirm" (click)="closeSortConfig()"><i class="fas fa-check"></i> Fermer</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confirmation : réinitialisation avec la configuration source -->
-<div class="modal-overlay" *ngIf="showResetConfirm" (click)="cancelResetSort()">
-  <div class="modal-content confirm-panel" (click)="$event.stopPropagation()">
-    <h3><i class="fas fa-arrows-rotate"></i> Réinitialiser le tri ?</h3>
-    <p>
-      Votre tri multi-niveaux va être <strong>remplacé</strong> par la configuration source
-      (celle du compte administrateur). Vos niveaux personnalisés seront <strong>écrasés</strong>.
-    </p>
-    <div class="confirm-actions">
-      <button class="btn-cancel" (click)="cancelResetSort()" [disabled]="resettingSort">Annuler</button>
-      <button class="btn-confirm" (click)="confirmResetSort()" [disabled]="resettingSort">
-        <i class="fas" [class.fa-spinner]="resettingSort" [class.fa-spin]="resettingSort" [class.fa-arrows-rotate]="!resettingSort"></i>
-        {{ resettingSort ? 'Réinitialisation…' : 'Réinitialiser' }}
-      </button>
-    </div>
-  </div>
-</div>
+<!-- Le tri multi-niveaux (bouton + modales) est fourni par <app-multi-level-sort> dans la barre d'outils. -->

@@ -17,8 +17,9 @@ describe('PieceManagementPageComponent (logique)', () => {
   beforeEach(() => {
     router = jasmine.createSpyObj('Router', ['navigate']);
     (router as any).url = '/projets/p1/pieces/s1';
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new PieceManagementPageComponent(
-      {} as any, {} as any, {} as any, router as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, router as any, {} as any, {} as any, sortStub,
     );
     (cmp as any).projectId = 'p1';
     cmp.ssdgps = { id: 's1', numero_ssdgps: 3, type_ssdgps: 'mono-session' } as any;
@@ -254,8 +255,9 @@ describe('PieceManagementPageComponent (suppression définitive)', () => {
   beforeEach(() => {
     piecesService = jasmine.createSpyObj('PiecesService', ['permanentDelete', 'bulkPermanentDelete']);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new PieceManagementPageComponent(
-      {} as any, piecesService, toast, { navigate: () => {} } as any, {} as any, {} as any,
+      {} as any, piecesService, toast, { navigate: () => {} } as any, {} as any, {} as any, sortStub,
     );
     spyOn(cmp, 'loadPieces');
   });
@@ -275,5 +277,58 @@ describe('PieceManagementPageComponent (suppression définitive)', () => {
     cmp.openBulkPermanentDeleteModal();
     cmp.confirmPermanentDelete();
     expect(piecesService.bulkPermanentDelete).toHaveBeenCalled();
+  });
+});
+
+describe('PieceManagementPageComponent (tri multi-niveaux de la liste)', () => {
+  let cmp: PieceManagementPageComponent;
+  let toast: any;
+  let sortSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    sortSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    cmp = new PieceManagementPageComponent(
+      {} as any, {} as any, toast, { navigate: () => {} } as any, {} as any, {} as any, sortSvc,
+    );
+  });
+  afterEach(() => localStorage.clear());
+
+  it('filteredItems applique le tri multi-niveaux (prioritaire sur le mono-colonne)', () => {
+    cmp.activePieces = [
+      { id: '1', type_piece_display: 'Alpha', statut: 'z', ordre: 1 },
+      { id: '2', type_piece_display: 'Alpha', statut: 'a', ordre: 2 },
+      { id: '3', type_piece_display: 'Beta', statut: 'm', ordre: 3 },
+    ] as any;
+    cmp.sortColumn = 'ordre';
+    cmp.sortLevels = [{ field: 'type_piece_display', dir: 'asc' }, { field: 'statut', dir: 'asc' }];
+    expect(cmp.filteredItems.map(p => p.id)).toEqual(['2', '1', '3']);
+  });
+
+  it('sortLevelOf / sortDirOf reflètent les niveaux', () => {
+    cmp.sortLevels = [{ field: 'statut', dir: 'desc' }];
+    expect(cmp.sortLevelOf('statut')).toBe(1);
+    expect(cmp.sortDirOf('statut')).toBe('desc');
+    expect(cmp.sortLevelOf('ordre')).toBe(0);
+  });
+
+  it('onResetSort appelle le service pour la clé « pieces »', () => {
+    sortSvc.resetToSource.and.returnValue(of([{ field: 'ordre', dir: 'asc' }]));
+    cmp.onResetSort();
+    expect(sortSvc.resetToSource).toHaveBeenCalledWith('pieces');
+    expect(cmp.sortLevels).toEqual([{ field: 'ordre', dir: 'asc' }]);
+  });
+
+  it('openSortFromContext ferme le menu contextuel et ouvre la modale de tri', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).sortCmp = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
   });
 });

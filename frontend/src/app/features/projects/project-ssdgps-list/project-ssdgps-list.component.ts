@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -6,6 +6,7 @@ import { ProjectsService } from '../../../core/services/projects.service';
 import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { SsdgpsSortConfigService, SsdgpsSortLevel } from '../../../core/services/ssdgps-sort-config.service';
+import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import {
   Projet, Ssdgps, proprieteLabel, NATURE_SSDGPS_OPTIONS, TYPE_SSDGPS_OPTIONS,
 } from '../../../core/models/project.model';
@@ -105,12 +106,10 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   sortLevels: SsdgpsSortLevel[] = [];
   /** Champs triables proposés dans le panneau de configuration. */
   readonly sortableFields = SORTABLE_FIELDS;
-  /** Panneau de configuration du tri (modale dédiée). */
-  showSortConfig = false;
+  @ViewChild(MultiLevelSortComponent) private sortCmp?: MultiLevelSortComponent;
   savingSort = false;
   savedSortFlash = false;
   resettingSort = false;
-  showResetConfirm = false;
   private sortSaveTimer: any;
 
   pageSize = 25;
@@ -307,64 +306,15 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   sortDirOf(field: string): '' | 'asc' | 'desc' {
     return this.sortLevels.find(l => l.field === field)?.dir || '';
   }
-  /** Libellé d'un champ triable (pour les badges / résumé). */
-  fieldLabel(field: string): string {
-    return this.sortableFields.find(f => f.field === field)?.label || field;
-  }
-  /** Résumé court du tri multi-niveaux (en-tête du panneau). */
-  get sortSummary(): string {
-    if (!this.sortLevels.length) return 'Aucun tri';
-    return this.sortLevels
-      .map(l => `${this.fieldLabel(l.field)} ${l.dir === 'desc' ? '↓' : '↑'}`)
-      .join('  ·  ');
-  }
-
   // ============================================
-  // Panneau de configuration du tri multi-niveaux
+  // Tri multi-niveaux (modale fournie par le composant partagé <app-multi-level-sort>)
   // ============================================
-  openSortConfig(): void { this.showSortConfig = true; }
-  closeSortConfig(): void { this.showSortConfig = false; }
+  /** Ouvre la modale de tri (composant partagé). */
+  openSortConfig(): void { this.sortCmp?.open(); }
 
-  /** Champs disponibles pour un niveau donné : tous sauf ceux déjà choisis ailleurs. */
-  fieldsForLevel(current: SsdgpsSortLevel): { field: string; label: string }[] {
-    const used = new Set(this.sortLevels.filter(l => l !== current).map(l => l.field));
-    return this.sortableFields.filter(f => !used.has(f.field));
-  }
-  /** Premier champ triable non encore utilisé (pour l'ajout d'un niveau). */
-  private firstUnusedField(): string | null {
-    const used = new Set(this.sortLevels.map(l => l.field));
-    return this.sortableFields.find(f => !used.has(f.field))?.field || null;
-  }
-  get canAddLevel(): boolean { return this.sortLevels.length < this.sortableFields.length; }
-
-  addLevel(): void {
-    const field = this.firstUnusedField();
-    if (!field) return;
-    this.sortLevels = [...this.sortLevels, { field, dir: 'asc' }];
-    this.queueSaveSort();
-  }
-  removeLevel(i: number): void {
-    this.sortLevels = this.sortLevels.filter((_, k) => k !== i);
-    this.queueSaveSort();
-  }
-  moveLevelUp(i: number): void {
-    if (i <= 0) return;
-    const l = [...this.sortLevels]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; this.sortLevels = l; this.queueSaveSort();
-  }
-  moveLevelDown(i: number): void {
-    if (i >= this.sortLevels.length - 1) return;
-    const l = [...this.sortLevels]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; this.sortLevels = l; this.queueSaveSort();
-  }
-  changeLevelField(i: number, field: string): void {
-    // Empêche les doublons : si le champ est déjà utilisé ailleurs, on ignore.
-    if (this.sortLevels.some((l, k) => k !== i && l.field === field)) return;
-    this.sortLevels[i] = { ...this.sortLevels[i], field };
-    this.sortLevels = [...this.sortLevels];
-    this.queueSaveSort();
-  }
-  changeLevelDir(i: number, dir: 'asc' | 'desc'): void {
-    this.sortLevels[i] = { ...this.sortLevels[i], dir };
-    this.sortLevels = [...this.sortLevels];
+  /** Réception d'une modification depuis la modale partagée : applique + enregistrement auto. */
+  onSortLevelsChange(levels: SsdgpsSortLevel[]): void {
+    this.sortLevels = levels;
     this.queueSaveSort();
   }
 
@@ -381,24 +331,22 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
         this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
         setTimeout(() => { this.savedSortFlash = false; }, 2500);
       },
-      error: () => { this.savingSort = false; this.toast.error('Erreur', 'Enregistrement du tri impossible'); },
+      error: (err) => { this.savingSort = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement du tri impossible'); },
     });
   }
 
   // --- Réinitialisation avec la configuration SOURCE (compte administrateur) ---
-  askResetSort(): void { if (!this.resettingSort) this.showResetConfirm = true; }
-  cancelResetSort(): void { this.showResetConfirm = false; }
-  confirmResetSort(): void {
+  onResetSort(): void {
     if (this.resettingSort) return;
     this.resettingSort = true;
     this.sortConfigService.resetToSource().subscribe({
       next: (levels) => {
-        this.sortLevels = levels; this.resettingSort = false; this.showResetConfirm = false;
+        this.sortLevels = levels; this.resettingSort = false;
         this.currentPage = 1;
         this.toast.success('Succès', 'Tri réinitialisé avec la configuration source');
       },
       error: (e) => {
-        this.resettingSort = false; this.showResetConfirm = false;
+        this.resettingSort = false;
         this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
       },
     });
@@ -527,6 +475,8 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   }
   hideColumnFromContext(): void { if (this.contextMenuColumn) this.contextMenuColumn.visible = false; this.showColumnContextMenu = false; this.contextMenuColumn = null; }
   openColumnConfigFromContext(): void { this.showColumnContextMenu = false; this.openColumnConfig(); }
+  /** Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
+  openSortConfigFromContext(): void { this.showColumnContextMenu = false; this.openSortConfig(); }
 
   // --- Valeur de cellule (affichage + CSV + filtre par champ) ---
   formatDate(value: any): string {

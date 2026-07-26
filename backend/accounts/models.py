@@ -4,7 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import timedelta
 from .managers import OrganizationManager
-from .piece_defaults import default_piece_sort_config, default_piece_fields_config, default_ssdgps_sort_config, default_org_sort_config
+from .piece_defaults import default_piece_sort_config, default_piece_fields_config, default_ssdgps_sort_config, default_org_sort_config, default_organisme_niveau1_sort_config, default_organisme_niveau2_sort_config
 
 
 class Organization(models.Model):
@@ -346,6 +346,31 @@ class CustomUser(AbstractUser):
         default=default_org_sort_config, blank=True,
         verbose_name="Tri multi-niveaux de la liste des organisations",
         help_text="Niveaux de tri (champ + sens) par défaut du tableau de la liste des organisations."
+    )
+
+    # Tri MULTI-NIVEAUX par défaut des tableaux des LISTES D'ORGANISMES (niveau 1 et niveau 2,
+    # miroir des organisations). Deux configs distinctes car les colonnes triables diffèrent.
+    organisme_niveau1_sort_config = models.JSONField(
+        default=default_organisme_niveau1_sort_config, blank=True,
+        verbose_name="Tri multi-niveaux des organismes de premier niveau",
+        help_text="Niveaux de tri (champ + sens) par défaut du tableau des organismes de premier niveau."
+    )
+    organisme_niveau2_sort_config = models.JSONField(
+        default=default_organisme_niveau2_sort_config, blank=True,
+        verbose_name="Tri multi-niveaux des organismes de deuxième niveau",
+        help_text="Niveaux de tri (champ + sens) par défaut du tableau des organismes de deuxième niveau."
+    )
+
+    # Tri MULTI-NIVEAUX par défaut, GÉNÉRIQUE, des autres tableaux de l'app (utilisateurs, projets,
+    # explorateur de projet, pièces d'un SSDGPS, ...). Dictionnaire
+    # `{ '<clé_table>': [{'field','dir'}, ..], .. }` : une entrée par tableau, même forme que les
+    # configs dédiées ci-dessus. Vide par défaut ; la config source (super admin) reste récupérable
+    # via l'action « Réinitialiser avec la configuration source ». Mutualise le mécanisme pour éviter
+    # un champ + une migration par nouvelle liste.
+    table_sort_configs = models.JSONField(
+        default=dict, blank=True,
+        verbose_name="Tri multi-niveaux par tableau (générique)",
+        help_text="Niveaux de tri (champ + sens) par défaut, par tableau, pour les listes génériques."
     )
 
     class Meta:

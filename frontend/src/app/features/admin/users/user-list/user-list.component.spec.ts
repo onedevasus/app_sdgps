@@ -11,9 +11,10 @@ describe('UserListComponent (pagination)', () => {
 
   beforeEach(() => {
     const authStub = { getUserId: () => null } as any;
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new UserListComponent(
       {} as any, {} as any, {} as any, {} as any,
-      authStub, {} as any, new FormBuilder(), {} as any,
+      authStub, {} as any, new FormBuilder(), {} as any, sortStub,
     );
   });
 
@@ -51,9 +52,10 @@ describe('UserListComponent (onglets & suppression définitive)', () => {
       'permanentDeleteUser', 'bulkPermanentDeleteUsers', 'getUsers',
     ]);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new UserListComponent(
       userService, {} as any, {} as any, toast,
-      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any,
+      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortStub,
     );
     spyOn<any>(cmp, 'savePreferences');
     spyOn(cmp, 'loadUsers');
@@ -103,5 +105,68 @@ describe('UserListComponent (onglets & suppression définitive)', () => {
     cmp.openBulkPermanentDeleteModal();
     cmp.confirmPermanentDelete();
     expect(userService.bulkPermanentDeleteUsers).toHaveBeenCalled();
+  });
+});
+
+describe('UserListComponent (tri multi-niveaux)', () => {
+  let cmp: UserListComponent;
+  let toast: any;
+  let sortSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    sortSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    cmp = new UserListComponent(
+      {} as any, {} as any, {} as any, toast,
+      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortSvc,
+    );
+    spyOn<any>(cmp, 'savePreferences');
+  });
+
+  it('applyFiltersAndSort applique le tri multi-niveaux (prioritaire sur le mono-colonne)', () => {
+    cmp.users = [
+      { id: '1', first_name: 'Alpha', email: 'z@x.ma', is_deleted: false, is_active: true },
+      { id: '2', first_name: 'Alpha', email: 'a@x.ma', is_deleted: false, is_active: true },
+      { id: '3', first_name: 'Beta', email: 'm@x.ma', is_deleted: false, is_active: true },
+    ] as any;
+    cmp.sortColumn = 'date_joined';
+    cmp.sortLevels = [{ field: 'first_name', dir: 'asc' }, { field: 'email', dir: 'asc' }];
+    cmp.applyFiltersAndSort();
+    expect(cmp.filteredUsers.map(u => u.id)).toEqual(['2', '1', '3']);
+  });
+
+  it('sortLevelOf / sortDirOf reflètent les niveaux', () => {
+    cmp.sortLevels = [{ field: 'email', dir: 'desc' }];
+    expect(cmp.sortLevelOf('email')).toBe(1);
+    expect(cmp.sortDirOf('email')).toBe('desc');
+    expect(cmp.sortLevelOf('role')).toBe(0);
+  });
+
+  it('onSortLevelsChange applique et programme l’enregistrement', () => {
+    cmp.users = [];
+    cmp.onSortLevelsChange([{ field: 'email', dir: 'asc' }]);
+    expect(cmp.sortLevels).toEqual([{ field: 'email', dir: 'asc' }]);
+  });
+
+  it('onResetSort appelle le service pour la clé du tableau', () => {
+    cmp.users = [];
+    sortSvc.resetToSource.and.returnValue(of([{ field: 'role', dir: 'asc' }]));
+    cmp.onResetSort();
+    expect(sortSvc.resetToSource).toHaveBeenCalledWith('users');
+    expect(cmp.sortLevels).toEqual([{ field: 'role', dir: 'asc' }]);
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('openSortFromContext ferme le menu contextuel et ouvre la modale de tri', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).sortCmp = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
   });
 });

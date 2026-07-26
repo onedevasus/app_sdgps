@@ -1,10 +1,12 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, HostListener, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { OrganismeService } from '../../../../core/services/organisme.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { OrganismeSortConfigService, OrgSortLevel } from '../../../../core/services/organisme-sort-config.service';
 import { OrganismeNiveau1 } from '../../../../core/models/organisme.model';
+import { MultiLevelSortComponent } from '../../../../shared/components/multi-level-sort/multi-level-sort.component';
 
 interface ColumnConfig {
   field: string;
@@ -12,6 +14,37 @@ interface ColumnConfig {
   visible: boolean;
   type: 'text' | 'number' | 'boolean' | 'date';
 }
+
+/** Colonnes triables (allowlist alignée sur le backend ORGANISME_N1_SORT_FIELDS), avec libellé. */
+const N1_SORTABLE_FIELDS: { field: string; label: string }[] = [
+  { field: 'code', label: 'Code' },
+  { field: 'nom', label: 'Nom' },
+  { field: 'sigle', label: 'Sigle' },
+  { field: 'nbr_niveaux2', label: 'Nb. 2e niveau' },
+  { field: 'is_active', label: 'Statut' },
+  { field: 'created_at', label: 'Créé le' },
+  { field: 'created_by_email', label: 'Créé par' },
+  { field: 'updated_at', label: 'Modifié le' },
+  { field: 'updated_by_email', label: 'Modifié par' },
+  { field: 'deleted_at', label: 'Supprimé le' },
+  { field: 'deleted_by_email', label: 'Supprimé par' },
+];
+
+/** Colonnes triables (allowlist alignée sur le backend ORGANISME_N2_SORT_FIELDS), avec libellé. */
+const N2_SORTABLE_FIELDS: { field: string; label: string }[] = [
+  { field: 'code', label: 'Code' },
+  { field: 'nom', label: 'Nom' },
+  { field: 'niveau1_nom', label: 'Premier niveau' },
+  { field: 'ville', label: 'Ville / province' },
+  { field: 'sigle', label: 'Sigle' },
+  { field: 'is_active', label: 'Statut' },
+  { field: 'created_at', label: 'Créé le' },
+  { field: 'created_by_email', label: 'Créé par' },
+  { field: 'updated_at', label: 'Modifié le' },
+  { field: 'updated_by_email', label: 'Modifié par' },
+  { field: 'deleted_at', label: 'Supprimé le' },
+  { field: 'deleted_by_email', label: 'Supprimé par' },
+];
 
 /**
  * Gestion (CRUD) des organismes — composant unique piloté par `route.data.niveau` (1 ou 2).
@@ -46,9 +79,18 @@ export class OrganismeListComponent implements OnInit {
   columns: ColumnConfig[] = [];
   private columnsBackup: ColumnConfig[] = [];
 
-  // Tri
+  // Tri mono-colonne (clic en-tête) — conservé comme repli quand aucun tri multi-niveaux.
   sortColumn: string | null = 'nom';
   sortDirection: 'asc' | 'desc' = 'asc';
+
+  // --- Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — miroir des organisations ---
+  /** Niveaux de tri appliqués au tableau (niveau 0 = prioritaire). */
+  sortLevels: OrgSortLevel[] = [];
+  @ViewChild(MultiLevelSortComponent) private sortCmp?: MultiLevelSortComponent;
+  savingSort = false;
+  savedSortFlash = false;
+  resettingSort = false;
+  private sortSaveTimer: any;
 
   // Recherche + filtres
   searchQuery = '';
@@ -123,6 +165,7 @@ export class OrganismeListComponent implements OnInit {
     private service: OrganismeService,
     private toast: ToastService,
     private route: ActivatedRoute,
+    private sortConfigService: OrganismeSortConfigService,
   ) {}
 
   ngOnInit(): void {
@@ -131,12 +174,14 @@ export class OrganismeListComponent implements OnInit {
       this.title = d['title'] || (this.niveau === 1 ? 'Organismes — premier niveau'
                                                     : 'Organismes — deuxième niveau');
       this.sortColumn = 'nom';
+      this.sortLevels = [];
       this.showDeleted = false;
       this.selectedIds.clear();
       this.initColumns();
       this.buildForm();
       this.loadNiveau1Options();
       this.load();
+      this.loadSortConfig();
     });
   }
 
@@ -285,7 +330,10 @@ export class OrganismeListComponent implements OnInit {
       data = data.filter(r => String(r[f] ?? '').toLowerCase().includes(fv));
     }
 
-    if (this.sortColumn) {
+    // Tri : le tri MULTI-NIVEAUX prime ; à défaut, repli sur le tri mono-colonne (clic en-tête).
+    if (this.sortLevels.length) {
+      data.sort((a, b) => this.compareByLevels(a, b));
+    } else if (this.sortColumn) {
       const col = this.sortColumn, dir = this.sortDirection === 'asc' ? 1 : -1;
       data.sort((a, b) => {
         const av = a[col] ?? '', bv = b[col] ?? '';
@@ -310,6 +358,90 @@ export class OrganismeListComponent implements OnInit {
   getSortIcon(field: string): string {
     if (this.sortColumn !== field) return 'fas fa-sort';
     return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  }
+
+  // ============================================
+  // Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — miroir des organisations
+  // ============================================
+  /** Champs triables proposés dans le panneau, selon le niveau (1 ou 2). */
+  get sortableFields(): { field: string; label: string }[] {
+    return this.isN2 ? N2_SORTABLE_FIELDS : N1_SORTABLE_FIELDS;
+  }
+
+  /** Charge le tri multi-niveaux de l'opérateur pour le niveau courant (hérité du super admin). */
+  private loadSortConfig(): void {
+    this.sortConfigService.get(this.niveau).subscribe(levels => {
+      this.sortLevels = levels;
+      this.applyFilters();
+    });
+  }
+
+  /** Comparateur multi-niveaux : parcourt les niveaux dans l'ordre, le premier départage. */
+  private compareByLevels(a: any, b: any): number {
+    for (const lvl of this.sortLevels) {
+      const va = this.fieldSortValue(a, lvl.field);
+      const vb = this.fieldSortValue(b, lvl.field);
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      if (cmp !== 0) return lvl.dir === 'desc' ? -cmp : cmp;
+    }
+    return 0;
+  }
+  private fieldSortValue(o: any, field: string): number | string {
+    const v = o?.[field];
+    if (v == null) return '';
+    if (typeof v === 'boolean') return v ? 1 : 0;
+    return typeof v === 'string' ? v.toLowerCase() : v;
+  }
+
+  /** Rang (1..n) du champ dans le tri multi-niveaux, ou 0 s'il n'est pas trié. */
+  sortLevelOf(field: string): number {
+    const i = this.sortLevels.findIndex(l => l.field === field);
+    return i < 0 ? 0 : i + 1;
+  }
+  /** Sens de tri du champ ('asc'/'desc') s'il est trié, sinon ''. */
+  sortDirOf(field: string): '' | 'asc' | 'desc' {
+    return this.sortLevels.find(l => l.field === field)?.dir || '';
+  }
+  /** Ouvre la modale de tri (composant partagé). */
+  openSortConfig(): void { this.sortCmp?.open(); }
+  /** Ouvre la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
+  openSortConfigFromContext(): void { this.closeContextMenus(); this.openSortConfig(); }
+
+  /** Réception d'une modification depuis la modale partagée : applique + enregistrement auto. */
+  onSortLevelsChange(levels: OrgSortLevel[]): void {
+    this.sortLevels = levels;
+    this.currentPage = 1;
+    this.applyFilters();
+    clearTimeout(this.sortSaveTimer);
+    this.sortSaveTimer = setTimeout(() => this.saveSortConfig(), 500);
+  }
+  private saveSortConfig(): void {
+    this.savingSort = true;
+    this.sortConfigService.save(this.niveau, this.sortLevels).subscribe({
+      next: (saved) => {
+        this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
+        this.applyFilters();
+        setTimeout(() => { this.savedSortFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingSort = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement du tri impossible'); },
+    });
+  }
+
+  // --- Réinitialisation avec la configuration SOURCE (compte administrateur) ---
+  onResetSort(): void {
+    if (this.resettingSort) return;
+    this.resettingSort = true;
+    this.sortConfigService.resetToSource(this.niveau).subscribe({
+      next: (levels) => {
+        this.sortLevels = levels; this.resettingSort = false;
+        this.currentPage = 1; this.applyFilters();
+        this.toast.success('Succès', 'Tri réinitialisé avec la configuration source');
+      },
+      error: (e) => {
+        this.resettingSort = false;
+        this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
+      },
+    });
   }
 
   // Footer gauche : menu filtres

@@ -23,15 +23,21 @@ describe('ProjectSsdgpsListComponent (tri & libellés)', () => {
     expect(cmp.sortDirOf('inconnu')).toBe('');
   });
 
-  it('fieldLabel renvoie le champ brut si non listé', () => {
-    expect(cmp.fieldLabel('champ_x')).toBe('champ_x');
+  // La modale (ajout/retrait/déplacement/effacement/résumé) est désormais dans le composant
+  // partagé <app-multi-level-sort> (testé séparément). Ici : branchements du parent.
+  it('onSortLevelsChange applique les niveaux reçus de la modale partagée', () => {
+    spyOn<any>(cmp, 'queueSaveSort'); // évite le timer d'enregistrement auto
+    cmp.onSortLevelsChange([{ field: 'nature_ssdgps', dir: 'desc' }] as any);
+    expect((cmp as any).sortLevels).toEqual([{ field: 'nature_ssdgps', dir: 'desc' }]);
   });
 
-  it('sortSummary résume le tri', () => {
-    (cmp as any).sortLevels = [];
-    expect(cmp.sortSummary).toBe('Aucun tri');
-    (cmp as any).sortLevels = [{ field: 'nature_ssdgps', dir: 'desc' }];
-    expect(cmp.sortSummary).toContain('↓');
+  it('openSortConfigFromContext ferme le menu contextuel et ouvre la modale de tri', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).sortCmp = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openSortConfigFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
   });
 });
 

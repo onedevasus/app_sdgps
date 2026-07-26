@@ -1,16 +1,21 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { FieldInfoComponent } from './components/field-info/field-info.component';
+import { MultiLevelSortComponent } from './components/multi-level-sort/multi-level-sort.component';
 
 @NgModule({
   declarations: [
-    FieldInfoComponent
+    FieldInfoComponent,
+    MultiLevelSortComponent
   ],
   imports: [
-    CommonModule
+    CommonModule,
+    FormsModule
   ],
   exports: [
-    FieldInfoComponent
+    FieldInfoComponent,
+    MultiLevelSortComponent
   ]
 })
 export class SharedModule { }

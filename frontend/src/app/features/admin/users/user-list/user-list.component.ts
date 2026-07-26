@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
@@ -10,6 +10,9 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { ProfileService } from '../../../profile/services/profile.service';
 import { User, CreateUserPayload, UpdateUserPayload, UserRole } from '../../../../core/models/user.model';
 import { Organization } from '../../../../core/models/organization.model';
+import { TableSortConfigService, OrgSortLevel } from '../../../../core/services/table-sort-config.service';
+import { SortableField, compareByLevels, sortLevelOf, sortDirOf } from '../../../../shared/components/multi-level-sort/multi-level-sort.util';
+import { MultiLevelSortComponent } from '../../../../shared/components/multi-level-sort/multi-level-sort.component';
 
 interface ColumnConfig {
   field: string;
@@ -68,9 +71,30 @@ export class UserListComponent implements OnInit, OnDestroy {
   activeFieldFilterLabel = '';
   fieldFilterValue = '';
 
-  // Tri
+  // Tri mono-colonne (clic en-tête) — repli quand aucun tri multi-niveaux.
   sortColumn = 'date_joined';
   sortDirection: 'asc' | 'desc' = 'desc';
+
+  // --- Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — parité liste organisations ---
+  private readonly SORT_KEY = 'users';
+  readonly sortableFields: SortableField[] = [
+    { field: 'first_name', label: 'Nom complet' },
+    { field: 'email', label: 'Email' },
+    { field: 'role', label: 'Rôle' },
+    { field: 'organization_name', label: 'Organisation' },
+    { field: 'is_active', label: 'Statut' },
+    { field: 'last_connection_at', label: 'Dernière connexion' },
+    { field: 'must_change_password', label: 'MDP à changer' },
+    { field: 'date_joined', label: "Date d'inscription" },
+    { field: 'password_changed_at', label: 'Dernier changement MDP' },
+    { field: 'is_deleted', label: 'Supprimé' },
+    { field: 'is_superuser', label: 'Superuser' },
+  ];
+  sortLevels: OrgSortLevel[] = [];
+  savingSort = false;
+  savedSortFlash = false;
+  resettingSort = false;
+  private sortSaveTimer: any;
 
   // Sélection
   selectedIds = new Set<string>();
@@ -139,6 +163,9 @@ export class UserListComponent implements OnInit, OnDestroy {
   showFilterMenu = false;
   showFieldFilterMenu = false;
 
+  // Tri multi-niveaux (composant partagé) — ouverture programmatique depuis le menu contextuel.
+  @ViewChild(MultiLevelSortComponent) private sortCmp?: MultiLevelSortComponent;
+
   // Menus contextuels
   showColumnContextMenu = false;
   showRowContextMenu = false;
@@ -170,6 +197,7 @@ export class UserListComponent implements OnInit, OnDestroy {
     private profileService: ProfileService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
+    private sortConfigService: TableSortConfigService,
   ) {
     this.currentUserId = this.authService.getUserId();
     this.addForm = this.fb.group({
@@ -192,6 +220,7 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadUsers();
+    this.loadSortConfig();
     this.loadOrganizations();
     this.loadPreferences();
     this.applyOrgAdminDefaults();
@@ -353,22 +382,27 @@ export class UserListComponent implements OnInit, OnDestroy {
       });
     }
 
-    result.sort((a, b) => {
-      let valA: any, valB: any;
-      switch (this.sortColumn) {
-        case 'email': valA = a.email; valB = b.email; break;
-        case 'first_name': valA = a.first_name; valB = b.first_name; break;
-        case 'role': valA = a.role_display; valB = b.role_display; break;
-        case 'organization_name': valA = a.organization_name || ''; valB = b.organization_name || ''; break;
-        case 'is_active': valA = a.is_active ? 1 : 0; valB = b.is_active ? 1 : 0; break;
-        case 'last_connection_at': valA = a.last_connection_at || ''; valB = b.last_connection_at || ''; break;
-        case 'date_joined': valA = a.date_joined; valB = b.date_joined; break;
-        default: valA = a.date_joined; valB = b.date_joined; break;
-      }
-      if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+    // Tri : le tri MULTI-NIVEAUX prime ; à défaut, repli sur le tri mono-colonne (clic en-tête).
+    if (this.sortLevels.length) {
+      result.sort((a, b) => compareByLevels(a, b, this.sortLevels));
+    } else {
+      result.sort((a, b) => {
+        let valA: any, valB: any;
+        switch (this.sortColumn) {
+          case 'email': valA = a.email; valB = b.email; break;
+          case 'first_name': valA = a.first_name; valB = b.first_name; break;
+          case 'role': valA = a.role_display; valB = b.role_display; break;
+          case 'organization_name': valA = a.organization_name || ''; valB = b.organization_name || ''; break;
+          case 'is_active': valA = a.is_active ? 1 : 0; valB = b.is_active ? 1 : 0; break;
+          case 'last_connection_at': valA = a.last_connection_at || ''; valB = b.last_connection_at || ''; break;
+          case 'date_joined': valA = a.date_joined; valB = b.date_joined; break;
+          default: valA = a.date_joined; valB = b.date_joined; break;
+        }
+        if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
 
     this.filteredUsers = result;
     this.currentPage = 1;
@@ -462,6 +496,59 @@ export class UserListComponent implements OnInit, OnDestroy {
   getSortIcon(column: string): string {
     if (this.sortColumn !== column) return 'fas fa-sort';
     return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  }
+
+  // ============================================
+  // Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — parité liste organisations
+  // ============================================
+  /** Rang (1..n) du champ dans le tri multi-niveaux, ou 0. */
+  sortLevelOf(field: string): number { return sortLevelOf(this.sortLevels, field); }
+  /** Sens de tri du champ ('asc'/'desc'), ou '' s'il n'est pas trié. */
+  sortDirOf(field: string): '' | 'asc' | 'desc' { return sortDirOf(this.sortLevels, field); }
+
+  /** Charge le tri multi-niveaux de l'opérateur (hérité du super admin). */
+  private loadSortConfig(): void {
+    this.sortConfigService.get(this.SORT_KEY).subscribe(levels => {
+      this.sortLevels = levels;
+      this.applyFiltersAndSort();
+    });
+  }
+
+  /** Réception d'une modification depuis la modale : applique + enregistrement auto (anti-rebond). */
+  onSortLevelsChange(levels: OrgSortLevel[]): void {
+    this.sortLevels = levels;
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+    clearTimeout(this.sortSaveTimer);
+    this.sortSaveTimer = setTimeout(() => this.saveSortConfig(), 500);
+  }
+  private saveSortConfig(): void {
+    this.savingSort = true;
+    this.sortConfigService.save(this.SORT_KEY, this.sortLevels).subscribe({
+      next: (saved) => {
+        this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
+        this.applyFiltersAndSort();
+        setTimeout(() => { this.savedSortFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingSort = false; this.toastService.error('Erreur', err?.error?.detail || 'Enregistrement du tri impossible'); },
+    });
+  }
+
+  /** Réinitialise le tri avec la configuration SOURCE (compte administrateur). */
+  onResetSort(): void {
+    if (this.resettingSort) return;
+    this.resettingSort = true;
+    this.sortConfigService.resetToSource(this.SORT_KEY).subscribe({
+      next: (levels) => {
+        this.sortLevels = levels; this.resettingSort = false;
+        this.currentPage = 1; this.applyFiltersAndSort();
+        this.toastService.success('Succès', 'Tri réinitialisé avec la configuration source');
+      },
+      error: (e) => {
+        this.resettingSort = false;
+        this.toastService.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
+      },
+    });
   }
 
   // ============================================
@@ -876,6 +963,12 @@ export class UserListComponent implements OnInit, OnDestroy {
   openColumnConfigFromContext(): void {
     this.showColumnContextMenu = false;
     this.openColumnConfig();
+  }
+
+  /** Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
+  openSortFromContext(): void {
+    this.showColumnContextMenu = false;
+    this.sortCmp?.open();
   }
 
   getTypeLabel(type?: string): string {

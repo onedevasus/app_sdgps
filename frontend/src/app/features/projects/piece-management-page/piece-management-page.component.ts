@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
@@ -9,6 +9,9 @@ import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.serv
 import { BreadcrumbItem } from '../../../core/layout/interfaces/menu.interface';
 import { Piece, PieceTypeDef } from '../../../core/models/piece.model';
 import { Ssdgps, Session, Projet } from '../../../core/models/project.model';
+import { TableSortConfigService, OrgSortLevel } from '../../../core/services/table-sort-config.service';
+import { SortableField, sortLevelOf, sortDirOf } from '../../../shared/components/multi-level-sort/multi-level-sort.util';
+import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 
 interface ColumnConfig {
   field: string;
@@ -85,6 +88,20 @@ export class PieceManagementPageComponent implements OnInit {
   sortDirection: 'asc' | 'desc' = 'asc';
   private manualOrder: string[] | null = null;
 
+  @ViewChild(MultiLevelSortComponent) private sortCmp?: MultiLevelSortComponent;
+  /** Ouvre la modale de tri (depuis un clic d'en-tête). */
+  openSort(): void { this.sortCmp?.open(); }
+
+  // --- Tri MULTI-NIVEAUX de la LISTE des pièces (config opérateur, héritée du super admin) ---
+  // NB : distinct du tri des DONNÉES internes d'une pièce (Profil → Paramètres de tri des pièces).
+  private readonly SORT_KEY = 'pieces';
+  readonly sortableFields: SortableField[] = PIECE_COLUMNS.map(c => ({ field: c.field, label: c.label }));
+  sortLevels: OrgSortLevel[] = [];
+  savingSort = false;
+  savedSortFlash = false;
+  resettingSort = false;
+  private sortSaveTimer: any;
+
   // Colonnes (vue Tableau)
   columns: ColumnConfig[] = PIECE_COLUMNS.map(c => ({ ...c }));
   private columnsBackup: ColumnConfig[] = [];
@@ -146,6 +163,7 @@ export class PieceManagementPageComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private breadcrumb: BreadcrumbService,
+    private sortConfigService: TableSortConfigService,
   ) {}
 
   private projet: Projet | null = null;
@@ -154,6 +172,7 @@ export class PieceManagementPageComponent implements OnInit {
     this.viewMode = (localStorage.getItem(VIEW_MODE_KEY) as 'cards' | 'table') || 'table';
     this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
     document.addEventListener('click', this.boundHandleClickOutside);
+    this.loadSortConfig();
 
     const ssdgpsId = this.route.snapshot.paramMap.get('ssdgpsId')!;
     this.projectId = this.route.snapshot.paramMap.get('id')!;
@@ -358,6 +377,9 @@ export class PieceManagementPageComponent implements OnInit {
         const ib = idx.has(b.id) ? idx.get(b.id)! : Number.MAX_SAFE_INTEGER;
         return ia - ib;
       });
+    } else if (this.sortLevels.length) {
+      // Le tri MULTI-NIVEAUX prime ; comparateur local (réutilise getFieldRaw pour portee_label).
+      result = [...result].sort((a, b) => this.compareByLevelsPiece(a, b));
     } else {
       result = [...result].sort((a, b) => {
         const va = this.getFieldRaw(a, this.sortColumn);
@@ -398,6 +420,58 @@ export class PieceManagementPageComponent implements OnInit {
   getSortIcon(field: string): string {
     if (this.sortColumn !== field) return 'fas fa-sort';
     return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  }
+
+  // --- Tri MULTI-NIVEAUX (config opérateur, héritée du super admin) — parité liste organisations ---
+  sortLevelOf(field: string): number { return sortLevelOf(this.sortLevels, field); }
+  sortDirOf(field: string): '' | 'asc' | 'desc' { return sortDirOf(this.sortLevels, field); }
+  /** Comparateur multi-niveaux réutilisant `getFieldRaw` (gère `portee_label`). */
+  private compareByLevelsPiece(a: Piece, b: Piece): number {
+    for (const lvl of this.sortLevels) {
+      const va = this.getFieldRaw(a, lvl.field);
+      const vb = this.getFieldRaw(b, lvl.field);
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      if (cmp !== 0) return lvl.dir === 'desc' ? -cmp : cmp;
+    }
+    return 0;
+  }
+
+  private loadSortConfig(): void {
+    this.sortConfigService.get(this.SORT_KEY).subscribe(levels => { this.sortLevels = levels; });
+  }
+  /** Réception d'une modification depuis la modale : applique + enregistrement auto (anti-rebond). */
+  onSortLevelsChange(levels: OrgSortLevel[]): void {
+    this.sortLevels = levels;
+    this.manualOrder = null;
+    this.currentPage = 1;
+    clearTimeout(this.sortSaveTimer);
+    this.sortSaveTimer = setTimeout(() => this.saveSortConfig(), 500);
+  }
+  private saveSortConfig(): void {
+    this.savingSort = true;
+    this.sortConfigService.save(this.SORT_KEY, this.sortLevels).subscribe({
+      next: (saved) => {
+        this.sortLevels = saved; this.savingSort = false; this.savedSortFlash = true;
+        setTimeout(() => { this.savedSortFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingSort = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement du tri impossible'); },
+    });
+  }
+  /** Réinitialise le tri avec la configuration SOURCE (compte administrateur). */
+  onResetSort(): void {
+    if (this.resettingSort) return;
+    this.resettingSort = true;
+    this.sortConfigService.resetToSource(this.SORT_KEY).subscribe({
+      next: (levels) => {
+        this.sortLevels = levels; this.resettingSort = false;
+        this.manualOrder = null; this.currentPage = 1;
+        this.toast.success('Succès', 'Tri réinitialisé avec la configuration source');
+      },
+      error: (e) => {
+        this.resettingSort = false;
+        this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible');
+      },
+    });
   }
 
   private getFieldRaw(p: Piece, field: string): any {
@@ -950,6 +1024,8 @@ export class PieceManagementPageComponent implements OnInit {
     this.showColumnContextMenu = false; this.contextMenuColumn = null;
   }
   openColumnConfigFromContext(): void { this.showColumnContextMenu = false; this.openColumnConfig(); }
+  /** Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
+  openSortFromContext(): void { this.showColumnContextMenu = false; this.openSort(); }
   closeAllContextMenus(): void { this.showColumnContextMenu = false; this.contextMenuColumn = null; this.closeContextMenu(); }
 
   private handleGlobalClick(event: Event): void {

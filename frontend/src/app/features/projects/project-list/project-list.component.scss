@@ -1147,3 +1147,14 @@
 }
 
 @keyframes contextMenuFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+/* Marqueur de tri MULTI-NIVEAUX dans les en-têtes (parité liste des organisations). */
+.modern-table thead th.sortable.is-sorted { color: var(--accent-color); }
+.modern-table thead th .sort-badge {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: 6px;
+  padding: 1px 6px 1px 4px; border-radius: 20px;
+  background: rgba(204, 88, 88, 0.14); border: 1px solid rgba(204, 88, 88, 0.35);
+  color: var(--accent-color); font-size: 10.5px; font-weight: 700; vertical-align: middle;
+  .sort-rank { line-height: 1; }
+  i { margin-left: 0; opacity: 1; font-size: 10px; }
+}

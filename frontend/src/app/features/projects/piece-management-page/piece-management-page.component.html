@@ -98,6 +98,21 @@
 
       <div class="toolbar-sep"></div>
 
+      <!-- Tri multi-niveaux de la LISTE des pièces (design partagé, parité liste des organisations) -->
+      <app-multi-level-sort #sorter
+        [sortableFields]="sortableFields"
+        [levels]="sortLevels"
+        title="Tri multi-niveaux des pièces"
+        emptyHint="Aucun niveau de tri — ordre par défaut du serveur."
+        [saving]="savingSort"
+        [savedFlash]="savedSortFlash"
+        [resetting]="resettingSort"
+        (levelsChange)="onSortLevelsChange($event)"
+        (resetToSource)="onResetSort()">
+      </app-multi-level-sort>
+
+      <div class="toolbar-sep"></div>
+
       <button class="btn btn-status sm" *ngIf="!showDeleted" [disabled]="selectedCount===0" (click)="openBulkStatusModal()" title="Modifier le statut des pièces sélectionnées"><i class="fas fa-tag"></i> Statut <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
       <button class="btn btn-danger sm" *ngIf="!showDeleted" [disabled]="selectedCount===0" (click)="openBulkDeleteModal()"><i class="fas fa-trash"></i> <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
       <button class="btn btn-restore sm" *ngIf="showDeleted" [disabled]="selectedCount===0" (click)="openBulkRestoreModal()"><i class="fas fa-undo"></i> Restaurer <span *ngIf="selectedCount>0" class="btn-count">{{ selectedCount }}</span></button>
@@ -194,9 +209,15 @@
           <tr>
             <th class="checkbox-col"><input type="checkbox" [checked]="isAllSelected" (change)="toggleSelectAll()"></th>
             <th class="reorder-col" *ngIf="reorderModeActive"></th>
-            <th *ngFor="let col of getVisibleColumns()" [class.sortable]="true" (click)="sortBy(col.field)" (contextmenu)="onColumnHeaderRightClick($event, col)" [title]="getFieldDescription(col.field)">
+            <th *ngFor="let col of getVisibleColumns()" class="sortable" [class.is-sorted]="sortLevelOf(col.field)" (click)="openSort()" (contextmenu)="onColumnHeaderRightClick($event, col)" [title]="'Configurer le tri multi-niveaux — ' + getFieldDescription(col.field)">
               <span>{{ col.label }}</span>
-              <i [class]="getSortIcon(col.field)"></i>
+              <span class="sort-badge" *ngIf="sortLevelOf(col.field)"
+                    [title]="'Niveau de tri ' + sortLevelOf(col.field) + ' — ' + (sortDirOf(col.field) === 'desc' ? 'décroissant' : 'croissant')">
+                <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>
+                <i class="fas" [class.fa-arrow-up-short-wide]="sortDirOf(col.field) === 'asc'"
+                   [class.fa-arrow-down-wide-short]="sortDirOf(col.field) === 'desc'"></i>
+              </span>
+              <i *ngIf="!sortLevelOf(col.field)" [class]="getSortIcon(col.field)"></i>
             </th>
             <th class="actions-col">Actions</th>
           </tr>
@@ -377,6 +398,8 @@
 
 <!-- ========== Menus contextuels ========== -->
 <div class="context-menu" *ngIf="showColumnContextMenu" [style.top.px]="contextMenuPosition.y" [style.left.px]="contextMenuPosition.x" (click)="$event.stopPropagation()">
+  <div class="context-menu-item" (click)="openSortFromContext()"><i class="fas fa-sort-amount-down"></i><span>Tri multi-niveaux…</span></div>
+  <div class="context-menu-divider"></div>
   <div class="context-menu-item" (click)="hideColumnFromContext()"><i class="fas fa-eye-slash"></i><span>Masquer la colonne</span></div>
   <div class="context-menu-divider"></div>
   <div class="context-menu-item" (click)="openColumnConfigFromContext()"><i class="fas fa-columns"></i><span>Organiser les colonnes</span></div>

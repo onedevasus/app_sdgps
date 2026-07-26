@@ -6,8 +6,9 @@ describe('ProjectExplorerComponent (logique)', () => {
   let cmp: ProjectExplorerComponent;
 
   beforeEach(() => {
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectExplorerComponent(
-      {} as any, {} as any, {} as any, {} as any, {} as any, new FormBuilder(), {} as any,
+      {} as any, {} as any, {} as any, {} as any, {} as any, new FormBuilder(), {} as any, sortStub,
     );
   });
 
@@ -211,8 +212,9 @@ describe('ProjectExplorerComponent (suppression définitive par niveau)', () => 
       'permanentDeleteSsdgps', 'bulkPermanentDeleteSsdgps',
     ]);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectExplorerComponent(
-      service, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any,
+      service, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortStub,
     );
     spyOn(cmp, 'loadLevel');
     cmp.level = 'ssdgps';
@@ -234,5 +236,69 @@ describe('ProjectExplorerComponent (suppression définitive par niveau)', () => 
     cmp.confirmPermanentDelete();
     expect(service.bulkPermanentDeleteSsdgps).toHaveBeenCalled();
     expect(toast.warning).toHaveBeenCalled();
+  });
+});
+
+describe('ProjectExplorerComponent (tri multi-niveaux par niveau)', () => {
+  let cmp: ProjectExplorerComponent;
+  let toast: any;
+  let sortSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    sortSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    cmp = new ProjectExplorerComponent(
+      {} as any, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortSvc,
+    );
+  });
+  afterEach(() => localStorage.clear());
+
+  it('sortKey / sortableFields dépendent du niveau courant', () => {
+    cmp.level = 'propriete';
+    expect(cmp.sortKey).toBe('project_proprietes');
+    expect(cmp.sortableFields.some(f => f.field === 'nom_propriete')).toBeTrue();
+    cmp.level = 'ssdgps';
+    expect(cmp.sortKey).toBe('project_ssdgps');
+    expect(cmp.sortableFields.some(f => f.field === 'numero_ssdgps')).toBeTrue();
+  });
+
+  it('filteredItems applique le tri multi-niveaux du niveau courant', () => {
+    cmp.level = 'propriete';
+    cmp.activeItems = [
+      { id: '1', nom_propriete: 'Alpha', id_titre: 'Z' },
+      { id: '2', nom_propriete: 'Alpha', id_titre: 'A' },
+      { id: '3', nom_propriete: 'Beta', id_titre: 'M' },
+    ] as any;
+    (cmp as any).manualOrder = null;
+    cmp.sortLevelsByLevel.propriete = [{ field: 'nom_propriete', dir: 'asc' }, { field: 'id_titre', dir: 'asc' }];
+    expect(cmp.filteredItems.map(i => i.id)).toEqual(['2', '1', '3']);
+  });
+
+  it('onSortLevelsChange met à jour le niveau courant uniquement', () => {
+    cmp.level = 'affaire';
+    cmp.onSortLevelsChange([{ field: 'numero_sd_affaire', dir: 'desc' }]);
+    expect(cmp.sortLevelsByLevel.affaire).toEqual([{ field: 'numero_sd_affaire', dir: 'desc' }]);
+    expect(cmp.sortLevelsByLevel.propriete).toEqual([]);
+  });
+
+  it('onResetSort appelle le service avec la clé du niveau courant', () => {
+    cmp.level = 'ssdgps';
+    sortSvc.resetToSource.and.returnValue(of([{ field: 'numero_ssdgps', dir: 'asc' }]));
+    cmp.onResetSort();
+    expect(sortSvc.resetToSource).toHaveBeenCalledWith('project_ssdgps');
+    expect(cmp.sortLevelsByLevel.ssdgps).toEqual([{ field: 'numero_ssdgps', dir: 'asc' }]);
+  });
+
+  it('openSortFromContext ferme le menu contextuel et ouvre la modale de tri', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).sortCmp = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
   });
 });
