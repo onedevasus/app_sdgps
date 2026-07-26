@@ -24,7 +24,8 @@ export class ColumnConfigComponent {
   /** Affiche le filtre « toutes / visibles ». */
   @Input() showFilter = true;
   /**
-   * Fournit la description (info-bulle + libellé) d'une colonne, à partir de son `field`.
+   * Fournit la description d'une colonne à partir de son `field`. Elle est affichée dans la
+   * COLONNE dédiée « Description » de la modale (jamais fusionnée avec le nom de la colonne).
    * Optionnel : par défaut aucune description. Le parent branche `[describe]="describeColumn"`
    * (référence stable) pour réutiliser son `getFieldDescription`.
    */
@@ -68,6 +69,12 @@ export class ColumnConfigComponent {
   }
   /** Index réel dans `columns` d'une colonne affichée (le filtre peut masquer des lignes). */
   realIndex(col: ManagedColumn): number { return this.columns.indexOf(col); }
+
+  /**
+   * Description d'une colonne, affichée dans la COLONNE dédiée « Description » de la modale :
+   * `describe()` (fourni par le parent) prioritaire, puis la description portée par la colonne.
+   */
+  descOf(col: ManagedColumn): string { return this.describe(col.field) || col.description || ''; }
 
   toggleFilterMenu(event: Event): void { event.stopPropagation(); this.showFilterMenu = !this.showFilterMenu; }
   applyFilter(filter: 'all' | 'visible'): void { this.columnFilter = filter; this.showFilterMenu = false; }

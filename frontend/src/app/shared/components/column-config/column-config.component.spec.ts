@@ -74,6 +74,21 @@ describe('ColumnConfigComponent (logique)', () => {
     expect(spy).toHaveBeenCalled();
   });
 
+  it('descOf : describe() prioritaire, puis col.description, sinon chaîne vide', () => {
+    const { cmp } = make();
+    // Colonne portant sa propre description, sans describe() branché.
+    cmp.columns = [
+      { field: 'a', label: 'A', visible: true, description: 'Desc portée' },
+      { field: 'b', label: 'B', visible: true },
+    ];
+    expect(cmp.descOf(cmp.columns[0])).toBe('Desc portée');
+    expect(cmp.descOf(cmp.columns[1])).toBe('');
+    // describe() (fourni par le parent) l'emporte sur la description portée.
+    cmp.describe = (field: string) => (field === 'a' ? 'Desc parent' : '');
+    expect(cmp.descOf(cmp.columns[0])).toBe('Desc parent');
+    expect(cmp.descOf(cmp.columns[1])).toBe('');
+  });
+
   it('askReset ne fait rien pendant une réinitialisation en cours', () => {
     const { cmp } = make();
     cmp.resetting = true;

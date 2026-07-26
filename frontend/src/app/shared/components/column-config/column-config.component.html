@@ -55,11 +55,22 @@
         <span><i class="fas fa-eye-slash"></i> Masquées : {{ hiddenCount }}</span>
       </div>
 
+      <!-- En-tête de la grille : le NOM et la DESCRIPTION sont deux colonnes DISTINCTES. -->
+      <div class="column-grid-header" aria-hidden="true">
+        <span></span>
+        <span class="th-visible" title="Colonne affichée dans le tableau"><i class="fas fa-eye"></i></span>
+        <span class="th-order">Ordre</span>
+        <span class="th-type">Type</span>
+        <span class="th-name">Colonne</span>
+        <span class="th-desc">Description</span>
+      </div>
+
       <ul class="column-list">
         <li *ngFor="let col of filteredColumns"
             class="column-item"
             [class.dragging]="draggedIndex === realIndex(col)"
             [class.drag-over]="dragOverIndex === realIndex(col)"
+            [class.is-hidden]="!col.visible"
             draggable="true"
             (dragstart)="onDragStart(realIndex(col))"
             (dragover)="onDragOver($event, realIndex(col))"
@@ -76,15 +87,9 @@
             <button type="button" [disabled]="realIndex(col) === total - 1" (click)="moveToBottom(realIndex(col))" title="Placer en dernier"><i class="fas fa-angles-down"></i></button>
           </div>
           <span class="col-type">{{ typeLabel(col.type) }}</span>
-          <div class="col-labels">
-            <span class="col-name">
-              {{ col.label }}
-              <i class="fas fa-info-circle col-info" *ngIf="describe(col.field) || col.description"
-                 [title]="describe(col.field) || col.description"></i>
-            </span>
-            <span class="col-desc" *ngIf="describe(col.field) || col.description"
-                  [title]="describe(col.field) || col.description">{{ describe(col.field) || col.description }}</span>
-          </div>
+          <span class="col-name" [title]="col.label">{{ col.label }}</span>
+          <span class="col-desc" *ngIf="descOf(col); else noDesc" [title]="descOf(col)">{{ descOf(col) }}</span>
+          <ng-template #noDesc><span class="col-desc empty" title="Aucune description disponible">—</span></ng-template>
         </li>
       </ul>
     </div>
