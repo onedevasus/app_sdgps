@@ -7,8 +7,9 @@ describe('ProjectExplorerComponent (logique)', () => {
 
   beforeEach(() => {
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectExplorerComponent(
-      {} as any, {} as any, {} as any, {} as any, {} as any, new FormBuilder(), {} as any, sortStub,
+      {} as any, {} as any, {} as any, {} as any, {} as any, new FormBuilder(), {} as any, sortStub, columnsStub,
     );
   });
 
@@ -181,24 +182,12 @@ describe('ProjectExplorerComponent (logique)', () => {
         { field: 'b', label: 'B', visible: false },
       ];
     });
-    it('getVisibleColumns / getColumnStats', () => {
+    it('getVisibleColumns ne renvoie que les colonnes visibles', () => {
       expect(cmp.getVisibleColumns().length).toBe(1);
-      const s = cmp.getColumnStats();
-      expect(s).toEqual({ total: 2, visible: 1, hidden: 1 });
+      expect(cmp.getVisibleColumns()[0].field).toBe('a');
     });
-    it('toggleColumnVisibility', () => {
-      cmp.toggleColumnVisibility('b');
-      expect(cmp.columns[1].visible).toBeTrue();
-    });
-    it('moveColumnToTop', () => {
-      cmp.moveColumnToTop(1);
-      expect(cmp.columns[0].field).toBe('b');
-    });
-    it('getColumnFilterLabel', () => {
-      expect(cmp.getColumnFilterLabel()).toBe('Toutes les colonnes');
-      cmp.applyColumnFilter('visible');
-      expect(cmp.getColumnFilterLabel()).toBe('Colonnes visibles');
-    });
+    // L'édition (visibilité/ordre/filtre) est dans <app-column-config> (testé séparément) ;
+    // branchements du parent couverts dans « config colonnes par niveau ».
   });
 });
 
@@ -213,8 +202,9 @@ describe('ProjectExplorerComponent (suppression définitive par niveau)', () => 
     ]);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectExplorerComponent(
-      service, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortStub,
+      service, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortStub, columnsStub,
     );
     spyOn(cmp, 'loadLevel');
     cmp.level = 'ssdgps';
@@ -251,8 +241,9 @@ describe('ProjectExplorerComponent (tri multi-niveaux par niveau)', () => {
       save: jasmine.createSpy('save').and.returnValue(of([])),
       resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
     };
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectExplorerComponent(
-      {} as any, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortSvc,
+      {} as any, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortSvc, columnsStub,
     );
   });
   afterEach(() => localStorage.clear());
@@ -298,6 +289,56 @@ describe('ProjectExplorerComponent (tri multi-niveaux par niveau)', () => {
     (cmp as any).sortCmp = { open };
     cmp.showColumnContextMenu = true;
     cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+describe('ProjectExplorerComponent (config colonnes par niveau)', () => {
+  let cmp: ProjectExplorerComponent;
+  let toast: any;
+  let columnsSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    columnsSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    cmp = new ProjectExplorerComponent(
+      {} as any, {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, sortStub, columnsSvc,
+    );
+  });
+  afterEach(() => localStorage.clear());
+
+  it('onColumnsChange enregistre sous la clé du niveau courant', (done) => {
+    cmp.level = 'ssdgps'; // sortKey = project_ssdgps
+    const cols = [{ field: 'numero_ssdgps', label: 'Numéro', visible: false }] as any;
+    cmp.onColumnsChange(cols);
+    expect(cmp.columns).toBe(cols);
+    setTimeout(() => {
+      expect(columnsSvc.save).toHaveBeenCalledWith('project_ssdgps', [{ field: 'numero_ssdgps', visible: false }]);
+      done();
+    }, 600);
+  });
+
+  it('onResetColumns appelle le service avec la clé du niveau courant', () => {
+    cmp.level = 'affaire'; // sortKey = project_affaires
+    cmp.columns = [{ field: 'numero_sd_affaire', label: 'N° SD', visible: true } as any];
+    columnsSvc.resetToSource.and.returnValue(of([{ field: 'numero_sd_affaire', visible: false }]));
+    cmp.onResetColumns();
+    expect(columnsSvc.resetToSource).toHaveBeenCalledWith('project_affaires');
+    expect(cmp.columns[0].visible).toBeFalse();
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('openColumnConfigFromContext ferme le menu contextuel et ouvre la modale de colonnes', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).columnCfg = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openColumnConfigFromContext();
     expect(cmp.showColumnContextMenu).toBeFalse();
     expect(open).toHaveBeenCalled();
   });

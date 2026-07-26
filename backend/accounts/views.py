@@ -980,3 +980,147 @@ class TableSortConfigResetView(APIView):
         request.user.table_sort_configs = configs
         request.user.save(update_fields=['table_sort_configs'])
         return Response(configs[key], status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# Configuration des COLONNES GÉNÉRIQUE par tableau (visibilité + ordre)
+# ----------------------------------------------------------------------------
+# Miroir de `table_sort_configs` : un seul champ `CustomUser.table_columns_configs`
+# (dict `{clé: [{field, visible}]}`, l'ordre de la liste = ordre d'affichage) et un couple de
+# vues pour TOUS les tableaux. Chaque tableau déclare le catalogue COMPLET de ses colonnes
+# (colonnes triables ET non triables) dans `TABLE_COLUMN_FIELDS`. La source d'héritage /
+# réinitialisation est la configuration du compte super admin (comme le tri).
+# ============================================================================
+TABLE_COLUMN_FIELDS = {
+    # Liste des ORGANISATIONS (features/dashboard/organization-list).
+    'organizations': {
+        'code', 'name', 'type_display', 'legal_id', 'address', 'phone', 'email', 'website',
+        'is_active', 'member_count', 'created_by_email', 'modified_by_email', 'is_test_data',
+        'created_at', 'updated_at',
+    },
+    # Listes des ORGANISMES niveau 1 / niveau 2 (features/admin/organismes/organisme-list).
+    'organisme_niveau1': {
+        'code', 'nom', 'sigle', 'nbr_niveaux2', 'is_active', 'created_at', 'created_by_email',
+        'updated_at', 'updated_by_email', 'deleted_at', 'deleted_by_email',
+    },
+    'organisme_niveau2': {
+        'code', 'nom', 'niveau1_nom', 'ville', 'sigle', 'is_active', 'created_at',
+        'created_by_email', 'updated_at', 'updated_by_email', 'deleted_at', 'deleted_by_email',
+    },
+    # Liste des UTILISATEURS (features/admin/users/user-list).
+    'users': {
+        'first_name', 'email', 'role', 'organization_name', 'is_active', 'last_connection_at',
+        'must_change_password', 'date_joined', 'password_changed_at', 'is_deleted', 'is_superuser',
+    },
+    # Liste des PROJETS (features/projects/project-list).
+    'projects': {
+        'code_projet', 'nom_projet', 'statut', 'organization_name', 'nbr_total_proprietes',
+        'nbr_total_affaires', 'nbr_total_ssdgps', 'nbr_total_sessions', 'nbr_total_pieces',
+        'created_at', 'updated_at', 'is_deleted', 'deleted_at', 'created_by_email',
+        'updated_by_email', 'deleted_by_email',
+    },
+    # EXPLORATEUR de projet — un tableau par niveau (colonnes distinctes).
+    'project_proprietes': {
+        'nom_propriete', 'id_requisition', 'id_titre', 'nbr_total_affaires', 'nbr_total_ssdgps',
+        'nbr_total_sessions', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+        'created_by_email', 'updated_by_email', 'deleted_by_email',
+    },
+    'project_affaires': {
+        'numero_sd_affaire', 'nature_procedure_affaire', 'nature_affaire', 'date_bornage',
+        'nbr_total_ssdgps', 'nbr_total_sessions', 'created_at', 'updated_at', 'is_deleted',
+        'deleted_at', 'created_by_email', 'updated_by_email', 'deleted_by_email',
+    },
+    'project_ssdgps': {
+        'nature_ssdgps', 'numero_ssdgps', 'type_ssdgps', 'nbr_total_sessions', 'nbr_total_pieces',
+        'created_at', 'updated_at', 'is_deleted', 'deleted_at', 'created_by_email',
+        'updated_by_email', 'deleted_by_email',
+    },
+    'project_sessions': {
+        'numero_session', 'date_session', 'nbr_total_pieces', 'created_at', 'updated_at',
+        'is_deleted', 'deleted_at', 'created_by_email', 'updated_by_email', 'deleted_by_email',
+    },
+    # Liste des SSDGPS d'un projet (features/projects/project-ssdgps-list).
+    'ssdgps': {
+        'numero_ssdgps', 'nature_ssdgps', 'type_ssdgps', 'propriete_label', 'affaire_numero',
+        'nbr_total_sessions', 'nbr_total_pieces', 'propriete_nom', 'propriete_id_titre',
+        'propriete_id_requisition', 'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+        'created_by_email', 'updated_by_email', 'deleted_by_email',
+    },
+    # Liste des PIÈCES d'un rapport SSDGPS (features/projects/piece-management-page).
+    'pieces': {
+        'ordre', 'type_piece_display', 'numero', 'portee_label', 'source_saisie', 'statut',
+        'commentaire', 'created_at', 'updated_at', 'is_deleted', 'deleted_at', 'created_by_email',
+        'updated_by_email', 'deleted_by_email',
+    },
+}
+
+
+class TableColumnsConfigView(APIView):
+    """Configuration des COLONNES par défaut d'un tableau GÉNÉRIQUE, propre à l'opérateur.
+
+    GET/PUT /api/auth/me/table-columns-config/<key>/  (key ∈ clés de `TABLE_COLUMN_FIELDS`)
+    Corps PUT : liste ORDONNÉE `[{'field': '<colonne>', 'visible': true|false}, ..]` (l'ordre de la
+    liste est l'ordre d'affichage). Champs validés contre l'allowlist de la clé ; doublons
+    supprimés ; `visible` normalisé en booléen. Stocké dans `CustomUser.table_columns_configs[<key>]`.
+    Miroir de `TableSortConfigView`."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, key):
+        if key not in TABLE_COLUMN_FIELDS:
+            return Response({'detail': f"Tableau inconnu : « {key} »."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response((request.user.table_columns_configs or {}).get(key, []),
+                        status=status.HTTP_200_OK)
+
+    def put(self, request, key):
+        allowed = TABLE_COLUMN_FIELDS.get(key)
+        if allowed is None:
+            return Response({'detail': f"Tableau inconnu : « {key} »."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        data = request.data
+        if not isinstance(data, list):
+            return Response({'detail': "Une liste de colonnes [{field, visible}] est attendue."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cleaned, seen = [], set()
+        for column in data:
+            if not isinstance(column, dict):
+                return Response({'detail': "Chaque colonne doit être un objet {field, visible}."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            field = (column.get('field') or '').strip()
+            if field not in allowed:
+                return Response({'detail': f"Colonne invalide : « {field} »."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if field in seen:
+                continue  # une colonne ne peut apparaître qu'une fois
+            seen.add(field)
+            cleaned.append({'field': field, 'visible': bool(column.get('visible', True))})
+        configs = dict(request.user.table_columns_configs or {})
+        configs[key] = cleaned
+        request.user.table_columns_configs = configs
+        request.user.save(update_fields=['table_columns_configs'])
+        return Response(cleaned, status=status.HTTP_200_OK)
+
+
+class TableColumnsConfigResetView(APIView):
+    """Réinitialise la configuration de colonnes d'un tableau générique de l'opérateur avec la
+    configuration SOURCE (compte super admin). POST .../<key>/reset/ → config appliquée, ou 400 si
+    clé inconnue / aucune source disponible. Miroir de `TableSortConfigResetView`."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, key):
+        import copy
+        from .piece_defaults import superadmin_table_columns_config
+        if key not in TABLE_COLUMN_FIELDS:
+            return Response({'detail': f"Tableau inconnu : « {key} »."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        source = superadmin_table_columns_config(key)
+        if not source:
+            return Response(
+                {'detail': "Aucune configuration source disponible : le compte administrateur "
+                           "n'a pas encore de colonnes configurées pour ce tableau."},
+                status=status.HTTP_400_BAD_REQUEST)
+        configs = dict(request.user.table_columns_configs or {})
+        configs[key] = copy.deepcopy(source)
+        request.user.table_columns_configs = configs
+        request.user.save(update_fields=['table_columns_configs'])
+        return Response(configs[key], status=status.HTTP_200_OK)

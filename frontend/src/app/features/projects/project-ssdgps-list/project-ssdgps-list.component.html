@@ -57,9 +57,17 @@
 
       <div class="toolbar-sep"></div>
 
-      <button class="icon-tool" (click)="toggleColumnConfig()" title="Organiser les colonnes">
-        <i class="fas fa-columns"></i>
-      </button>
+      <!-- Configuration des colonnes (composant partagé, parité tri multi-niveaux) -->
+      <app-column-config
+        [columns]="columns"
+          [describe]="describeColumn"
+        title="Organiser les colonnes des SSDGPS"
+        [saving]="savingColumns"
+        [savedFlash]="savedColumnsFlash"
+        [resetting]="resettingColumns"
+        (columnsChange)="onColumnsChange($event)"
+        (resetToSource)="onResetColumns()">
+      </app-column-config>
       <!-- Tri multi-niveaux (composant partagé) -->
       <app-multi-level-sort
         [sortableFields]="sortableFields"
@@ -263,85 +271,7 @@
   </div>
 </div>
 
-<!-- Modale : organiser les colonnes -->
-<div class="modal-overlay" *ngIf="showColumnConfig" (click)="toggleColumnConfig()">
-  <div class="modal-content modal-column-config" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-header-left">
-        <i class="fas fa-columns header-icon"></i>
-        <div>
-          <h3>Organiser les colonnes</h3>
-          <span class="modal-stats">
-            <i class="fas fa-table"></i> Total : {{ getColumnStats().total }}
-            <span class="stat-sep">|</span>
-            <i class="fas fa-eye"></i> Visibles : {{ getColumnStats().visible }}
-            <span class="stat-sep">|</span>
-            <i class="fas fa-eye-slash"></i> Masquées : {{ getColumnStats().hidden }}
-          </span>
-        </div>
-      </div>
-      <div class="modal-header-right">
-        <div class="dropdown-container" [class.open]="showColumnFilterMenu">
-          <button type="button" class="btn btn-filter-toggle" (click)="toggleColumnFilterMenu($event)" [title]="getColumnFilterLabel()">
-            <i class="fas fa-filter"></i> {{ getColumnFilterLabel() }} <i class="fas fa-chevron-down"></i>
-          </button>
-          <div class="dropdown-menu" [hidden]="!showColumnFilterMenu">
-            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('all')" [class.active]="columnFilter === 'all'">
-              <i class="fas fa-eye"></i> <span>Afficher toutes les colonnes</span> <i class="fas fa-check" *ngIf="columnFilter === 'all'"></i>
-            </div>
-            <div class="dropdown-item" (click)="$event.stopPropagation(); applyColumnFilter('visible')" [class.active]="columnFilter === 'visible'">
-              <i class="fas fa-eye-slash"></i> <span>Uniquement les colonnes visibles</span> <i class="fas fa-check" *ngIf="columnFilter === 'visible'"></i>
-            </div>
-          </div>
-        </div>
-        <button class="close-btn" (click)="toggleColumnConfig()"><i class="fas fa-times"></i></button>
-      </div>
-    </div>
-
-    <div class="modal-body">
-      <ul class="column-list">
-        <li *ngFor="let col of getFilteredColumns(); let i = index"
-            class="column-item"
-            [class.dragging]="draggedColumnIndex === columns.indexOf(col)"
-            [class.drag-over]="dragOverIndex === columns.indexOf(col)"
-            draggable="true"
-            (dragstart)="onDragStart(columns.indexOf(col))"
-            (dragover)="onDragOver($event, columns.indexOf(col))"
-            (dragleave)="onDragLeave()"
-            (drop)="onDrop(columns.indexOf(col))"
-            (dragend)="onDragEnd()">
-          <div class="column-row">
-            <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.field)">
-            <div class="column-reorder-buttons">
-              <button type="button" class="btn-reorder" [disabled]="columns.indexOf(col) === 0" (click)="moveColumnToTop(columns.indexOf(col))" title="Déplacer en première position"><i class="fas fa-angle-double-up"></i></button>
-              <button type="button" class="btn-reorder" [disabled]="columns.indexOf(col) === 0" (click)="moveColumnUp(columns.indexOf(col))" title="Monter"><i class="fas fa-angle-up"></i></button>
-              <button type="button" class="btn-reorder" [disabled]="columns.indexOf(col) === columns.length - 1" (click)="moveColumnDown(columns.indexOf(col))" title="Descendre"><i class="fas fa-angle-down"></i></button>
-              <button type="button" class="btn-reorder" [disabled]="columns.indexOf(col) === columns.length - 1" (click)="moveColumnToBottom(columns.indexOf(col))" title="Déplacer en dernière position"><i class="fas fa-angle-double-down"></i></button>
-            </div>
-            <label>
-              <span class="column-type">{{ getTypeLabel(col.type) }}</span>
-              <span class="column-name">{{ col.label }}</span>
-              <i class="fas fa-info-circle column-info-icon" [title]="getFieldDescription(col.field)"></i>
-            </label>
-          </div>
-        </li>
-      </ul>
-    </div>
-
-    <div class="modal-footer">
-      <div class="footer-actions">
-        <button class="btn-action" (click)="selectAllColumns()"><i class="fas fa-eye"></i> Tout afficher</button>
-        <button class="btn-action" (click)="deselectAllColumns()"><i class="fas fa-eye-slash"></i> Tout masquer</button>
-        <button class="btn-action" (click)="invertColumnSelection()"><i class="fas fa-exchange-alt"></i> Inverser</button>
-      </div>
-      <div class="footer-buttons">
-        <button class="btn-cancel" (click)="cancelColumnConfig()"><i class="fas fa-times"></i> Annuler</button>
-        <button class="btn-confirm" (click)="confirmColumnConfig()"><i class="fas fa-check"></i> Appliquer</button>
-      </div>
-    </div>
-  </div>
-</div>
-
+<!-- La modale « Organiser les colonnes » est fournie par <app-column-config> dans la barre d'outils. -->
 <!-- Le tri multi-niveaux (bouton + modales) est fourni par <app-multi-level-sort> dans la barre d'outils. -->
 
 <!-- ===== Modale : Consulter un SSDGPS (lecture seule) ===== -->

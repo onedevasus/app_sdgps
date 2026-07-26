@@ -7,6 +7,9 @@ import { BreadcrumbService } from '../../../core/layout/services/breadcrumb.serv
 import { ToastService } from '../../../core/services/toast.service';
 import { SsdgpsSortConfigService, SsdgpsSortLevel } from '../../../core/services/ssdgps-sort-config.service';
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
+import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
+import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 import {
   Projet, Ssdgps, proprieteLabel, NATURE_SSDGPS_OPTIONS, TYPE_SSDGPS_OPTIONS,
 } from '../../../core/models/project.model';
@@ -18,7 +21,6 @@ interface ColumnConfig {
   type?: 'text' | 'date' | 'number' | 'boolean';
 }
 
-const COLUMNS_KEY = 'sdgps_projet_ssdgps_columns';
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
   { field: 'numero_ssdgps', label: 'SSDGPS', visible: true, type: 'number' },
@@ -134,14 +136,16 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   showFilterMenu = false;
   showFieldFilterMenu = false;
 
-  // Colonnes
+  // Colonnes (config opérateur, héritée du super admin) — composant partagé
   columns: ColumnConfig[] = DEFAULT_COLUMNS.map(c => ({ ...c }));
-  private columnsBackup: ColumnConfig[] = [];
-  showColumnConfig = false;
-  columnFilter: 'all' | 'visible' = 'all';
-  showColumnFilterMenu = false;
-  draggedColumnIndex: number | null = null;
-  dragOverIndex: number | null = null;
+  private readonly COLUMNS_KEY = 'ssdgps';
+  @ViewChild(ColumnConfigComponent) private columnCfg?: ColumnConfigComponent;
+  /** Description d'une colonne pour la modale partagée (référence stable). */
+  describeColumn = (field: string): string => this.getFieldDescription(field);
+  savingColumns = false;
+  savedColumnsFlash = false;
+  resettingColumns = false;
+  private columnsSaveTimer: any;
 
   // Menu contextuel de colonne
   showColumnContextMenu = false;
@@ -173,11 +177,12 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
     private sortConfigService: SsdgpsSortConfigService,
     private breadcrumb: BreadcrumbService,
     private fb: FormBuilder,
+    private columnsConfigService: TableColumnsConfigService,
   ) {}
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id')!;
-    this.loadColumnPreferences();
+    this.loadColumnsConfig();
     this.load();
     this.loadSortConfig();
     this.service.getProjet(this.projectId).subscribe({
@@ -210,7 +215,6 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   onDocumentClick(): void {
     this.showFilterMenu = false;
     this.showFieldFilterMenu = false;
-    this.showColumnFilterMenu = false;
     this.showColumnContextMenu = false;
   }
 
@@ -406,65 +410,45 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
   }
   clearFieldFilter(): void { this.activeFieldFilter = null; this.activeFieldFilterLabel = ''; this.fieldFilterValue = ''; }
 
-  // --- Colonnes ---
-  private loadColumnPreferences(): void {
-    try {
-      const raw = localStorage.getItem(COLUMNS_KEY);
-      if (!raw) return;
-      const saved: { field: string; visible: boolean }[] = JSON.parse(raw);
-      saved.forEach(sc => { const col = this.columns.find(c => c.field === sc.field); if (col) col.visible = sc.visible; });
-      const ordered: ColumnConfig[] = [];
-      saved.forEach(sc => { const col = this.columns.find(c => c.field === sc.field); if (col) ordered.push(col); });
-      this.columns.forEach(c => { if (!ordered.includes(c)) ordered.push(c); });
-      if (ordered.length === this.columns.length) this.columns = ordered;
-    } catch { /* ignore */ }
-  }
-  private saveColumnPreferences(): void {
-    localStorage.setItem(COLUMNS_KEY, JSON.stringify(this.columns.map(c => ({ field: c.field, visible: c.visible }))));
-  }
+  // --- Colonnes (composant partagé, source super admin + réinitialisation) ---
   getVisibleColumns(): ColumnConfig[] { return this.columns.filter(c => c.visible); }
-  getFilteredColumns(): ColumnConfig[] { return this.columnFilter === 'visible' ? this.columns.filter(c => c.visible) : this.columns; }
-  getColumnStats(): { total: number; visible: number; hidden: number } {
-    const total = this.columns.length; const visible = this.columns.filter(c => c.visible).length;
-    return { total, visible, hidden: total - visible };
-  }
-  toggleColumnVisibility(field: string): void { const c = this.columns.find(x => x.field === field); if (c) c.visible = !c.visible; }
-  toggleColumnConfig(): void {
-    if (!this.showColumnConfig) this.columnsBackup = this.columns.map(c => ({ ...c }));
-    else this.restoreColumnsBackup();
-    this.showColumnConfig = !this.showColumnConfig;
-  }
-  openColumnConfig(): void { this.columnsBackup = this.columns.map(c => ({ ...c })); this.showColumnConfig = true; }
-  confirmColumnConfig(): void { this.showColumnConfig = false; this.columnsBackup = []; this.saveColumnPreferences(); }
-  cancelColumnConfig(): void { this.restoreColumnsBackup(); this.showColumnConfig = false; }
-  private restoreColumnsBackup(): void {
-    if (this.columnsBackup.length) { this.columns = this.columnsBackup.map(c => ({ ...c })); this.columnsBackup = []; }
-  }
-  selectAllColumns(): void { this.columns.forEach(c => c.visible = true); }
-  deselectAllColumns(): void { this.columns.forEach(c => c.visible = false); }
-  invertColumnSelection(): void { this.columns.forEach(c => c.visible = !c.visible); }
-  toggleColumnFilterMenu(event: Event): void { event.stopPropagation(); this.showColumnFilterMenu = !this.showColumnFilterMenu; }
-  applyColumnFilter(filter: 'all' | 'visible'): void { this.columnFilter = filter; this.showColumnFilterMenu = false; }
-  getColumnFilterLabel(): string { return this.columnFilter === 'all' ? 'Toutes les colonnes' : 'Colonnes visibles'; }
   getTypeLabel(type?: string): string { return { text: 'TEXTE', date: 'DATE', number: 'NOMBRE', boolean: 'BOOLÉEN' }[type || 'text'] || 'TEXTE'; }
   getFieldDescription(field: string): string { return FIELD_DESCRIPTIONS[field] || ''; }
 
-  // Réordonnancement des colonnes
-  onDragStart(i: number): void { this.draggedColumnIndex = i; }
-  onDragOver(e: DragEvent, i: number): void { e.preventDefault(); this.dragOverIndex = i; }
-  onDragLeave(): void { this.dragOverIndex = null; }
-  onDrop(i: number): void {
-    if (this.draggedColumnIndex === null || this.draggedColumnIndex === i) { this.draggedColumnIndex = null; this.dragOverIndex = null; return; }
-    const dragged = this.columns[this.draggedColumnIndex];
-    this.columns.splice(this.draggedColumnIndex, 1);
-    this.columns.splice(i, 0, dragged);
-    this.draggedColumnIndex = null; this.dragOverIndex = null;
+  /** Ouvre la modale d'organisation des colonnes (composant partagé). */
+  openColumnConfig(): void { this.columnCfg?.open(); }
+  private loadColumnsConfig(): void {
+    this.columnsConfigService.get(this.COLUMNS_KEY).subscribe(prefs => {
+      this.columns = applyColumnsConfig(this.columns, prefs);
+    });
   }
-  onDragEnd(): void { this.draggedColumnIndex = null; this.dragOverIndex = null; }
-  moveColumnUp(i: number): void { if (i > 0) [this.columns[i], this.columns[i - 1]] = [this.columns[i - 1], this.columns[i]]; }
-  moveColumnDown(i: number): void { if (i < this.columns.length - 1) [this.columns[i], this.columns[i + 1]] = [this.columns[i + 1], this.columns[i]]; }
-  moveColumnToTop(i: number): void { if (i > 0) { const c = this.columns.splice(i, 1)[0]; this.columns.unshift(c); } }
-  moveColumnToBottom(i: number): void { if (i < this.columns.length - 1) { const c = this.columns.splice(i, 1)[0]; this.columns.push(c); } }
+  onColumnsChange(cols: ManagedColumn[]): void {
+    this.columns = cols as ColumnConfig[];
+    clearTimeout(this.columnsSaveTimer);
+    this.columnsSaveTimer = setTimeout(() => this.saveColumnsConfig(), 500);
+  }
+  private saveColumnsConfig(): void {
+    this.savingColumns = true;
+    this.columnsConfigService.save(this.COLUMNS_KEY, toColumnPrefs(this.columns)).subscribe({
+      next: () => {
+        this.savingColumns = false; this.savedColumnsFlash = true;
+        setTimeout(() => { this.savedColumnsFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingColumns = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement des colonnes impossible'); },
+    });
+  }
+  onResetColumns(): void {
+    if (this.resettingColumns) return;
+    this.resettingColumns = true;
+    this.columnsConfigService.resetToSource(this.COLUMNS_KEY).subscribe({
+      next: (prefs) => {
+        this.columns = applyColumnsConfig(this.columns, prefs);
+        this.resettingColumns = false;
+        this.toast.success('Succès', 'Colonnes réinitialisées avec la configuration source');
+      },
+      error: (e) => { this.resettingColumns = false; this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible'); },
+    });
+  }
 
   // Menu contextuel de colonne (clic droit sur l'en-tête)
   onColumnHeaderRightClick(event: MouseEvent, col: ColumnConfig): void {
@@ -473,7 +457,12 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
     this.contextMenuColumn = col;
     this.showColumnContextMenu = true;
   }
-  hideColumnFromContext(): void { if (this.contextMenuColumn) this.contextMenuColumn.visible = false; this.showColumnContextMenu = false; this.contextMenuColumn = null; }
+  hideColumnFromContext(): void {
+    const field = this.contextMenuColumn?.field;
+    this.showColumnContextMenu = false; this.contextMenuColumn = null;
+    if (!field) return;
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
   openColumnConfigFromContext(): void { this.showColumnContextMenu = false; this.openColumnConfig(); }
   /** Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
   openSortConfigFromContext(): void { this.showColumnContextMenu = false; this.openSortConfig(); }

@@ -7,6 +7,9 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { OrganismeSortConfigService, OrgSortLevel } from '../../../../core/services/organisme-sort-config.service';
 import { OrganismeNiveau1 } from '../../../../core/models/organisme.model';
 import { MultiLevelSortComponent } from '../../../../shared/components/multi-level-sort/multi-level-sort.component';
+import { ColumnConfigComponent } from '../../../../shared/components/column-config/column-config.component';
+import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../../shared/components/column-config/column-config.util';
+import { TableColumnsConfigService } from '../../../../core/services/table-columns-config.service';
 
 interface ColumnConfig {
   field: string;
@@ -77,7 +80,16 @@ export class OrganismeListComponent implements OnInit {
   niveau1Options: OrganismeNiveau1[] = [];
 
   columns: ColumnConfig[] = [];
-  private columnsBackup: ColumnConfig[] = [];
+  // --- Configuration des COLONNES (config opérateur, héritée du super admin) — composant partagé ---
+  @ViewChild(ColumnConfigComponent) private columnCfg?: ColumnConfigComponent;
+  /** Description d'une colonne pour la modale partagée (référence stable). */
+  describeColumn = (field: string): string => this.getFieldDescription(field);
+  savingColumns = false;
+  savedColumnsFlash = false;
+  resettingColumns = false;
+  private columnsSaveTimer: any;
+  /** Clé backend de la config de colonnes selon le niveau (1 ou 2). */
+  private get columnsKey(): string { return this.isN2 ? 'organisme_niveau2' : 'organisme_niveau1'; }
 
   // Tri mono-colonne (clic en-tête) — conservé comme repli quand aucun tri multi-niveaux.
   sortColumn: string | null = 'nom';
@@ -111,13 +123,6 @@ export class OrganismeListComponent implements OnInit {
   showExportMenu = false;
   showFilterMenu = false;
   showFieldFilterMenu = false;
-  showColumnConfig = false;
-  showColumnFilterMenu = false;
-  columnFilter: 'all' | 'visible' = 'all';
-
-  // Drag & drop colonnes
-  draggedColumnIndex: number | null = null;
-  dragOverIndex: number | null = null;
 
   // Menus contextuels
   showColumnContextMenu = false;
@@ -166,6 +171,7 @@ export class OrganismeListComponent implements OnInit {
     private toast: ToastService,
     private route: ActivatedRoute,
     private sortConfigService: OrganismeSortConfigService,
+    private columnsConfigService: TableColumnsConfigService,
   ) {}
 
   ngOnInit(): void {
@@ -178,6 +184,7 @@ export class OrganismeListComponent implements OnInit {
       this.showDeleted = false;
       this.selectedIds.clear();
       this.initColumns();
+      this.loadColumnsConfig();
       this.buildForm();
       this.loadNiveau1Options();
       this.load();
@@ -203,8 +210,6 @@ export class OrganismeListComponent implements OnInit {
   }
 
   // ------------------------------------------------------------------ colonnes
-  private storageKey(): string { return `sdgps_organismes_n${this.niveau}_cols`; }
-
   private initColumns(): void {
     const audit: ColumnConfig[] = [
       { field: 'created_at', label: 'Créé le', visible: true, type: 'date' },
@@ -230,28 +235,15 @@ export class OrganismeListComponent implements OnInit {
       { field: 'is_active', label: 'Statut', visible: true, type: 'boolean' },
       ...audit,
     ];
-    try {
-      const saved = JSON.parse(localStorage.getItem(this.storageKey()) || 'null');
-      if (Array.isArray(saved) && saved.length) {
-        const known = new Map(defaults.map(c => [c.field, c]));
-        const ordered: ColumnConfig[] = [];
-        saved.forEach((s: any) => {
-          const c = known.get(s.field);
-          if (c) { ordered.push({ ...c, visible: !!s.visible }); known.delete(s.field); }
-        });
-        known.forEach(c => ordered.push(c));
-        this.columns = ordered;
-        return;
-      }
-    } catch {}
+    // Catalogue par défaut ; la config opérateur (visibilité + ordre) est appliquée par
+    // loadColumnsConfig() (backend, source super admin).
     this.columns = defaults;
   }
 
-  private saveColumns(): void {
-    try {
-      localStorage.setItem(this.storageKey(),
-        JSON.stringify(this.columns.map(c => ({ field: c.field, visible: c.visible }))));
-    } catch {}
+  private loadColumnsConfig(): void {
+    this.columnsConfigService.get(this.columnsKey).subscribe(prefs => {
+      this.columns = applyColumnsConfig(this.columns, prefs);
+    });
   }
 
   getVisibleColumns(): ColumnConfig[] { return this.columns.filter(c => c.visible); }
@@ -569,37 +561,39 @@ export class OrganismeListComponent implements OnInit {
     URL.revokeObjectURL(a.href);
   }
 
-  // ------------------------------------------------------------------ config colonnes
-  toggleColumnConfig(): void {
-    this.showColumnConfig = !this.showColumnConfig;
-    if (this.showColumnConfig) { this.columnsBackup = this.columns.map(c => ({ ...c })); this.columnFilter = 'all'; }
+  // ------------------------------------------------------------------ config colonnes (composant partagé)
+  /** Ouvre la modale d'organisation des colonnes (composant partagé). */
+  openColumnConfig(): void { this.columnCfg?.open(); }
+  onColumnsChange(cols: ManagedColumn[]): void {
+    this.columns = cols as ColumnConfig[];
+    const key = this.columnsKey;
+    const prefs = toColumnPrefs(cols);
+    clearTimeout(this.columnsSaveTimer);
+    this.columnsSaveTimer = setTimeout(() => this.saveColumnsConfig(key, prefs), 500);
   }
-  toggleColumnFilterMenu(ev: Event): void { ev.stopPropagation(); this.showColumnFilterMenu = !this.showColumnFilterMenu; }
-  getColumnFilterLabel(): string { return this.columnFilter === 'visible' ? 'Colonnes visibles' : 'Toutes les colonnes'; }
-  applyColumnFilter(mode: 'all' | 'visible'): void { this.columnFilter = mode; this.showColumnFilterMenu = false; }
-  getFilteredColumns(): ColumnConfig[] { return this.columnFilter === 'visible' ? this.columns.filter(c => c.visible) : this.columns; }
-  getColumnStats() { const total = this.columns.length; const visible = this.columns.filter(c => c.visible).length; return { total, visible, hidden: total - visible }; }
-  toggleColumnVisibility(field: string): void { const c = this.columns.find(x => x.field === field); if (c) c.visible = !c.visible; }
-  selectAllColumns(): void { this.columns.forEach(c => (c.visible = true)); }
-  deselectAllColumns(): void { this.columns.forEach(c => (c.visible = false)); }
-  invertColumnSelection(): void { this.columns.forEach(c => (c.visible = !c.visible)); }
-  moveColumnUp(i: number): void { if (i > 0) [this.columns[i - 1], this.columns[i]] = [this.columns[i], this.columns[i - 1]]; }
-  moveColumnDown(i: number): void { if (i < this.columns.length - 1) [this.columns[i + 1], this.columns[i]] = [this.columns[i], this.columns[i + 1]]; }
-  moveColumnToTop(i: number): void { if (i > 0) { const [c] = this.columns.splice(i, 1); this.columns.unshift(c); } }
-  moveColumnToBottom(i: number): void { if (i < this.columns.length - 1) { const [c] = this.columns.splice(i, 1); this.columns.push(c); } }
-  cancelColumnConfig(): void { this.columns = this.columnsBackup.map(c => ({ ...c })); this.showColumnConfig = false; }
-  confirmColumnConfig(): void { this.saveColumns(); this.showColumnConfig = false; }
-
-  onDragStart(i: number): void { this.draggedColumnIndex = i; }
-  onDragOver(ev: DragEvent, i: number): void { ev.preventDefault(); this.dragOverIndex = i; }
-  onDragLeave(): void { this.dragOverIndex = null; }
-  onDrop(i: number): void {
-    if (this.draggedColumnIndex === null || this.draggedColumnIndex === i) return;
-    const [c] = this.columns.splice(this.draggedColumnIndex, 1);
-    this.columns.splice(i, 0, c);
-    this.draggedColumnIndex = null; this.dragOverIndex = null;
+  private saveColumnsConfig(key: string, prefs: { field: string; visible: boolean }[]): void {
+    this.savingColumns = true;
+    this.columnsConfigService.save(key, prefs).subscribe({
+      next: () => {
+        this.savingColumns = false; this.savedColumnsFlash = true;
+        setTimeout(() => { this.savedColumnsFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingColumns = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement des colonnes impossible'); },
+    });
   }
-  onDragEnd(): void { this.draggedColumnIndex = null; this.dragOverIndex = null; }
+  onResetColumns(): void {
+    if (this.resettingColumns) return;
+    this.resettingColumns = true;
+    const key = this.columnsKey;
+    this.columnsConfigService.resetToSource(key).subscribe({
+      next: (prefs) => {
+        this.columns = applyColumnsConfig(this.columns, prefs);
+        this.resettingColumns = false;
+        this.toast.success('Succès', 'Colonnes réinitialisées avec la configuration source');
+      },
+      error: (e) => { this.resettingColumns = false; this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible'); },
+    });
+  }
 
   // ------------------------------------------------------------------ menus contextuels
   onColumnHeaderRightClick(ev: MouseEvent, col: ColumnConfig): void {
@@ -616,8 +610,13 @@ export class OrganismeListComponent implements OnInit {
     this.rowForContext = row; this.cellForContext = { row, field, value: row[field] };
     this.contextMenuPosition = { x: ev.clientX, y: ev.clientY }; this.showRowContextMenu = true;
   }
-  hideColumnFromContext(): void { if (this.columnForContext) this.columnForContext.visible = false; this.saveColumns(); this.closeContextMenus(); }
-  openColumnConfigFromContext(): void { this.closeContextMenus(); this.toggleColumnConfig(); }
+  hideColumnFromContext(): void {
+    const field = this.columnForContext?.field;
+    this.closeContextMenus();
+    if (!field) return;
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
+  openColumnConfigFromContext(): void { this.closeContextMenus(); this.openColumnConfig(); }
   toggleRowSelectionFromContext(): void { if (this.rowForContext) this.toggleSelection(this.rowForContext.id); this.closeContextMenus(); }
   selectAllFromContext(): void { this.selectAll(); this.closeContextMenus(); }
   copyCellValueFromContext(): void {
@@ -631,10 +630,10 @@ export class OrganismeListComponent implements OnInit {
 
   // ------------------------------------------------------------------ global
   @HostListener('document:click')
-  onDocumentClick(): void { this.showExportMenu = false; this.showFilterMenu = false; this.showFieldFilterMenu = false; this.showColumnFilterMenu = false; this.closeContextMenus(); }
+  onDocumentClick(): void { this.showExportMenu = false; this.showFilterMenu = false; this.showFieldFilterMenu = false; this.closeContextMenus(); }
 
   @HostListener('document:keydown.escape')
-  onEscape(): void { this.showFormModal = false; this.showDeleteModal = false; this.showRestoreModal = false; this.showColumnConfig = false; this.onDocumentClick(); }
+  onEscape(): void { this.showFormModal = false; this.showDeleteModal = false; this.showRestoreModal = false; this.onDocumentClick(); }
 
   private firstError(err: any): string {
     const e = err?.error; if (!e) return '';

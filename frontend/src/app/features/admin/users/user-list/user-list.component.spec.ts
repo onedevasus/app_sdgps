@@ -12,9 +12,10 @@ describe('UserListComponent (pagination)', () => {
   beforeEach(() => {
     const authStub = { getUserId: () => null } as any;
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new UserListComponent(
       {} as any, {} as any, {} as any, {} as any,
-      authStub, {} as any, new FormBuilder(), {} as any, sortStub,
+      authStub, {} as any, new FormBuilder(), {} as any, sortStub, columnsStub,
     );
   });
 
@@ -53,9 +54,10 @@ describe('UserListComponent (onglets & suppression définitive)', () => {
     ]);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new UserListComponent(
       userService, {} as any, {} as any, toast,
-      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortStub,
+      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortStub, columnsStub,
     );
     spyOn<any>(cmp, 'savePreferences');
     spyOn(cmp, 'loadUsers');
@@ -120,9 +122,10 @@ describe('UserListComponent (tri multi-niveaux)', () => {
       save: jasmine.createSpy('save').and.returnValue(of([])),
       resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
     };
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new UserListComponent(
       {} as any, {} as any, {} as any, toast,
-      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortSvc,
+      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortSvc, columnsStub,
     );
     spyOn<any>(cmp, 'savePreferences');
   });
@@ -166,6 +169,53 @@ describe('UserListComponent (tri multi-niveaux)', () => {
     (cmp as any).sortCmp = { open };
     cmp.showColumnContextMenu = true;
     cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+describe('UserListComponent (config colonnes)', () => {
+  let cmp: UserListComponent;
+  let toast: any;
+  let columnsSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    columnsSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    cmp = new UserListComponent(
+      {} as any, {} as any, {} as any, toast,
+      { getUserId: () => null } as any, {} as any, new FormBuilder(), {} as any, sortStub, columnsSvc,
+    );
+  });
+
+  it('onColumnsChange applique les colonnes et programme l’enregistrement (clé « users »)', (done) => {
+    const cols = [{ field: 'email', label: 'Email', visible: false }] as any;
+    cmp.onColumnsChange(cols);
+    expect(cmp.columns).toBe(cols);
+    setTimeout(() => {
+      expect(columnsSvc.save).toHaveBeenCalledWith('users', [{ field: 'email', visible: false }]);
+      done();
+    }, 600);
+  });
+
+  it('onResetColumns appelle le service pour la clé « users » et réapplique', () => {
+    columnsSvc.resetToSource.and.returnValue(of([{ field: 'role', visible: true }]));
+    cmp.onResetColumns();
+    expect(columnsSvc.resetToSource).toHaveBeenCalledWith('users');
+    expect(cmp.columns[0].field).toBe('role');
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('openColumnConfigFromContext ferme le menu contextuel et ouvre la modale de colonnes', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).columnCfg = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openColumnConfigFromContext();
     expect(cmp.showColumnContextMenu).toBeFalse();
     expect(open).toHaveBeenCalled();
   });

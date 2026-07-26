@@ -12,9 +12,10 @@ describe('ProjectListComponent (getters & pagination)', () => {
 
   beforeEach(() => {
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectListComponent(
       {} as any, {} as any, {} as any, {} as any,
-      new FormBuilder(), {} as any, {} as any, {} as any, sortStub,
+      new FormBuilder(), {} as any, {} as any, {} as any, sortStub, columnsStub,
     );
   });
 
@@ -72,8 +73,9 @@ describe('ProjectListComponent (suppression définitive)', () => {
     service = jasmine.createSpyObj('ProjectsService', ['permanentDeleteProjet', 'bulkPermanentDeleteProjets']);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning']);
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectListComponent(
-      service, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortStub,
+      service, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortStub, columnsStub,
     );
     spyOn(cmp, 'load');
   });
@@ -113,8 +115,9 @@ describe('ProjectListComponent (tri multi-niveaux)', () => {
       save: jasmine.createSpy('save').and.returnValue(of([])),
       resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
     };
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new ProjectListComponent(
-      {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortSvc,
+      {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortSvc, columnsStub,
     );
     spyOn<any>(cmp, 'savePreferences');
   });
@@ -152,6 +155,52 @@ describe('ProjectListComponent (tri multi-niveaux)', () => {
     (cmp as any).sortCmp = { open };
     cmp.showColumnContextMenu = true;
     cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+describe('ProjectListComponent (config colonnes)', () => {
+  let cmp: ProjectListComponent;
+  let toast: any;
+  let columnsSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    columnsSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    cmp = new ProjectListComponent(
+      {} as any, {} as any, {} as any, toast, new FormBuilder(), {} as any, {} as any, {} as any, sortStub, columnsSvc,
+    );
+  });
+
+  it('onColumnsChange applique les colonnes et programme l’enregistrement (clé « projects »)', (done) => {
+    const cols = [{ field: 'nom_projet', label: 'Nom', visible: false }] as any;
+    cmp.onColumnsChange(cols);
+    expect(cmp.columns).toBe(cols);
+    setTimeout(() => {
+      expect(columnsSvc.save).toHaveBeenCalledWith('projects', [{ field: 'nom_projet', visible: false }]);
+      done();
+    }, 600);
+  });
+
+  it('onResetColumns appelle le service pour la clé « projects » et réapplique', () => {
+    columnsSvc.resetToSource.and.returnValue(of([{ field: 'statut', visible: true }]));
+    cmp.onResetColumns();
+    expect(columnsSvc.resetToSource).toHaveBeenCalledWith('projects');
+    expect(cmp.columns[0].field).toBe('statut');
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('openColumnConfigFromContext ferme le menu contextuel et ouvre la modale de colonnes', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).columnCfg = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openColumnConfigFromContext();
     expect(cmp.showColumnContextMenu).toBeFalse();
     expect(open).toHaveBeenCalled();
   });

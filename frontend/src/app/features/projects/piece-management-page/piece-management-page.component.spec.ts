@@ -18,8 +18,9 @@ describe('PieceManagementPageComponent (logique)', () => {
     router = jasmine.createSpyObj('Router', ['navigate']);
     (router as any).url = '/projets/p1/pieces/s1';
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new PieceManagementPageComponent(
-      {} as any, {} as any, {} as any, router as any, {} as any, {} as any, sortStub,
+      {} as any, {} as any, {} as any, router as any, {} as any, {} as any, sortStub, columnsStub,
     );
     (cmp as any).projectId = 'p1';
     cmp.ssdgps = { id: 's1', numero_ssdgps: 3, type_ssdgps: 'mono-session' } as any;
@@ -160,31 +161,11 @@ describe('PieceManagementPageComponent (logique)', () => {
       cmp.ssdgps = { ...cmp.ssdgps, type_ssdgps: 'multi-session' } as any;
       expect(cmp.getVisibleColumns().some(c => c.field === 'portee_label')).toBeTrue();
     });
-    it('getColumnStats', () => {
-      const s = cmp.getColumnStats();
-      expect(s.visible + s.hidden).toBe(s.total);
-    });
-    it('toggleColumnVisibility', () => {
-      const before = cmp.columns[0].visible;
-      cmp.toggleColumnVisibility(cmp.columns[0].field);
-      expect(cmp.columns[0].visible).toBe(!before);
-    });
-    it('moveColumnUp / moveColumnToTop', () => {
-      const second = cmp.columns[1].field;
-      cmp.moveColumnToTop(1);
-      expect(cmp.columns[0].field).toBe(second);
-    });
-    it('toggleColumnConfig sauvegarde puis restaure', () => {
-      cmp.toggleColumnConfig(); // ouvre + backup
-      cmp.columns[0].visible = !cmp.columns[0].visible;
-      const changed = cmp.columns[0].visible;
-      cmp.cancelColumnConfig(); // restaure
-      expect(cmp.columns[0].visible).toBe(!changed);
-    });
-    it('getTypeLabel / getColumnFilterLabel', () => {
+    it('getTypeLabel', () => {
       expect(cmp.getTypeLabel('date')).toBe('DATE');
-      expect(cmp.getColumnFilterLabel()).toBe('Toutes les colonnes');
     });
+    // L'édition des colonnes (visibilité/ordre/filtre) est désormais dans <app-column-config>
+    // (testé séparément) ; branchements du parent couverts dans le describe « config colonnes ».
   });
 
   describe('vue & onglets', () => {
@@ -256,8 +237,9 @@ describe('PieceManagementPageComponent (suppression définitive)', () => {
     piecesService = jasmine.createSpyObj('PiecesService', ['permanentDelete', 'bulkPermanentDelete']);
     toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
     const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new PieceManagementPageComponent(
-      {} as any, piecesService, toast, { navigate: () => {} } as any, {} as any, {} as any, sortStub,
+      {} as any, piecesService, toast, { navigate: () => {} } as any, {} as any, {} as any, sortStub, columnsStub,
     );
     spyOn(cmp, 'loadPieces');
   });
@@ -292,8 +274,9 @@ describe('PieceManagementPageComponent (tri multi-niveaux de la liste)', () => {
       save: jasmine.createSpy('save').and.returnValue(of([])),
       resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
     };
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
     cmp = new PieceManagementPageComponent(
-      {} as any, {} as any, toast, { navigate: () => {} } as any, {} as any, {} as any, sortSvc,
+      {} as any, {} as any, toast, { navigate: () => {} } as any, {} as any, {} as any, sortSvc, columnsStub,
     );
   });
   afterEach(() => localStorage.clear());
@@ -328,6 +311,53 @@ describe('PieceManagementPageComponent (tri multi-niveaux de la liste)', () => {
     (cmp as any).sortCmp = { open };
     cmp.showColumnContextMenu = true;
     cmp.openSortFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+describe('PieceManagementPageComponent (config colonnes)', () => {
+  let cmp: PieceManagementPageComponent;
+  let toast: any;
+  let columnsSvc: any;
+
+  beforeEach(() => {
+    toast = jasmine.createSpyObj('ToastService', ['success', 'error']);
+    columnsSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    cmp = new PieceManagementPageComponent(
+      {} as any, {} as any, toast, { navigate: () => {} } as any, {} as any, {} as any,
+      { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any, columnsSvc,
+    );
+  });
+  afterEach(() => localStorage.clear());
+
+  it('onColumnsChange applique les colonnes et programme l’enregistrement (clé « pieces »)', (done) => {
+    const cols = [{ field: 'type_piece_display', label: 'Type', visible: false }] as any;
+    cmp.onColumnsChange(cols);
+    expect(cmp.columns).toBe(cols);
+    setTimeout(() => {
+      expect(columnsSvc.save).toHaveBeenCalledWith('pieces', [{ field: 'type_piece_display', visible: false }]);
+      done();
+    }, 600);
+  });
+
+  it('onResetColumns appelle le service pour la clé « pieces »', () => {
+    columnsSvc.resetToSource.and.returnValue(of([{ field: 'ordre', visible: true }]));
+    cmp.onResetColumns();
+    expect(columnsSvc.resetToSource).toHaveBeenCalledWith('pieces');
+    expect(cmp.columns[0].field).toBe('ordre');
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('openColumnConfigFromContext ferme le menu contextuel et ouvre la modale de colonnes', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).columnCfg = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openColumnConfigFromContext();
     expect(cmp.showColumnContextMenu).toBeFalse();
     expect(open).toHaveBeenCalled();
   });

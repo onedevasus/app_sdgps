@@ -5,6 +5,9 @@ import { OrganizationMetadataService } from '../../../core/services/organization
 import { UserPreferencesService, ColumnMetadata } from '../../../core/services/user-preferences.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { OrgSortConfigService, OrgSortLevel } from '../../../core/services/org-sort-config.service';
+import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
+import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 import { Organization } from '../../../core/models/organization.model';
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { debounceTime, forkJoin, Subject } from 'rxjs';
@@ -105,24 +108,22 @@ export class OrganizationListComponent implements OnInit {
   pageSizeOptions: number[] = [5, 8, 10, 20, 50];
 
   // UI
-  showColumnConfig: boolean = false;
   loading: boolean = false;
   private boundHandleClickOutside!: (event: Event) => void;
-  
-  // Sauvegarde temporaire des colonnes pour annulation
-  private columnsBackup: ColumnConfig[] = [];
-  
+
   // Métadonnées des champs (descriptions)
   fieldDescriptions: { [fieldName: string]: string } = {};
-  
-  // Drag & Drop pour réorganisation des colonnes
-  draggedColumnIndex: number | null = null;
-  dragOverIndex: number | null = null;
-  
-  // Filtre d'affichage des colonnes dans la modale
-  columnFilter: 'all' | 'visible' = 'all';
-  showColumnFilterMenu: boolean = false;
-  
+
+  // --- Configuration des COLONNES (config opérateur, héritée du super admin) — composant partagé ---
+  private readonly COLUMNS_KEY = 'organizations';
+  @ViewChild(ColumnConfigComponent) private columnCfg?: ColumnConfigComponent;
+  /** Description d'une colonne pour la modale partagée (référence stable). */
+  describeColumn = (field: string): string => this.getFieldDescription(field);
+  savingColumns = false;
+  savedColumnsFlash = false;
+  resettingColumns = false;
+  private columnsSaveTimer: any;
+
   // Menus contextuels (clic droit)
   showColumnContextMenu: boolean = false;
   showRowContextMenu: boolean = false;
@@ -199,7 +200,8 @@ export class OrganizationListComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private fb: FormBuilder,
     private toastService: ToastService,
-    private orgSortConfigService: OrgSortConfigService
+    private orgSortConfigService: OrgSortConfigService,
+    private columnsConfigService: TableColumnsConfigService
   ) { }
 
   ngOnInit(): void {
@@ -239,8 +241,6 @@ export class OrganizationListComponent implements OnInit {
     if (!target.closest('.filter-menu-wrapper') && !target.closest('.context-menu')) {
       this.closeAllMenus();
       this.closeAllContextMenus();
-      // Fermer aussi le menu de filtre des colonnes
-      this.showColumnFilterMenu = false;
     }
   }
 
@@ -288,42 +288,17 @@ export class OrganizationListComponent implements OnInit {
         });
         console.log('📝 Descriptions mises à jour:', Object.keys(this.fieldDescriptions).length);
         
-        // Reconstruire la configuration des colonnes avec les labels du backend
-        const newColumns: ColumnConfig[] = [];
-        
-        metadataMap.forEach((meta: ColumnMetadata) => {
-          // Chercher si cette colonne existe déjà dans la config actuelle
-          const existingColumn = this.columns.find(col => col.field === meta.field);
-          
-          if (existingColumn) {
-            // Conserver l'état visible actuel, mais mettre à jour le label
-            newColumns.push({
-              field: meta.field as keyof Organization,  // Cast nécessaire
-              label: meta.label,  // ← Label depuis le backend !
-              visible: existingColumn.visible,
-              width: existingColumn.width || '150px',
-              type: this.mapFieldType(meta.type)
-            });
-          } else {
-            // Nouvelle colonne : utiliser visible_by_default
-            newColumns.push({
-              field: meta.field as keyof Organization,  // Cast nécessaire
-              label: meta.label,
-              visible: meta.visible_by_default,
-              width: '150px',
-              type: this.mapFieldType(meta.type)
-            });
-          }
+        // ENRICHIR le catalogue curé des colonnes (labels/type depuis le backend) SANS le remplacer.
+        // Le catalogue `this.columns` est la source de vérité et doit rester STRICTEMENT aligné sur
+        // l'allowlist backend `TABLE_COLUMN_FIELDS['organizations']` : y injecter tous les champs du
+        // modèle (type, parent, logo, is_deleted, ...) ferait échouer la sauvegarde des colonnes
+        // (400 « Colonne invalide ») à chaque modification.
+        this.columns = this.columns.map(col => {
+          const meta = metadataMap.get(col.field as string);
+          return meta
+            ? { ...col, label: meta.label || col.label, type: this.mapFieldType(meta.type) || col.type }
+            : { ...col };
         });
-        
-        // Trier selon l'ordre par défaut (visible en premier)
-        newColumns.sort((a, b) => {
-          if (a.visible && !b.visible) return -1;
-          if (!a.visible && b.visible) return 1;
-          return 0;
-        });
-        
-        this.columns = newColumns;
         console.log('📊 Colonnes configurées:', this.columns.length);
         
         // Forcer la détection des changements pour afficher les descriptions
@@ -370,55 +345,30 @@ export class OrganizationListComponent implements OnInit {
       next: (preferences) => {
         console.log('📥 Préférences chargées:', preferences);
         
-        // Restaurer la configuration des colonnes
-        if (preferences.column_config && preferences.column_config.length > 0) {
-          this.restoreColumnConfig(preferences.column_config);
-        }
-        
+        // La configuration des colonnes (visibilité + ordre) est désormais gérée par
+        // TableColumnsConfigService (source super admin + réinitialisation). Cf. loadColumnsConfig().
+
         // Restaurer le tri
         if (preferences.sort_config && preferences.sort_config.column) {
           this.sortColumn = preferences.sort_config.column as keyof Organization;
           this.sortDirection = preferences.sort_config.direction || 'asc';
         }
-        
+
         // Restaurer le mode d'affichage
         if (preferences.display_mode) {
           this.displayMode = preferences.display_mode as 'all' | 'selected';
         }
-        
+
         // Appliquer les changements
         this.applyFiltersAndSort();
+        this.loadColumnsConfig();
         this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('❌ Erreur chargement préférences:', error);
-        // Utiliser les valeurs par défaut
+        this.loadColumnsConfig();
       }
     });
-  }
-
-  /**
-   * Restaurer la configuration des colonnes depuis les préférences
-   */
-  private restoreColumnConfig(savedConfig: any[]): void {
-    // Créer un map des colonnes sauvegardées
-    const configMap = new Map(savedConfig.map(col => [col.field, col]));
-    
-    // Mettre à jour les colonnes actuelles
-    this.columns.forEach(col => {
-      const saved = configMap.get(col.field);
-      if (saved) {
-        col.visible = saved.visible;
-      }
-    });
-    
-    // Réordonner selon la configuration sauvegardée
-    const fieldOrder = savedConfig.map(col => col.field);
-    this.columns.sort((a, b) => {
-      return fieldOrder.indexOf(a.field) - fieldOrder.indexOf(b.field);
-    });
-    
-    console.log('✅ Configuration des colonnes restaurée');
   }
 
   /**
@@ -433,12 +383,6 @@ export class OrganizationListComponent implements OnInit {
    */
   private savePreferencesToBackend(): void {
     const preferences = {
-      column_config: this.columns.map(col => ({
-        field: col.field,
-        label: col.label,
-        visible: col.visible,
-        type: col.type
-      })),
       sort_config: {
         column: this.sortColumn,
         direction: this.sortDirection
@@ -460,149 +404,73 @@ export class OrganizationListComponent implements OnInit {
   /**
    * Récupère la description d'un champ pour affichage en infobulle
    */
+  /**
+   * Descriptions de repli par colonne (info-bulle + libellé de la modale « Organiser les colonnes »).
+   * Reprennent les textes de l'ancienne modale inline pour garantir un descriptif MÊME quand les
+   * métadonnées backend sont indisponibles. Le backend (`fieldDescriptions`) reste prioritaire.
+   */
+  private readonly COLUMN_DESCRIPTIONS: { [field: string]: string } = {
+    code: "Code unique d'identification de l'organisation (ex : CAB-001, DIR-FIN)",
+    name: "Nom officiel ou raison sociale de l'organisation",
+    type_display: 'Catégorie : Cabinet privé/entreprise ou entité publique/administration',
+    legal_id: 'Numéro de registre de commerce pour les privés ou numéro de décret pour les publics',
+    address: "Adresse postale complète de l'organisation (rue, ville, code postal)",
+    phone: 'Numéro de téléphone principal de contact (format international recommandé)',
+    email: "Adresse email de contact principale ou générique de l'organisation",
+    website: "URL du site web officiel de l'organisation (doit commencer par http:// ou https://)",
+    is_active: "Statut d'activité de l'organisation",
+    member_count: 'Nombre total de membres actifs appartenant à cette organisation',
+    created_by_email: "Adresse email de l'utilisateur ayant créé cette organisation",
+    modified_by_email: 'Utilisateur ayant effectué la dernière modification de cette organisation',
+    is_test_data: 'Indique si cette organisation est une donnée de test (True) ou réelle (False). En production, les données de test sont automatiquement masquées.',
+    created_at: 'Date de création dans le système',
+    updated_at: 'Date de la dernière modification',
+  };
+
   getFieldDescription(fieldName: string): string {
-    return this.fieldDescriptions[fieldName] || '';
+    return this.fieldDescriptions[fieldName] || this.COLUMN_DESCRIPTIONS[fieldName] || '';
   }
 
-  // --- Drag & Drop pour réorganisation des colonnes ---
-  
-  /**
-   * Début du glissement d'une colonne
-   */
-  onDragStart(index: number): void {
-    this.draggedColumnIndex = index;
+  // --- Configuration des COLONNES (composant partagé, source super admin + réinitialisation) ---
+
+  /** Ouvre la modale d'organisation des colonnes (composant partagé). */
+  openColumnConfig(): void { this.columnCfg?.open(); }
+
+  private loadColumnsConfig(): void {
+    this.columnsConfigService.get(this.COLUMNS_KEY).subscribe(prefs => {
+      this.columns = applyColumnsConfig(this.columns, prefs);
+      this.cdr.markForCheck();
+    });
   }
-
-  /**
-   * Survol d'une zone de dépôt
-   */
-  onDragOver(event: DragEvent, index: number): void {
-    event.preventDefault(); // Nécessaire pour autoriser le drop
-    if (this.draggedColumnIndex !== null && this.draggedColumnIndex !== index) {
-      this.dragOverIndex = index;
-    }
+  /** Réception d'une modif de colonnes (visibilité/ordre) : applique + enregistrement auto (anti-rebond). */
+  onColumnsChange(cols: ManagedColumn[]): void {
+    this.columns = cols as ColumnConfig[];
+    clearTimeout(this.columnsSaveTimer);
+    this.columnsSaveTimer = setTimeout(() => this.saveColumnsConfig(), 500);
+    this.cdr.markForCheck();
   }
-
-  /**
-   * Fin du survol
-   */
-  onDragLeave(): void {
-    this.dragOverIndex = null;
+  private saveColumnsConfig(): void {
+    this.savingColumns = true;
+    this.columnsConfigService.save(this.COLUMNS_KEY, toColumnPrefs(this.columns)).subscribe({
+      next: () => {
+        this.savingColumns = false; this.savedColumnsFlash = true; this.cdr.markForCheck();
+        setTimeout(() => { this.savedColumnsFlash = false; this.cdr.markForCheck(); }, 2500);
+      },
+      error: (err) => { this.savingColumns = false; this.cdr.markForCheck(); this.toastService.error('Erreur', err?.error?.detail || 'Enregistrement des colonnes impossible'); },
+    });
   }
-
-  /**
-   * Dépôt de la colonne
-   */
-  onDrop(index: number): void {
-    if (this.draggedColumnIndex === null || this.draggedColumnIndex === index) {
-      this.draggedColumnIndex = null;
-      this.dragOverIndex = null;
-      return;
-    }
-
-    // Réorganiser le tableau
-    const draggedColumn = this.columns[this.draggedColumnIndex];
-    this.columns.splice(this.draggedColumnIndex, 1); // Retirer l'élément déplacé
-    this.columns.splice(index, 0, draggedColumn); // L'insérer à la nouvelle position
-
-    // Réinitialiser
-    this.draggedColumnIndex = null;
-    this.dragOverIndex = null;
-  }
-
-  /**
-   * Fin du glissement (annulation ou succès)
-   */
-  onDragEnd(): void {
-    this.draggedColumnIndex = null;
-    this.dragOverIndex = null;
-  }
-
-  // --- Boutons de réorganisation des colonnes ---
-
-  /**
-   * Déplacer une colonne vers le haut d'une position
-   */
-  moveColumnUp(index: number): void {
-    if (index > 0) {
-      const temp = this.columns[index];
-      this.columns[index] = this.columns[index - 1];
-      this.columns[index - 1] = temp;
-    }
-  }
-
-  /**
-   * Déplacer une colonne en première position
-   */
-  moveColumnToTop(index: number): void {
-    if (index > 0) {
-      const column = this.columns.splice(index, 1)[0];
-      this.columns.unshift(column);
-    }
-  }
-
-  /**
-   * Déplacer une colonne vers le bas d'une position
-   */
-  moveColumnDown(index: number): void {
-    if (index < this.columns.length - 1) {
-      const temp = this.columns[index];
-      this.columns[index] = this.columns[index + 1];
-      this.columns[index + 1] = temp;
-    }
-  }
-
-  /**
-   * Déplacer une colonne en dernière position
-   */
-  moveColumnToBottom(index: number): void {
-    if (index < this.columns.length - 1) {
-      const column = this.columns.splice(index, 1)[0];
-      this.columns.push(column);
-    }
-  }
-
-  /**
-   * Obtenir les colonnes à afficher selon le filtre
-   */
-  getFilteredColumns(): ColumnConfig[] {
-    if (this.columnFilter === 'visible') {
-      return this.columns.filter(col => col.visible);
-    }
-    return this.columns;
-  }
-
-  /**
-   * Basculer le menu de filtre d'affichage des colonnes
-   */
-  toggleColumnFilterMenu(event: Event): void {
-    event.stopPropagation();
-    this.showColumnFilterMenu = !this.showColumnFilterMenu;
-  }
-
-  /**
-   * Appliquer une option de filtre
-   */
-  applyColumnFilter(filterType: 'all' | 'visible'): void {
-    this.columnFilter = filterType;
-    this.showColumnFilterMenu = false;
-  }
-
-  /**
-   * Obtenir le label du bouton de filtre
-   */
-  getColumnFilterLabel(): string {
-    return this.columnFilter === 'all' ? 'Toutes les colonnes' : 'Colonnes visibles uniquement';
-  }
-
-  /**
-   * Obtenir les statistiques des colonnes
-   */
-  getColumnStats(): { total: number; visible: number; hidden: number } {
-    const total = this.columns.length;
-    const visible = this.columns.filter(col => col.visible).length;
-    const hidden = total - visible;
-    return { total, visible, hidden };
+  /** Réinitialise les colonnes avec la configuration SOURCE (compte administrateur). */
+  onResetColumns(): void {
+    if (this.resettingColumns) return;
+    this.resettingColumns = true;
+    this.columnsConfigService.resetToSource(this.COLUMNS_KEY).subscribe({
+      next: (prefs) => {
+        this.columns = applyColumnsConfig(this.columns, prefs);
+        this.resettingColumns = false; this.cdr.markForCheck();
+        this.toastService.success('Succès', 'Colonnes réinitialisées avec la configuration source');
+      },
+      error: (e) => { this.resettingColumns = false; this.cdr.markForCheck(); this.toastService.error('Erreur', e?.error?.detail || 'Réinitialisation impossible'); },
+    });
   }
 
   // --- Menus contextuels (clic droit) ---
@@ -663,10 +531,10 @@ export class OrganizationListComponent implements OnInit {
    * Masquer la colonne depuis le menu contextuel
    */
   hideColumnFromContext(): void {
-    if (this.selectedColumnForContext) {
-      this.toggleColumnVisibility(this.selectedColumnForContext.field);
-    }
+    const field = this.selectedColumnForContext?.field;
     this.closeAllContextMenus();
+    if (!field) return;
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
   }
 
   /**
@@ -674,7 +542,7 @@ export class OrganizationListComponent implements OnInit {
    */
   openColumnConfigFromContext(): void {
     this.closeAllContextMenus();
-    this.toggleColumnConfig();
+    this.openColumnConfig();
   }
 
   /**
@@ -1056,15 +924,6 @@ export class OrganizationListComponent implements OnInit {
            this.selectedOrganizations.size === this.filteredOrganizations.length;
   }
 
-  // --- Gestion des colonnes ---
-  toggleColumnVisibility(field: keyof Organization): void {
-    const column = this.columns.find(c => c.field === field);
-    if (column) {
-      column.visible = !column.visible;
-      this.triggerSavePreferences(); // Sauvegarder le changement
-    }
-  }
-
   getTypeLabel(type?: string): string {
     const labels: { [key: string]: string } = {
       'text': 'Texte',
@@ -1074,58 +933,6 @@ export class OrganizationListComponent implements OnInit {
       'boolean': 'Booléen'
     };
     return labels[type || 'text'] || 'Texte';
-  }
-
-  toggleColumnConfig(): void {
-    if (!this.showColumnConfig) {
-      // Ouvrir la fenêtre : sauvegarder l'état actuel
-      this.saveColumnsBackup();
-    } else {
-      // Fermer la fenêtre sans appliquer : restaurer l'ancien état
-      this.restoreColumnsBackup();
-    }
-    this.showColumnConfig = !this.showColumnConfig;
-  }
-
-  confirmColumnConfig(): void {
-    // Confirmer les changements et fermer la fenêtre
-    this.showColumnConfig = false;
-    this.triggerSavePreferences(); // Sauvegarder la configuration des colonnes
-    // La sauvegarde n'est pas restaurée, donc les changements sont conservés
-  }
-
-  cancelColumnConfig(): void {
-    // Annuler les changements : restaurer l'ancien état et fermer
-    this.restoreColumnsBackup();
-    this.showColumnConfig = false;
-  }
-
-  private saveColumnsBackup(): void {
-    // Sauvegarder une copie profonde des colonnes actuelles
-    this.columnsBackup = this.columns.map(col => ({ ...col }));
-  }
-
-  private restoreColumnsBackup(): void {
-    // Restaurer l'état sauvegardé
-    if (this.columnsBackup.length > 0) {
-      this.columns = this.columnsBackup.map(col => ({ ...col }));
-      this.columnsBackup = [];
-    }
-  }
-
-  selectAllColumns(): void {
-    this.columns.forEach(col => col.visible = true);
-    this.triggerSavePreferences(); // Sauvegarder le changement
-  }
-
-  deselectAllColumns(): void {
-    this.columns.forEach(col => col.visible = false);
-    this.triggerSavePreferences(); // Sauvegarder le changement
-  }
-
-  invertColumnSelection(): void {
-    this.columns.forEach(col => col.visible = !col.visible);
-    this.triggerSavePreferences(); // Sauvegarder le changement
   }
 
   // --- Actions ---

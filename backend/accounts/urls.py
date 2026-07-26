@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import RegisterView, LoginView, ForgotPasswordView, VerifyCodeView, ResetPasswordView, ChangePasswordView, UserProfileView, PieceSortConfigView, PieceSortConfigResetView, PieceFieldsConfigView, PieceFieldsConfigResetView, SsdgpsSortConfigView, SsdgpsSortConfigResetView, OrgSortConfigView, OrgSortConfigResetView, OrganismeSortConfigView, OrganismeSortConfigResetView, TableSortConfigView, TableSortConfigResetView
+from .views import RegisterView, LoginView, ForgotPasswordView, VerifyCodeView, ResetPasswordView, ChangePasswordView, UserProfileView, PieceSortConfigView, PieceSortConfigResetView, PieceFieldsConfigView, PieceFieldsConfigResetView, SsdgpsSortConfigView, SsdgpsSortConfigResetView, OrgSortConfigView, OrgSortConfigResetView, OrganismeSortConfigView, OrganismeSortConfigResetView, TableSortConfigView, TableSortConfigResetView, TableColumnsConfigView, TableColumnsConfigResetView
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -23,4 +23,6 @@ urlpatterns = [
     path('me/organisme-sort-config/<int:niveau>/reset/', OrganismeSortConfigResetView.as_view(), name='organisme-sort-config-reset'),
     path('me/table-sort-config/<str:key>/', TableSortConfigView.as_view(), name='table-sort-config'),
     path('me/table-sort-config/<str:key>/reset/', TableSortConfigResetView.as_view(), name='table-sort-config-reset'),
+    path('me/table-columns-config/<str:key>/', TableColumnsConfigView.as_view(), name='table-columns-config'),
+    path('me/table-columns-config/<str:key>/reset/', TableColumnsConfigResetView.as_view(), name='table-columns-config-reset'),
 ]

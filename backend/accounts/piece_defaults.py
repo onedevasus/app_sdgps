@@ -422,3 +422,24 @@ def superadmin_table_sort_config(key):
         return cfg or None
     except Exception:
         return None
+
+
+# --- Configuration des COLONNES GÉNÉRIQUE par tableau (visibilité + ordre) ----------------------
+# Stockée dans `CustomUser.table_columns_configs` (clé = identifiant du tableau). La source
+# d'héritage/réinitialisation reste le compte super admin, comme le tri générique ci-dessus.
+def superadmin_table_columns_config(key):
+    """Config de colonnes (visibilité + ordre) du tableau `key` du super admin de référence (le
+    plus ancien), ou `None` si indisponible (aucun super admin, dictionnaire absent, ou entrée vide).
+
+    Même logique défensive/`atomic()` que `superadmin_table_sort_config`."""
+    from django.contrib.auth import get_user_model
+    try:
+        with transaction.atomic():
+            User = get_user_model()
+            admin = (User.objects.filter(is_superuser=True)
+                     .order_by('date_joined', 'email').first())
+            configs = getattr(admin, 'table_columns_configs', None) if admin else None
+            cfg = (configs or {}).get(key) if isinstance(configs, dict) else None
+        return cfg or None
+    except Exception:
+        return None

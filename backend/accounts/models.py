@@ -373,6 +373,17 @@ class CustomUser(AbstractUser):
         help_text="Niveaux de tri (champ + sens) par défaut, par tableau, pour les listes génériques."
     )
 
+    # Configuration des COLONNES par défaut, GÉNÉRIQUE, des tableaux de l'app (colonnes affichées /
+    # masquées + ordre), propre à l'utilisateur. Dictionnaire `{ '<clé_table>': [{'field','visible'}, ..], .. }`
+    # : une entrée par tableau, l'ordre de la liste étant l'ordre d'affichage des colonnes. Vide par
+    # défaut ; la config source (super admin) reste récupérable via « Réinitialiser avec la
+    # configuration source ». Miroir de `table_sort_configs` (un seul champ pour tous les tableaux).
+    table_columns_configs = models.JSONField(
+        default=dict, blank=True,
+        verbose_name="Colonnes par tableau (générique)",
+        help_text="Colonnes affichées/masquées et leur ordre, par tableau, propres à l'utilisateur."
+    )
+
     class Meta:
         verbose_name = "Utilisateur"
         verbose_name_plural = "Utilisateurs"

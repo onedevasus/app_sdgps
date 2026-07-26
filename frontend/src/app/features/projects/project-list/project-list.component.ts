@@ -13,6 +13,9 @@ import { Organization } from '../../../core/models/organization.model';
 import { TableSortConfigService, OrgSortLevel } from '../../../core/services/table-sort-config.service';
 import { SortableField, compareByLevels, sortLevelOf, sortDirOf } from '../../../shared/components/multi-level-sort/multi-level-sort.util';
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
+import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
+import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 
 interface ColumnConfig {
   field: string;
@@ -107,6 +110,16 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   resettingSort = false;
   private sortSaveTimer: any;
 
+  // --- Configuration des COLONNES (config opérateur, héritée du super admin) — composant partagé ---
+  private readonly COLUMNS_KEY = 'projects';
+  @ViewChild(ColumnConfigComponent) private columnCfg?: ColumnConfigComponent;
+  /** Description d'une colonne pour la modale partagée (référence stable). */
+  describeColumn = (field: string): string => this.getFieldDescription(field);
+  savingColumns = false;
+  savedColumnsFlash = false;
+  resettingColumns = false;
+  private columnsSaveTimer: any;
+
   // Sélection
   selectedIds = new Set<string>();
   isAllSelected = false;
@@ -145,14 +158,6 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   isBulkPermanent = false;
   permanentDeleting = false;
 
-  // Colonnes — modale d'organisation
-  showColumnConfig = false;
-  private columnsBackup: ColumnConfig[] = [];
-  columnFilter: 'all' | 'visible' = 'all';
-  showColumnFilterMenu = false;
-  draggedColumnIndex: number | null = null;
-  dragOverIndex: number | null = null;
-
   // Dropdowns
   showExportMenu = false;
   showFilterMenu = false;
@@ -182,6 +187,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private breadcrumb: BreadcrumbService,
     private sortConfigService: TableSortConfigService,
+    private columnsConfigService: TableColumnsConfigService,
   ) {
     this.form = this.fb.group({
       nom_projet: ['', Validators.required],
@@ -204,6 +210,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.loadPreferences();
     this.load();
     this.loadSortConfig();
+    this.loadColumnsConfig();
     this.boundHandleClickOutside = this.handleGlobalClick.bind(this);
     document.addEventListener('click', this.boundHandleClickOutside);
 
@@ -269,19 +276,8 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       const raw = localStorage.getItem(PREFS_KEY);
       if (!raw) return;
       const prefs = JSON.parse(raw);
-      if (Array.isArray(prefs.columns)) {
-        prefs.columns.forEach((sc: any) => {
-          const col = this.columns.find(c => c.field === sc.field);
-          if (col) col.visible = sc.visible;
-        });
-        const ordered: ColumnConfig[] = [];
-        prefs.columns.forEach((sc: any) => {
-          const col = this.columns.find(c => c.field === sc.field);
-          if (col) ordered.push(col);
-        });
-        this.columns.forEach(c => { if (!ordered.includes(c)) ordered.push(c); });
-        if (ordered.length === this.columns.length) this.columns = ordered;
-      }
+      // Les colonnes (visibilité + ordre) sont désormais persistées par utilisateur côté serveur
+      // (TableColumnsConfigService), plus en localStorage. Cf. loadColumnsConfig().
       if (prefs.sortColumn) this.sortColumn = prefs.sortColumn;
       if (prefs.sortDirection) this.sortDirection = prefs.sortDirection;
       if (prefs.pageSize) this.pageSize = prefs.pageSize;
@@ -291,7 +287,6 @@ export class ProjectListComponent implements OnInit, OnDestroy {
 
   savePreferences(): void {
     localStorage.setItem(PREFS_KEY, JSON.stringify({
-      columns: this.columns.map(c => ({ field: c.field, visible: c.visible })),
       sortColumn: this.sortColumn,
       sortDirection: this.sortDirection,
       pageSize: this.pageSize,
@@ -556,55 +551,44 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   // ============================================
 
   getVisibleColumns(): ColumnConfig[] { return this.columns.filter(c => c.visible); }
-  getFilteredColumns(): ColumnConfig[] { return this.columnFilter === 'visible' ? this.columns.filter(c => c.visible) : this.columns; }
-  getColumnStats(): { total: number; visible: number; hidden: number } {
-    const total = this.columns.length;
-    const visible = this.columns.filter(c => c.visible).length;
-    return { total, visible, hidden: total - visible };
-  }
-  toggleColumnVisibility(field: string): void {
-    const col = this.columns.find(c => c.field === field);
-    if (col) col.visible = !col.visible;
-  }
 
-  toggleColumnConfig(): void {
-    if (!this.showColumnConfig) this.saveColumnsBackup();
-    else this.restoreColumnsBackup();
-    this.showColumnConfig = !this.showColumnConfig;
+  /** Ouvre la modale d'organisation des colonnes (composant partagé). */
+  openColumnConfig(): void { this.columnCfg?.open(); }
+
+  private loadColumnsConfig(): void {
+    this.columnsConfigService.get(this.COLUMNS_KEY).subscribe(prefs => {
+      this.columns = applyColumnsConfig(this.columns, prefs);
+    });
   }
-  openColumnConfig(): void { this.saveColumnsBackup(); this.showColumnConfig = true; }
-  confirmColumnConfig(): void { this.showColumnConfig = false; this.columnsBackup = []; this.savePreferences(); }
-  cancelColumnConfig(): void { this.restoreColumnsBackup(); this.showColumnConfig = false; }
-  private saveColumnsBackup(): void { this.columnsBackup = this.columns.map(c => ({ ...c })); }
-  private restoreColumnsBackup(): void {
-    if (this.columnsBackup.length > 0) { this.columns = this.columnsBackup.map(c => ({ ...c })); this.columnsBackup = []; }
+  /** Réception d'une modif de colonnes (visibilité/ordre) : applique + enregistrement auto (anti-rebond). */
+  onColumnsChange(cols: ManagedColumn[]): void {
+    this.columns = cols as ColumnConfig[];
+    clearTimeout(this.columnsSaveTimer);
+    this.columnsSaveTimer = setTimeout(() => this.saveColumnsConfig(), 500);
   }
-
-  selectAllColumns(): void { this.columns.forEach(c => c.visible = true); }
-  deselectAllColumns(): void { this.columns.forEach(c => c.visible = false); }
-  invertColumnSelection(): void { this.columns.forEach(c => c.visible = !c.visible); }
-
-  toggleColumnFilterMenu(event: Event): void { event.stopPropagation(); this.showColumnFilterMenu = !this.showColumnFilterMenu; }
-  applyColumnFilter(filter: 'all' | 'visible'): void { this.columnFilter = filter; this.showColumnFilterMenu = false; }
-  getColumnFilterLabel(): string { return this.columnFilter === 'all' ? 'Toutes les colonnes' : 'Colonnes visibles'; }
-
-  // Drag & drop réordonnancement
-  onDragStart(index: number): void { this.draggedColumnIndex = index; }
-  onDragOver(event: DragEvent, index: number): void { event.preventDefault(); this.dragOverIndex = index; }
-  onDragLeave(): void { this.dragOverIndex = null; }
-  onDrop(index: number): void {
-    if (this.draggedColumnIndex === null || this.draggedColumnIndex === index) { this.draggedColumnIndex = null; this.dragOverIndex = null; return; }
-    const dragged = this.columns[this.draggedColumnIndex];
-    this.columns.splice(this.draggedColumnIndex, 1);
-    this.columns.splice(index, 0, dragged);
-    this.draggedColumnIndex = null; this.dragOverIndex = null;
+  private saveColumnsConfig(): void {
+    this.savingColumns = true;
+    this.columnsConfigService.save(this.COLUMNS_KEY, toColumnPrefs(this.columns)).subscribe({
+      next: () => {
+        this.savingColumns = false; this.savedColumnsFlash = true;
+        setTimeout(() => { this.savedColumnsFlash = false; }, 2500);
+      },
+      error: (err) => { this.savingColumns = false; this.toast.error('Erreur', err?.error?.detail || 'Enregistrement des colonnes impossible'); },
+    });
   }
-  onDragEnd(): void { this.draggedColumnIndex = null; this.dragOverIndex = null; }
-
-  moveColumnUp(index: number): void { if (index > 0) { [this.columns[index], this.columns[index - 1]] = [this.columns[index - 1], this.columns[index]]; } }
-  moveColumnDown(index: number): void { if (index < this.columns.length - 1) { [this.columns[index], this.columns[index + 1]] = [this.columns[index + 1], this.columns[index]]; } }
-  moveColumnToTop(index: number): void { if (index > 0) { const c = this.columns.splice(index, 1)[0]; this.columns.unshift(c); } }
-  moveColumnToBottom(index: number): void { if (index < this.columns.length - 1) { const c = this.columns.splice(index, 1)[0]; this.columns.push(c); } }
+  /** Réinitialise les colonnes avec la configuration SOURCE (compte administrateur). */
+  onResetColumns(): void {
+    if (this.resettingColumns) return;
+    this.resettingColumns = true;
+    this.columnsConfigService.resetToSource(this.COLUMNS_KEY).subscribe({
+      next: (prefs) => {
+        this.columns = applyColumnsConfig(this.columns, prefs);
+        this.resettingColumns = false;
+        this.toast.success('Succès', 'Colonnes réinitialisées avec la configuration source');
+      },
+      error: (e) => { this.resettingColumns = false; this.toast.error('Erreur', e?.error?.detail || 'Réinitialisation impossible'); },
+    });
+  }
 
   onColumnHeaderRightClick(event: MouseEvent, col: ColumnConfig): void {
     event.preventDefault(); event.stopPropagation();
@@ -613,8 +597,11 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.showColumnContextMenu = true;
   }
   hideColumnFromContext(): void {
-    if (this.contextMenuColumn) this.contextMenuColumn.visible = false;
+    const field = this.contextMenuColumn?.field;
     this.showColumnContextMenu = false; this.contextMenuColumn = null;
+    if (!field) return;
+    // Masque la colonne + enregistre (auto-save), comme depuis la modale.
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
   }
   openColumnConfigFromContext(): void { this.showColumnContextMenu = false; this.openColumnConfig(); }
   /** Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête). */
@@ -858,14 +845,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       this.showExportMenu = false;
       this.showFilterMenu = false;
       this.showFieldFilterMenu = false;
-      this.showColumnFilterMenu = false;
       this.closeAllContextMenus();
     }
   }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    if (this.showColumnConfig) { this.cancelColumnConfig(); return; }
     if (this.showModal) { this.closeModal(); return; }
     if (this.showDeleteModal) { this.closeDeleteModal(); return; }
     if (this.showRestoreModal) { this.closeRestoreModal(); return; }

@@ -13,7 +13,8 @@ describe('OrganismeListComponent (helpers)', () => {
       resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
     };
     toast = { success: jasmine.createSpy('success'), error: jasmine.createSpy('error') };
-    cmp = new OrganismeListComponent({} as any, {} as any, toast, {} as any, sortSvc);
+    const columnsStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    cmp = new OrganismeListComponent({} as any, {} as any, toast, {} as any, sortSvc, columnsStub);
   });
 
   it('getTypeLabel mappe les types (repli « Texte »)', () => {
@@ -104,5 +105,52 @@ describe('OrganismeListComponent (helpers)', () => {
     cmp.onResetSort();
     expect(sortSvc.resetToSource).toHaveBeenCalledWith(1);
     expect(cmp.sortLevels).toEqual([{ field: 'code', dir: 'asc' }]);
+  });
+});
+
+describe('OrganismeListComponent (config colonnes)', () => {
+  let cmp: OrganismeListComponent;
+  let toast: any;
+  let columnsSvc: any;
+
+  beforeEach(() => {
+    toast = { success: jasmine.createSpy('success'), error: jasmine.createSpy('error') };
+    columnsSvc = {
+      get: jasmine.createSpy('get').and.returnValue(of([])),
+      save: jasmine.createSpy('save').and.returnValue(of([])),
+      resetToSource: jasmine.createSpy('resetToSource').and.returnValue(of([])),
+    };
+    const sortStub = { get: () => of([]), save: () => of([]), resetToSource: () => of([]) } as any;
+    cmp = new OrganismeListComponent({} as any, {} as any, toast, {} as any, sortStub, columnsSvc);
+  });
+
+  it('onColumnsChange enregistre sous la clé du niveau (n1 → organisme_niveau1)', (done) => {
+    cmp.niveau = 1;
+    const cols = [{ field: 'nom', label: 'Nom', visible: false }] as any;
+    cmp.onColumnsChange(cols);
+    expect(cmp.columns).toBe(cols);
+    setTimeout(() => {
+      expect(columnsSvc.save).toHaveBeenCalledWith('organisme_niveau1', [{ field: 'nom', visible: false }]);
+      done();
+    }, 600);
+  });
+
+  it('onResetColumns utilise la clé n2 (organisme_niveau2)', () => {
+    cmp.niveau = 2;
+    cmp.columns = [{ field: 'nom', label: 'Nom', visible: true } as any];
+    columnsSvc.resetToSource.and.returnValue(of([{ field: 'nom', visible: false }]));
+    cmp.onResetColumns();
+    expect(columnsSvc.resetToSource).toHaveBeenCalledWith('organisme_niveau2');
+    expect(cmp.columns[0].visible).toBeFalse();
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('openColumnConfigFromContext ferme les menus et ouvre la modale de colonnes', () => {
+    const open = jasmine.createSpy('open');
+    (cmp as any).columnCfg = { open };
+    cmp.showColumnContextMenu = true;
+    cmp.openColumnConfigFromContext();
+    expect(cmp.showColumnContextMenu).toBeFalse();
+    expect(open).toHaveBeenCalled();
   });
 });

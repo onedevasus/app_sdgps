@@ -205,3 +205,28 @@ assistants de codage IA comme aux contributeurs humains (cf. `AGENTS.md`).
     `organisme-sort-config`, `ssdgps-sort-config`) : seule l'UI est mutualisée. Le parent garde
     `sortLevels`, `sortLevelOf`/`sortDirOf`, `compareByLevels`, `onSortLevelsChange`, `onResetSort`,
     et ouvre la modale via `@ViewChild(MultiLevelSortComponent)` + `openSortConfig()`.
+
+- **Configuration des colonnes (parité stricte avec le tri multi-niveaux).** Chaque tableau
+  enregistre sa config de **colonnes** (affichées/masquées **+ ordre**) **par utilisateur**, héritée
+  par défaut du **compte super admin (source)**, avec **auto-save** et bouton **« Réinitialiser avec
+  la configuration source »**. Mécanisme miroir du tri :
+  - **Composant partagé unique** `shared/components/column-config/` — `<app-column-config>` (bouton
+    « Colonnes » + modale : cases visibilité, réordonnancement flèches **+ drag&drop**, filtre
+    toutes/visibles, tout sélectionner/désélectionner/inverser, indicateur auto-save, reset-source,
+    **pas de OK/Annuler**). Helpers `column-config.util.ts` (`applyColumnsConfig(catalog, stored)`,
+    `toColumnPrefs`, interfaces `ManagedColumn`/`StoredColumnPref`). Déclaré dans `shared.module.ts`.
+  - **Service générique** `core/services/table-columns-config.service.ts` (`get/save/resetToSource`,
+    cache par clé) → backend `CustomUser.table_columns_configs` (dict `{clé: [{field,visible}]}`) +
+    endpoints `me/table-columns-config/<key>/` (+ `/reset/`), allowlist `TABLE_COLUMN_FIELDS` dans
+    `accounts/views.py` (catalogue COMPLET des colonnes, triables **et** non triables). Source =
+    `superadmin_table_columns_config(key)` (`piece_defaults.py`). **Un seul champ générique** pour
+    les 11 tableaux (pas de champ dédié, contrairement au tri).
+  - **11 clés** : `organizations`, `organisme_niveau1`, `organisme_niveau2`, `users`, `projects`,
+    `project_proprietes` / `project_affaires` / `project_ssdgps` / `project_sessions` (explorateur,
+    config **par niveau** — clé = `sortKey` du niveau courant), `ssdgps` (liste SSDGPS), `pieces`.
+  - **Intégration parent** : garde le catalogue `columns` (source de vérité), charge via
+    `svc.get(key)` → `applyColumnsConfig`, branche `[columns]`/`(columnsChange)`/`(resetToSource)`,
+    auto-save debouncé, ouvre la modale via `@ViewChild(ColumnConfigComponent)` +
+    `openColumnConfig()` (bouton **et** menu contextuel `openColumnConfigFromContext`). La
+    persistance `localStorage` des colonnes a été **retirée** (backend = source de vérité ; le
+    `viewMode` reste en localStorage).

@@ -10,6 +10,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -62,38 +64,35 @@
 
 # Taches a faire
 
-  - Preparation des sdgps multisession exemples
-    - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
-    - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
-    - 
+  - Fonctionnalites manquantes dans l'app
+    - Ajout cachet + signature sur toutes les pages du rapport.
+    - corrige date de bornage des affaires (presense heure)
+    - Preparation des sdgps multisession exemples
+      - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
+      - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
+    - Generation automatique canevas pdc/ddc/plc/dlc.
+    - Geoportail pour afficher les donnees spatiales de chaque projet/propriete/affaire/ssdgps.
+
+
 
   - Divers:
     - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees.
     - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
     - Finaliser l'interface graphique UI/UX
-      - desactivation admin django
       - config des colonnes affichees pour chaque tableau, par defaut config du superadmin.
-      - revision des colonnes des entietes
+      - revision des colonnes des entites
         - ajout colonne nbr pieces dans sous entitees du projet
-
-  
+      - Sigle organisme 1er niveau dans tableau liste organismes 2eme niveau
+      - style etd esignd e tous les scroll verticaux et horizontaux de l'app.
 
   
 
 
   - Plan de deployement : developement + tests + production
     - restructuration des fichiers .env des 4 environnements + docker-compose
-      - restructurer les deux fichiers: .env.development + .env.production (fait)
-      - ajout des env de staging + preprod  (fait)
-      - mapper les env avec services dans dockercompose (chaque environnement avec sa propre bdd et service backend propre)
-      - mapper les noms des services avec 4 environnemts
-      - tests dans dev + staging
-      - automatiser process maj des deploiement locaux comme deploiement railway
-
-    - inclure phase de resolution les problemes de securite
-    - inclure l'automatisation du process d'integration et deployement des maj via les outiles DevOps. (fait)
+      - desactivation admin django dans environnements railway
     - ajoute l'etape de monitoring de l'app avec outiles : Sentry + Prometheus + Grafana + UptimeRobot
-      
+    
 
  
 
@@ -104,7 +103,8 @@ Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement
 - Fonctionnalites futures:
   - Ajouter une page de changelog + ajouter version dans l'app
   - Fonctionnalite gestion stockage des fichiers de l'app avec un fournisseur du service stockage.
-  - 
+  - inclure phase de resolution les problemes de securite
+    - Resolution des problemes dans onglet Security and quality de Github
 
 
 # Rôles de l'application
