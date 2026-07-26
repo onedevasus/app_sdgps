@@ -67,7 +67,7 @@
       </div>
 
       <ul class="column-list">
-        <li *ngFor="let col of filteredColumns"
+        <li *ngFor="let col of filteredColumns; trackBy: trackByField"
             class="column-item"
             [class.dragging]="draggedIndex === realIndex(col)"
             [class.drag-over]="dragOverIndex === realIndex(col)"

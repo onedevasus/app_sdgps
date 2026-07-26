@@ -157,3 +157,78 @@ describe('ColumnConfigComponent (mise en page de la modale)', () => {
     chips.forEach(c => expect(c.getBoundingClientRect().height).toBeGreaterThan(0));
   });
 });
+
+/**
+ * Test de NON-RÉGRESSION : « le défilement remonte en haut à chaque modification ».
+ * Chaque modification émet une NOUVELLE liste de colonnes ; sans `trackBy`, Angular recrée tous
+ * les `<li>` et la position de défilement retombe à 0. Le parent réaffecte `columns` (auto-save)
+ * comme en conditions réelles.
+ *
+ * ⚠️ Le garde-fou EFFECTIF est « les nœuds DOM sont RÉUTILISÉS » : c'est le seul test qui échoue
+ * si l'on retire `trackBy` (vérifié). Les assertions sur `scrollTop` documentent l'invariant
+ * attendu mais ne suffisent pas à détecter la régression en Karma headless, où la recréation
+ * synchrone des lignes conserve la hauteur totale et donc la position de défilement.
+ */
+describe('ColumnConfigComponent (conservation du défilement)', () => {
+  let fixture: ComponentFixture<ColumnConfigComponent>;
+  let cmp: ColumnConfigComponent;
+  let scroll: HTMLElement;
+
+  /** Simule le parent : applique la nouvelle liste puis relance la détection de changements. */
+  function applyLikeParent(): void {
+    cmp.columnsChange.subscribe(cols => { cmp.columns = cols; });
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ declarations: [ColumnConfigComponent] }).compileComponents();
+    fixture = TestBed.createComponent(ColumnConfigComponent);
+    cmp = fixture.componentInstance;
+    cmp.columns = Array.from({ length: 60 }, (_, i) => ({
+      field: `f${i}`, label: `Colonne ${i}`, visible: i % 2 === 0, type: 'text',
+      description: `Description de la colonne ${i}`,
+    }));
+    applyLikeParent();
+    cmp.open();
+    fixture.detectChanges();
+    scroll = fixture.nativeElement.querySelector('.column-scroll') as HTMLElement;
+    // Se placer au milieu de la liste.
+    scroll.scrollTop = Math.floor((scroll.scrollHeight - scroll.clientHeight) / 2);
+    fixture.detectChanges();
+  });
+
+  it('la zone de défilement est réellement scrollable dans le test', () => {
+    expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
+    expect(scroll.scrollTop).toBeGreaterThan(0);
+  });
+
+  it('bascule de visibilité : la position de défilement est conservée', () => {
+    const before = scroll.scrollTop;
+    cmp.toggleVisibility('f30');
+    fixture.detectChanges();
+    expect(scroll.scrollTop).toBe(before);
+  });
+
+  it('réordonnancement : la position de défilement est conservée', () => {
+    const before = scroll.scrollTop;
+    cmp.moveDown(30);
+    fixture.detectChanges();
+    expect(scroll.scrollTop).toBe(before);
+  });
+
+  it('tout sélectionner / inverser : la position de défilement est conservée', () => {
+    const before = scroll.scrollTop;
+    cmp.selectAll();
+    fixture.detectChanges();
+    cmp.invertSelection();
+    fixture.detectChanges();
+    expect(scroll.scrollTop).toBe(before);
+  });
+
+  it('les nœuds DOM sont RÉUTILISÉS (trackBy) et non recréés', () => {
+    const first = scroll.querySelector('.column-item') as HTMLElement;
+    cmp.toggleVisibility('f30');
+    fixture.detectChanges();
+    // Même instance d'élément → Angular n'a pas détruit/recréé la ligne.
+    expect(scroll.querySelector('.column-item')).toBe(first);
+  });
+});

@@ -71,6 +71,15 @@ export class ColumnConfigComponent {
   realIndex(col: ManagedColumn): number { return this.columns.indexOf(col); }
 
   /**
+   * Identité d'une ligne pour `*ngFor` : le champ. INDISPENSABLE — chaque modification émet une
+   * NOUVELLE liste ; sans `trackBy`, Angular détruirait puis recréerait tous les `<li>`, ce qui
+   * ferait retomber le défilement de la modale en haut à chaque clic. Avec `trackBy`, les nœuds
+   * DOM sont réutilisés (et simplement déplacés lors d'un réordonnancement) : la position de
+   * défilement est conservée.
+   */
+  trackByField = (_: number, col: ManagedColumn): string => col.field;
+
+  /**
    * Description d'une colonne, affichée dans la COLONNE dédiée « Description » de la modale :
    * `describe()` (fourni par le parent) prioritaire, puis la description portée par la colonne.
    */
