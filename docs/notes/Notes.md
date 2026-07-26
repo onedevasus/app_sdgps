@@ -12,6 +12,10 @@
 
 
 
+
+
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -66,7 +70,7 @@
 
   - Fonctionnalites manquantes dans l'app
     - Ajout cachet + signature sur toutes les pages du rapport.
-    - corrige date de bornage des affaires (presense heure)
+
     - Preparation des sdgps multisession exemples
       - preparation des donnees des sessions des sdgps multisessions exemples : PLC/GPS - DLC/GPS
       - import donnees dans l'app + generation des sdgps des sessions + page de garde de tous les sdgps des sessions
@@ -79,12 +83,15 @@
     - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees.
     - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
     - Finaliser l'interface graphique UI/UX
-      - config des colonnes affichees pour chaque tableau, par defaut config du superadmin.
       - revision des colonnes des entites
         - ajout colonne nbr pieces dans sous entitees du projet
+        - suppression colonne "type de donnees" dans tablea liste des organisations
       - Sigle organisme 1er niveau dans tableau liste organismes 2eme niveau
       - style etd esignd e tous les scroll verticaux et horizontaux de l'app.
-
+      - suppression de l'heure dans la date de bornage des affaires + date des sessions du ssdgps.
+      - Afficher le nom complet de l'utilisateur dans le champs creer par/modifier par/supprimer par.
+      - bouttons actions dans une seule ligne dans la liste des pieces.
+      - corriger elements par page des tableaux de l'app
   
 
 
@@ -98,7 +105,7 @@
 
 
 
-Le tout afin de rendre l'interface beaucoup plus intuitive, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
+Le tout afin de rendre l'interface beaucoup plus intuitive, pro, simple, visuellement attrayante et conforme aux bonnes pratiques UI/UX. Le tout egalement dans un style et design élégant, pro et conforme au design system de l'app.
 
 - Fonctionnalites futures:
   - Ajouter une page de changelog + ajouter version dans l'app
@@ -239,7 +246,7 @@ git log --oneline --grep="wip: auto-save" --max-count=20
 
 force le redemarrage/relance des deux serveurs frontend et backend (vrai serveur backend via docker) en arriere plan (ne pas afficher de fenetres terminal dans windows) en utilisant l'environnement de development depuis la confi des environnements. relance backend sur port 8085 et frontend sur le port 4205. ne jamais stopper les autres process deja dans les autres ports par exemples : 8080/ 8081 ... ou bien 4200/4201 ...
 
-relance frontend de l'environnemnt development sur port 4205.
+relance le serveur frontend de l'environnemnt development sur port 4205. relance egalement le serveur backend de l'environnemnt development sur port 8085.
 
 ## Redaction du CPS de l'app
 

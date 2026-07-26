@@ -206,6 +206,43 @@ assistants de codage IA comme aux contributeurs humains (cf. `AGENTS.md`).
     `sortLevels`, `sortLevelOf`/`sortDirOf`, `compareByLevels`, `onSortLevelsChange`, `onResetSort`,
     et ouvre la modale via `@ViewChild(MultiLevelSortComponent)` + `openSortConfig()`.
 
+- **Colonnes d'audit OBLIGATOIRES (règle transverse, tout nouveau tableau).** Tout tableau de
+  l'app doit exposer ces **7 colonnes**, avec ces **noms de champ** et ces **libellés exacts** —
+  ils sont **unifiés dans toute l'application**, ne jamais en inventer de variante
+  (« Date de création », « Dernière modification », « Email du créateur »… sont **proscrits**) :
+
+  | Champ API | Libellé | Type |
+  |---|---|---|
+  | `created_by_email` | **Créé par** | text |
+  | `created_at` | **Créé le** | date |
+  | `updated_by_email` | **Modifié par** | text |
+  | `updated_at` | **Modifié le** | date |
+  | `is_deleted` | **Supprimé** | boolean |
+  | `deleted_by_email` | **Supprimé par** | text |
+  | `deleted_at` | **Supprimé le** | date |
+
+  - **Source de vérité unique (front)** : `shared/components/column-config/audit-columns.ts`
+    (`auditColumns()`, `withAuditColumns()`, `AUDIT_COLUMN_LABELS/DESCRIPTIONS/ORDER`,
+    `isAuditColumn()`). Un nouveau tableau **concatène** simplement le catalogue partagé en fin de
+    ses colonnes métier : `columns = [ ...colonnes métier..., ...auditColumns() ]`, et réutilise
+    `AUDIT_COLUMN_ORDER/LABELS` pour ses `sortableFields` ainsi que `AUDIT_COLUMN_DESCRIPTIONS`
+    pour son `getFieldDescription`. **Ne jamais réécrire ces libellés à la main.**
+  - Masquées par défaut (`visible: false`) — activables via la modale « Colonnes ». Le rendu des
+    cellules suit le patron générique (cf. `project-list`) : dates via `formatDate()`, `is_deleted`
+    en badge Oui/Non, `*_by_email` avec repli `—`.
+  - **Backend** : déclarer les 7 champs dans `TABLE_COLUMN_FIELDS[<clé>]` (`accounts/views.py`) et
+    dans l'allowlist de tri du tableau, et les exposer dans le serializer. ⚠️ Les champs
+    `*_by_email` dérivés d'une FK **doivent** porter `allow_null=True` : sans lui DRF **omet** le
+    champ quand la FK est nulle (`SkipField`) et la colonne disparaît du payload.
+  - **Capture des auteurs** : renseigner `created_by`/`updated_by` dans `perform_create` /
+    `perform_update` et `deleted_by` (+ `deleted_at`) sur **tous** les chemins de suppression
+    logique, y compris les suppressions **en masse**.
+  - **Exceptions historiques** : l'organisation utilise le champ DB `modified_by` — l'API expose
+    l'alias `updated_by_email` (nom unifié) **et** `modified_by_email` (compatibilité). Pour les
+    utilisateurs, `date_joined` tient lieu de date de création et est aliasé en `created_at`.
+  - Tests garde-fous : `backend/accounts/tests_audit_columns.py` (toutes les clés déclarent les 7
+    colonnes + capture des auteurs) et `audit-columns.spec.ts` (libellés unifiés).
+
 - **Configuration des colonnes (parité stricte avec le tri multi-niveaux).** Chaque tableau
   enregistre sa config de **colonnes** (affichées/masquées **+ ordre**) **par utilisateur**, héritée
   par défaut du **compte super admin (source)**, avec **auto-save** et bouton **« Réinitialiser avec

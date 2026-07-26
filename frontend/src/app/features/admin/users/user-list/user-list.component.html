@@ -152,11 +152,10 @@
                   [class.is-sorted]="sortLevelOf(col.field)"
                   (click)="sorter.open()"
                   (contextmenu)="onColumnHeaderRightClick($event, col)"
-                  [title]="'Configurer le tri multi-niveaux — ' + getFieldDescription(col.field)">
+                  appTableHeaderTooltip [tipLabel]="col.label" [tipDescription]="getFieldDescription(col.field)" [tipType]="col.type" [tipSortLevel]="sortLevelOf(col.field)" [tipSortDir]="sortDirOf(col.field)">
                 <span>{{ col.label }}</span>
                 <!-- Marqueur de tri MULTI-NIVEAUX (rang + sens) si le champ y participe. -->
-                <span class="sort-badge" *ngIf="sortLevelOf(col.field)"
-                      [title]="'Niveau de tri ' + sortLevelOf(col.field) + ' — ' + (sortDirOf(col.field) === 'desc' ? 'décroissant' : 'croissant')">
+                <span class="sort-badge" *ngIf="sortLevelOf(col.field)">
                   <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>
                   <i class="fas" [class.fa-arrow-up-short-wide]="sortDirOf(col.field) === 'asc'"
                      [class.fa-arrow-down-wide-short]="sortDirOf(col.field) === 'desc'"></i>
@@ -205,13 +204,18 @@
                   {{ getCellValue(user, col.field) }}
                 </span>
 
-                <!-- Dates formatées -->
-                <span *ngIf="col.field === 'date_joined' || col.field === 'last_connection_at' || col.field === 'password_changed_at'">
+                <!-- Dates formatées (colonnes d'audit standard incluses) -->
+                <span *ngIf="col.field === 'date_joined' || col.field === 'last_connection_at' || col.field === 'password_changed_at' || col.field === 'created_at' || col.field === 'updated_at' || col.field === 'deleted_at'">
                   {{ formatDate($any(user)[col.field]) }}
                 </span>
 
+                <!-- Auteurs (colonnes d'audit standard) -->
+                <span *ngIf="col.field === 'created_by_email' || col.field === 'updated_by_email' || col.field === 'deleted_by_email'">
+                  {{ $any(user)[col.field] || '—' }}
+                </span>
+
                 <!-- Autres champs -->
-                <span *ngIf="col.field !== 'first_name' && col.field !== 'email' && col.field !== 'role' && col.field !== 'organization_name' && col.field !== 'is_active' && col.field !== 'is_deleted' && col.field !== 'is_superuser' && col.field !== 'must_change_password' && col.field !== 'date_joined' && col.field !== 'last_connection_at' && col.field !== 'password_changed_at'">
+                <span *ngIf="col.field !== 'first_name' && col.field !== 'email' && col.field !== 'role' && col.field !== 'organization_name' && col.field !== 'is_active' && col.field !== 'is_deleted' && col.field !== 'is_superuser' && col.field !== 'must_change_password' && col.field !== 'date_joined' && col.field !== 'last_connection_at' && col.field !== 'password_changed_at' && col.field !== 'created_at' && col.field !== 'updated_at' && col.field !== 'deleted_at' && col.field !== 'created_by_email' && col.field !== 'updated_by_email' && col.field !== 'deleted_by_email'">
                   {{ getCellValue(user, col.field) }}
                 </span>
               </td>

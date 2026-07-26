@@ -16,6 +16,7 @@ import { MultiLevelSortComponent } from '../../../../shared/components/multi-lev
 import { ColumnConfigComponent } from '../../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../../shared/components/column-config/column-config.util';
 import { TableColumnsConfigService } from '../../../../core/services/table-columns-config.service';
+import { auditColumns, AUDIT_COLUMN_DESCRIPTIONS, AUDIT_COLUMN_LABELS, AUDIT_COLUMN_ORDER } from '../../../../shared/components/column-config/audit-columns';
 
 interface ColumnConfig {
   field: string;
@@ -60,8 +61,9 @@ export class UserListComponent implements OnInit, OnDestroy {
     { field: 'must_change_password', label: 'MDP à changer', visible: false, width: '130px', type: 'boolean' },
     { field: 'date_joined',   label: 'Date d\'inscription', visible: false, width: '150px', type: 'date' },
     { field: 'password_changed_at', label: 'Dernier changement MDP', visible: false, width: '150px', type: 'date' },
-    { field: 'is_deleted',    label: 'Supprimé',           visible: false, width: '100px', type: 'boolean' },
     { field: 'is_superuser',  label: 'Superuser',          visible: false, width: '100px', type: 'boolean' },
+    // Colonnes d'audit standard (libellés unifiés, cf. CLAUDE.md).
+    ...(auditColumns() as unknown as ColumnConfig[]),
   ];
 
   // Filtres
@@ -90,8 +92,9 @@ export class UserListComponent implements OnInit, OnDestroy {
     { field: 'must_change_password', label: 'MDP à changer' },
     { field: 'date_joined', label: "Date d'inscription" },
     { field: 'password_changed_at', label: 'Dernier changement MDP' },
-    { field: 'is_deleted', label: 'Supprimé' },
     { field: 'is_superuser', label: 'Superuser' },
+    // Colonnes d'audit standard : libellés unifiés (cf. CLAUDE.md).
+    ...AUDIT_COLUMN_ORDER.map(field => ({ field, label: AUDIT_COLUMN_LABELS[field] })),
   ];
   sortLevels: OrgSortLevel[] = [];
   savingSort = false;

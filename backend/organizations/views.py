@@ -91,7 +91,8 @@ class OrganizationBulkDeleteView(APIView):
             try:
                 org.is_deleted = True
                 org.deleted_at = timezone.now()
-                org.save(update_fields=['is_deleted', 'deleted_at'])
+                org.deleted_by = request.user
+                org.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
                 
                 logger.info(f"Organisation supprimée (bulk soft delete): {org.name} (ID: {org.id})")
                 deleted_count += 1
@@ -221,8 +222,9 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         from django.utils import timezone
         instance.is_deleted = True
         instance.deleted_at = timezone.now()
-        instance.save(update_fields=['is_deleted', 'deleted_at'])
-        
+        instance.deleted_by = self.request.user
+        instance.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+
         logger.info(f"Organisation supprimée (soft delete): {instance.name} (ID: {instance.id})")
 
 
@@ -491,16 +493,33 @@ class OrganizationMetadataView(APIView):
             },
             'created_by_email': {
                 'field': 'created_by_email',
-                'label': 'Email du créateur',
+                'label': 'Créé par',
                 'description': 'Adresse email de l\'utilisateur ayant créé cette organisation dans le système',
                 'type': 'EmailField',
                 'required': False,
                 'visible_by_default': False,
             },
+            # Colonnes d'audit standard : libellés UNIFIÉS dans toute l'app (cf. CLAUDE.md).
             'modified_by_email': {
                 'field': 'modified_by_email',
-                'label': 'Email du dernier modificateur',
-                'description': 'Adresse email de l\'utilisateur ayant effectué la dernière modification de cette organisation',
+                'label': 'Modifié par',
+                'description': 'Utilisateur ayant effectué la dernière modification',
+                'type': 'EmailField',
+                'required': False,
+                'visible_by_default': False,
+            },
+            'updated_by_email': {
+                'field': 'updated_by_email',
+                'label': 'Modifié par',
+                'description': 'Utilisateur ayant effectué la dernière modification',
+                'type': 'EmailField',
+                'required': False,
+                'visible_by_default': False,
+            },
+            'deleted_by_email': {
+                'field': 'deleted_by_email',
+                'label': 'Supprimé par',
+                'description': "Utilisateur ayant supprimé l'enregistrement",
                 'type': 'EmailField',
                 'required': False,
                 'visible_by_default': False,

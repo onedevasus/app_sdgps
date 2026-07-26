@@ -7,6 +7,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { OrgSortConfigService, OrgSortLevel } from '../../../core/services/org-sort-config.service';
 import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { auditColumns, isAuditColumn, AUDIT_COLUMN_DESCRIPTIONS, AUDIT_COLUMN_LABELS, AUDIT_COLUMN_ORDER } from '../../../shared/components/column-config/audit-columns';
 import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 import { Organization } from '../../../core/models/organization.model';
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
@@ -32,11 +33,9 @@ const SORTABLE_FIELDS: { field: string; label: string }[] = [
   { field: 'website', label: 'Site Web' },
   { field: 'is_active', label: 'Statut' },
   { field: 'member_count', label: 'Membres' },
-  { field: 'created_by_email', label: 'Créé par' },
-  { field: 'modified_by_email', label: 'Modifié par' },
   { field: 'is_test_data', label: 'Type de données' },
-  { field: 'created_at', label: 'Date Création' },
-  { field: 'updated_at', label: 'Date Modification' },
+  // Colonnes d'audit standard : libellés unifiés (cf. CLAUDE.md).
+  ...AUDIT_COLUMN_ORDER.map(field => ({ field, label: AUDIT_COLUMN_LABELS[field] })),
 ];
 
 @Component({
@@ -64,11 +63,9 @@ export class OrganizationListComponent implements OnInit {
     { field: 'website', label: 'Site Web', visible: false, width: '180px', type: 'text' },
     { field: 'is_active', label: 'Statut', visible: true, width: '100px', type: 'boolean' },
     { field: 'member_count', label: 'Membres', visible: true, width: '90px', type: 'number' },
-    { field: 'created_by_email', label: 'Créé par', visible: false, width: '200px', type: 'email' },
-    { field: 'modified_by_email', label: 'Modifié par', visible: false, width: '200px', type: 'email' },
     { field: 'is_test_data', label: 'Type de données', visible: false, width: '130px', type: 'boolean' },
-    { field: 'created_at', label: 'Date Création', visible: false, width: '150px', type: 'date' },
-    { field: 'updated_at', label: 'Date Modification', visible: false, width: '150px', type: 'date' }
+    // Colonnes d'audit standard (libellés unifiés via `auditColumns()`, cf. CLAUDE.md).
+    ...(auditColumns() as unknown as ColumnConfig[]),
   ];
 
   // Tri mono-colonne (clic en-tête) — conservé comme repli quand aucun tri multi-niveaux.
@@ -295,9 +292,11 @@ export class OrganizationListComponent implements OnInit {
         // (400 « Colonne invalide ») à chaque modification.
         this.columns = this.columns.map(col => {
           const meta = metadataMap.get(col.field as string);
-          return meta
-            ? { ...col, label: meta.label || col.label, type: this.mapFieldType(meta.type) || col.type }
-            : { ...col };
+          if (!meta) return { ...col };
+          // Les colonnes d'audit conservent leur libellé UNIFIÉ : le backend ne doit pas
+          // réintroduire de variantes locales (« Email du créateur », ...). Cf. CLAUDE.md.
+          const label = isAuditColumn(col.field as string) ? col.label : (meta.label || col.label);
+          return { ...col, label, type: this.mapFieldType(meta.type) || col.type };
         });
         console.log('📊 Colonnes configurées:', this.columns.length);
         
@@ -420,15 +419,19 @@ export class OrganizationListComponent implements OnInit {
     website: "URL du site web officiel de l'organisation (doit commencer par http:// ou https://)",
     is_active: "Statut d'activité de l'organisation",
     member_count: 'Nombre total de membres actifs appartenant à cette organisation',
-    created_by_email: "Adresse email de l'utilisateur ayant créé cette organisation",
     modified_by_email: 'Utilisateur ayant effectué la dernière modification de cette organisation',
     is_test_data: 'Indique si cette organisation est une donnée de test (True) ou réelle (False). En production, les données de test sont automatiquement masquées.',
-    created_at: 'Date de création dans le système',
-    updated_at: 'Date de la dernière modification',
+    // Colonnes d'audit standard : descriptions unifiées (cf. CLAUDE.md).
+    ...AUDIT_COLUMN_DESCRIPTIONS,
   };
 
   getFieldDescription(fieldName: string): string {
-    return this.fieldDescriptions[fieldName] || this.COLUMN_DESCRIPTIONS[fieldName] || '';
+    // Les colonnes d'audit gardent TOUJOURS la description unifiée : le backend ne doit pas
+    // réintroduire de variantes locales (« Date de création dans le système », ...).
+    return AUDIT_COLUMN_DESCRIPTIONS[fieldName]
+      || this.fieldDescriptions[fieldName]
+      || this.COLUMN_DESCRIPTIONS[fieldName]
+      || '';
   }
 
   // --- Configuration des COLONNES (composant partagé, source super admin + réinitialisation) ---

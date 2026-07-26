@@ -196,12 +196,11 @@
               [class.is-sorted]="sortLevelOf(col.field)"
               (click)="openSortConfig()"
               (contextmenu)="onColumnHeaderRightClick($event, col)"
-              [title]="'Configurer le tri multi-niveaux — ' + getFieldDescription(col.field)"
+              appTableHeaderTooltip [tipLabel]="col.label" [tipDescription]="getFieldDescription(col.field)" [tipType]="col.type" [tipSortLevel]="sortLevelOf(col.field)" [tipSortDir]="sortDirOf(col.field)"
             >
               <span>{{ col.label }}</span>
               <!-- Marqueur de tri MULTI-NIVEAUX (rang + sens) si le champ y participe. -->
-              <span class="sort-badge" *ngIf="sortLevelOf(col.field)"
-                    [title]="'Niveau de tri ' + sortLevelOf(col.field) + ' — ' + (sortDirOf(col.field) === 'desc' ? 'décroissant' : 'croissant')">
+              <span class="sort-badge" *ngIf="sortLevelOf(col.field)">
                 <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>
                 <i class="fas" [class.fa-arrow-up-short-wide]="sortDirOf(col.field) === 'asc'"
                    [class.fa-arrow-down-wide-short]="sortDirOf(col.field) === 'desc'"></i>
@@ -248,13 +247,19 @@
                 {{ getTestDataText(org.is_test_data) }}
               </span>
 
-              <!-- Dates formatées -->
-              <span *ngIf="col.field === 'created_at' || col.field === 'updated_at'">
-                {{ formatDate(org[col.field]) }}
+              <!-- Suppression logique avec badge (colonne d'audit standard) -->
+              <span *ngIf="col.field === 'is_deleted'" class="badge"
+                    [class.badge-success]="!org.is_deleted" [class.badge-secondary]="org.is_deleted">
+                {{ org.is_deleted ? 'Oui' : 'Non' }}
+              </span>
+
+              <!-- Dates formatées (colonnes d'audit standard incluses) -->
+              <span *ngIf="col.field === 'created_at' || col.field === 'updated_at' || col.field === 'deleted_at'">
+                {{ formatDate($any(org)[col.field]) }}
               </span>
 
               <!-- Autres champs -->
-              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_test_data' && col.field !== 'created_at' && col.field !== 'updated_at'">
+              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_test_data' && col.field !== 'is_deleted' && col.field !== 'created_at' && col.field !== 'updated_at' && col.field !== 'deleted_at'">
                 {{ org[col.field] || '-' }}
               </span>
             </td>
