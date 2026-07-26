@@ -2520,6 +2520,7 @@
   }
 }
 
+.modern-table thead th.sortable.is-sorted { color: var(--accent-color); }
 .modern-table thead th .sort-badge {
   display: inline-flex; align-items: center; gap: 3px; margin-left: 6px;
   padding: 1px 6px 1px 4px; border-radius: 20px;

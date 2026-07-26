@@ -92,6 +92,17 @@ describe('OrganizationListComponent (logique)', () => {
       expect(available).toContain('name');
       expect(available).not.toContain('code');
     });
+    it('openSortConfig ouvre la modale', () => {
+      cmp.showSortConfig = false;
+      cmp.openSortConfig();
+      expect(cmp.showSortConfig).toBeTrue();
+    });
+    it('openSortConfigFromContext ferme le menu contextuel et ouvre la modale', () => {
+      cmp.showColumnContextMenu = true;
+      cmp.openSortConfigFromContext();
+      expect(cmp.showColumnContextMenu).toBeFalse();
+      expect(cmp.showSortConfig).toBeTrue();
+    });
   });
 
   describe('sélection', () => {

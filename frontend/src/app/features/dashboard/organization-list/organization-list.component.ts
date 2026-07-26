@@ -678,6 +678,14 @@ export class OrganizationListComponent implements OnInit {
   }
 
   /**
+   * Ouvrir la modale de tri multi-niveaux depuis le menu contextuel (clic droit en-tête).
+   */
+  openSortConfigFromContext(): void {
+    this.closeAllContextMenus();
+    this.openSortConfig();
+  }
+
+  /**
    * Sélectionner/Désélectionner la ligne depuis le menu contextuel
    */
   toggleRowSelectionFromContext(): void {

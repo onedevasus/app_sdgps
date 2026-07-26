@@ -180,12 +180,13 @@
             </th>
 
             <!-- Colonnes dynamiques -->
-            <th 
-              *ngFor="let col of getVisibleColumns()" 
+            <th
+              *ngFor="let col of getVisibleColumns()"
               [class.sortable]="true"
-              (click)="sort(col.field)"
+              [class.is-sorted]="sortLevelOf(col.field)"
+              (click)="openSortConfig()"
               (contextmenu)="onColumnHeaderRightClick($event, col)"
-              [title]="getFieldDescription(col.field)"
+              [title]="'Configurer le tri multi-niveaux — ' + getFieldDescription(col.field)"
             >
               <span>{{ col.label }}</span>
               <!-- Marqueur de tri MULTI-NIVEAUX (rang + sens) si le champ y participe. -->
@@ -529,6 +530,11 @@
     [style.left.px]="contextMenuPosition.x"
     (click)="$event.stopPropagation()"
   >
+    <div class="context-menu-item" (click)="openSortConfigFromContext()">
+      <i class="fas fa-sort-amount-down"></i>
+      <span>Tri multi-niveaux…</span>
+    </div>
+    <div class="context-menu-divider"></div>
     <div class="context-menu-item" (click)="hideColumnFromContext()">
       <i class="fas fa-eye-slash"></i>
       <span>Masquer la colonne</span>
