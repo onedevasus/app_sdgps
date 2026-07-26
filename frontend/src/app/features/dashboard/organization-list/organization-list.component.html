@@ -248,13 +248,19 @@
                 {{ getTestDataText(org.is_test_data) }}
               </span>
 
-              <!-- Dates formatées -->
-              <span *ngIf="col.field === 'created_at' || col.field === 'updated_at'">
-                {{ formatDate(org[col.field]) }}
+              <!-- Suppression logique avec badge (colonne d'audit standard) -->
+              <span *ngIf="col.field === 'is_deleted'" class="badge"
+                    [class.badge-success]="!org.is_deleted" [class.badge-secondary]="org.is_deleted">
+                {{ org.is_deleted ? 'Oui' : 'Non' }}
+              </span>
+
+              <!-- Dates formatées (colonnes d'audit standard incluses) -->
+              <span *ngIf="col.field === 'created_at' || col.field === 'updated_at' || col.field === 'deleted_at'">
+                {{ formatDate($any(org)[col.field]) }}
               </span>
 
               <!-- Autres champs -->
-              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_test_data' && col.field !== 'created_at' && col.field !== 'updated_at'">
+              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_test_data' && col.field !== 'is_deleted' && col.field !== 'created_at' && col.field !== 'updated_at' && col.field !== 'deleted_at'">
                 {{ org[col.field] || '-' }}
               </span>
             </td>

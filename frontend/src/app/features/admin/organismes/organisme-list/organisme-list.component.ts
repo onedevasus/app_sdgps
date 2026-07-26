@@ -10,6 +10,7 @@ import { MultiLevelSortComponent } from '../../../../shared/components/multi-lev
 import { ColumnConfigComponent } from '../../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../../shared/components/column-config/column-config.util';
 import { TableColumnsConfigService } from '../../../../core/services/table-columns-config.service';
+import { auditColumns, AUDIT_COLUMN_DESCRIPTIONS, AUDIT_COLUMN_LABELS, AUDIT_COLUMN_ORDER } from '../../../../shared/components/column-config/audit-columns';
 
 interface ColumnConfig {
   field: string;
@@ -25,12 +26,8 @@ const N1_SORTABLE_FIELDS: { field: string; label: string }[] = [
   { field: 'sigle', label: 'Sigle' },
   { field: 'nbr_niveaux2', label: 'Nb. 2e niveau' },
   { field: 'is_active', label: 'Statut' },
-  { field: 'created_at', label: 'Créé le' },
-  { field: 'created_by_email', label: 'Créé par' },
-  { field: 'updated_at', label: 'Modifié le' },
-  { field: 'updated_by_email', label: 'Modifié par' },
-  { field: 'deleted_at', label: 'Supprimé le' },
-  { field: 'deleted_by_email', label: 'Supprimé par' },
+  // Colonnes d'audit standard : libellés unifiés (cf. CLAUDE.md).
+  ...AUDIT_COLUMN_ORDER.map(field => ({ field, label: AUDIT_COLUMN_LABELS[field] })),
 ];
 
 /** Colonnes triables (allowlist alignée sur le backend ORGANISME_N2_SORT_FIELDS), avec libellé. */
@@ -41,12 +38,8 @@ const N2_SORTABLE_FIELDS: { field: string; label: string }[] = [
   { field: 'ville', label: 'Ville / province' },
   { field: 'sigle', label: 'Sigle' },
   { field: 'is_active', label: 'Statut' },
-  { field: 'created_at', label: 'Créé le' },
-  { field: 'created_by_email', label: 'Créé par' },
-  { field: 'updated_at', label: 'Modifié le' },
-  { field: 'updated_by_email', label: 'Modifié par' },
-  { field: 'deleted_at', label: 'Supprimé le' },
-  { field: 'deleted_by_email', label: 'Supprimé par' },
+  // Colonnes d'audit standard : libellés unifiés (cf. CLAUDE.md).
+  ...AUDIT_COLUMN_ORDER.map(field => ({ field, label: AUDIT_COLUMN_LABELS[field] })),
 ];
 
 /**
@@ -157,12 +150,8 @@ export class OrganismeListComponent implements OnInit {
     niveau1_nom: 'Organisme de premier niveau dont dépend cette entité.',
     nbr_niveaux2: "Nombre d'organismes de deuxième niveau rattachés.",
     is_active: 'Organisme actif ou désactivé.',
-    created_at: 'Date de création.',
-    updated_at: 'Date de dernière modification.',
-    deleted_at: 'Date de suppression (corbeille).',
-    created_by_email: "Utilisateur ayant créé l'organisme.",
-    updated_by_email: "Utilisateur ayant effectué la dernière modification.",
-    deleted_by_email: "Utilisateur ayant supprimé l'organisme.",
+    // Colonnes d'audit standard : descriptions unifiées (cf. CLAUDE.md).
+    ...AUDIT_COLUMN_DESCRIPTIONS,
   };
 
   constructor(
@@ -211,14 +200,10 @@ export class OrganismeListComponent implements OnInit {
 
   // ------------------------------------------------------------------ colonnes
   private initColumns(): void {
-    const audit: ColumnConfig[] = [
-      { field: 'created_at', label: 'Créé le', visible: true, type: 'date' },
-      { field: 'created_by_email', label: 'Créé par', visible: false, type: 'text' },
-      { field: 'updated_at', label: 'Modifié le', visible: false, type: 'date' },
-      { field: 'updated_by_email', label: 'Modifié par', visible: false, type: 'text' },
-      { field: 'deleted_at', label: 'Supprimé le', visible: false, type: 'date' },
-      { field: 'deleted_by_email', label: 'Supprimé par', visible: false, type: 'text' },
-    ];
+    // Colonnes d'audit standard (libellés unifiés, cf. CLAUDE.md). `created_at` reste visible
+    // par défaut pour ce tableau, contrairement au défaut du catalogue partagé.
+    const audit: ColumnConfig[] = (auditColumns() as unknown as ColumnConfig[])
+      .map(c => (c.field === 'created_at' ? { ...c, visible: true } : { ...c }));
     const defaults: ColumnConfig[] = this.isN2 ? [
       { field: 'code', label: 'Code', visible: true, type: 'text' },
       { field: 'nom', label: 'Nom', visible: true, type: 'text' },

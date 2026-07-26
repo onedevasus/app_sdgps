@@ -54,12 +54,19 @@
     .close-btn { background: transparent; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; width: 32px; height: 32px; border-radius: 8px;
       &:hover { background: var(--hover-bg, rgba(0, 0, 0, 0.05)); color: var(--text-color); } }
   }
-  .modal-body { padding: 20px 22px; overflow-y: auto;
+  /* Le corps ne défile PAS : hint, auto-save et compteurs restent toujours visibles.
+     Seule `.column-scroll` (la liste) défile → l'en-tête collant ne recouvre plus rien. */
+  .modal-body { padding: 20px 22px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+
+  .column-scroll {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    /* Gouttière pour la barre de défilement sans décaler le contenu. */
+    padding-right: 8px; margin-right: -8px;
     /* Défilement vertical aligné sur le design system (cf. listes, sidebar, profil). */
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) transparent;
     &::-webkit-scrollbar { width: 8px; }
-    &::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+    &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box;
       &:hover { background: var(--accent-color); background-clip: padding-box; } }
   }
@@ -70,7 +77,7 @@
     .btn-confirm { padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--accent-color); background: var(--accent-color); color: #fff; display: inline-flex; align-items: center; gap: 8px; }
   }
 
-  .panel-hint { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .panel-hint { flex: 0 0 auto; margin: 0 0 16px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
   /* Filtre toutes / visibles */
   .filter-dropdown { position: relative;
@@ -82,7 +89,7 @@
   }
 
   .col-autosave {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 14px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px; flex: 0 0 auto; margin: 0 0 14px;
     .spacer { flex: 1 1 auto; }
     > span:first-child {
       display: inline-flex; align-items: center; gap: 7px;
@@ -99,8 +106,22 @@
     &:disabled { opacity: 0.6; cursor: default; }
   }
 
-  .col-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; font-size: 12.5px; color: var(--text-muted); font-weight: 600;
-    span { display: inline-flex; align-items: center; gap: 6px; } .sep { opacity: 0.5; } i { color: var(--accent-color); } }
+  /* Compteurs en pastilles : lisibles d'un coup d'œil, jamais tronqués (hors zone de défilement). */
+  .col-stats {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    flex: 0 0 auto; margin: 0 0 14px;
+    .stat {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 12px; border-radius: 20px;
+      border: 1px solid var(--border-color); background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+      font-size: 12.5px; font-weight: 600; color: var(--text-muted); white-space: nowrap;
+      i { font-size: 11px; color: var(--text-muted); }
+      b { font-weight: 700; color: var(--text-color); font-variant-numeric: tabular-nums; }
+    }
+    .stat--visible { color: #16a34a; background: rgba(22, 163, 74, 0.08); border-color: rgba(22, 163, 74, 0.25);
+      i, b { color: #16a34a; } }
+    .stat--hidden { i { color: var(--accent-color); } }
+  }
 
   /* ---------- Grille : NOM et DESCRIPTION sont deux colonnes DISTINCTES ----------
      Même `grid-template-columns` pour l'en-tête et les lignes → alignement parfait :
@@ -113,13 +134,12 @@
     gap: 12px;
   }
 
-  /* En-tête collant : les intitulés restent lisibles pendant le défilement de la liste.
-     Le box-shadow supérieur masque les lignes qui défilent dans le padding de .modal-body. */
+  /* En-tête collant en haut de `.column-scroll` : les intitulés restent lisibles pendant le
+     défilement, sans recouvrir les compteurs (qui vivent hors de la zone de défilement). */
   .column-grid-header {
     position: sticky; top: 0; z-index: 2;
     padding: 0 10px 8px;
     background: var(--secondary-color);
-    box-shadow: 0 -20px 0 0 var(--secondary-color);
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
     color: var(--text-muted);
     border-bottom: 1px solid var(--border-color);

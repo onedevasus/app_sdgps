@@ -115,13 +115,13 @@ class Organization(models.Model):
     )
     is_deleted = models.BooleanField(
         default=False,
-        verbose_name="Supprimée (logique)",
+        verbose_name="Supprimé",
         help_text="Indique si l'organisation a été supprimée logiquement (soft delete). Ne plus l'afficher dans l'application."
     )
     deleted_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name="Date de suppression",
+        verbose_name="Supprimé le",
         help_text="Date et heure de la suppression logique de l'organisation"
     )
     is_test_data = models.BooleanField(
@@ -131,12 +131,12 @@ class Organization(models.Model):
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name="Date de création",
+        verbose_name="Créé le",
         help_text="Date et heure de création de l'organisation dans le système"
     )
     updated_at = models.DateTimeField(
         auto_now=True,
-        verbose_name="Dernière modification",
+        verbose_name="Modifié le",
         help_text="Date et heure de la dernière modification des informations"
     )
     created_by = models.ForeignKey(
@@ -149,13 +149,24 @@ class Organization(models.Model):
         help_text="Utilisateur ayant créé cette organisation"
     )
     modified_by = models.ForeignKey(
-        'CustomUser', 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='modified_organizations',
         verbose_name="Modifié par",
         help_text="Utilisateur ayant effectué la dernière modification de cette organisation"
+    )
+    # NB : le champ historique s'appelle `modified_by` ; l'API expose l'alias `updated_by_email`
+    # (nom unifié dans toute l'app) en plus de `modified_by_email` conservé pour compatibilité.
+    deleted_by = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_organizations',
+        verbose_name="Supprimé par",
+        help_text="Utilisateur ayant supprimé (logiquement) cette organisation"
     )
 
     class Meta:
@@ -284,13 +295,50 @@ class CustomUser(AbstractUser):
     # Soft-delete
     is_deleted = models.BooleanField(
         default=False,
-        verbose_name="Supprimé (logique)",
+        verbose_name="Supprimé",
         help_text="Indique si l'utilisateur a été supprimé logiquement"
     )
     deleted_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name="Date de suppression"
+        verbose_name="Supprimé le",
+        help_text="Date et heure de la suppression logique de l'utilisateur"
+    )
+
+    # --- Colonnes d'audit standard (cf. CLAUDE.md « Colonnes d'audit obligatoires ») ---
+    # `date_joined` (hérité d'AbstractUser) tient lieu de date de création : il est exposé par
+    # l'API sous l'alias `created_at` pour rester homogène avec les autres tableaux.
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Modifié le",
+        help_text="Date et heure de la dernière modification de la fiche utilisateur"
+    )
+    created_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_users',
+        verbose_name="Créé par",
+        help_text="Utilisateur ayant créé ce compte"
+    )
+    updated_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_users',
+        verbose_name="Modifié par",
+        help_text="Utilisateur ayant effectué la dernière modification de ce compte"
+    )
+    deleted_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_users',
+        verbose_name="Supprimé par",
+        help_text="Utilisateur ayant supprimé (logiquement) ce compte"
     )
 
     # Photo de profil

@@ -12,6 +12,8 @@
 
 
 
+
+
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -79,7 +81,6 @@
     - Ajoute calcul nombre de lignes par page (dans le rapport PDF) pour les pieces contenant des tableaux de donnees.
     - Corrige lecture des noms des points contenant des espaces depuis html des fermetures des boucles.
     - Finaliser l'interface graphique UI/UX
-      - config des colonnes affichees pour chaque tableau, par defaut config du superadmin.
       - revision des colonnes des entites
         - ajout colonne nbr pieces dans sous entitees du projet
       - Sigle organisme 1er niveau dans tableau liste organismes 2eme niveau

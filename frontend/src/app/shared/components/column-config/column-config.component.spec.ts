@@ -1,3 +1,4 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ColumnConfigComponent } from './column-config.component';
 import { ManagedColumn } from './column-config.util';
 
@@ -94,5 +95,65 @@ describe('ColumnConfigComponent (logique)', () => {
     cmp.resetting = true;
     cmp.askReset();
     expect(cmp.showResetConfirm).toBeFalse();
+  });
+});
+
+/**
+ * Mise en page de la modale (DOM réel + styles du composant). Test de NON-RÉGRESSION du bug
+ * « les compteurs Total / Visibles / Masquées sont partiellement masqués » : ils étaient
+ * recouverts par l'en-tête de grille collant. Le correctif sort les compteurs de la zone de
+ * défilement (seule `.column-scroll` défile), l'en-tête ne peut donc plus les chevaucher.
+ */
+describe('ColumnConfigComponent (mise en page de la modale)', () => {
+  let fixture: ComponentFixture<ColumnConfigComponent>;
+  let cmp: ColumnConfigComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ declarations: [ColumnConfigComponent] }).compileComponents();
+    fixture = TestBed.createComponent(ColumnConfigComponent);
+    cmp = fixture.componentInstance;
+    // Liste longue → la zone de défilement est réellement active.
+    cmp.columns = Array.from({ length: 40 }, (_, i) => ({
+      field: `f${i}`, label: `Colonne ${i}`, visible: i % 2 === 0, type: 'text',
+      description: `Description assez longue de la colonne ${i} pour occuper la cellule`,
+    }));
+    cmp.open();
+    fixture.detectChanges();
+  });
+
+  it('les compteurs sont hors de la zone de défilement (cause racine du masquage)', () => {
+    const host: HTMLElement = fixture.nativeElement;
+    const stats = host.querySelector('.col-stats') as HTMLElement;
+    const scroll = host.querySelector('.column-scroll') as HTMLElement;
+    expect(stats).toBeTruthy();
+    expect(scroll).toBeTruthy();
+    expect(scroll.contains(stats)).toBeFalse();
+  });
+
+  it('les compteurs ne sont pas recouverts par la zone de défilement / l’en-tête collant', () => {
+    const host: HTMLElement = fixture.nativeElement;
+    const stats = (host.querySelector('.col-stats') as HTMLElement).getBoundingClientRect();
+    const scroll = (host.querySelector('.column-scroll') as HTMLElement).getBoundingClientRect();
+    expect(stats.height).toBeGreaterThan(0);
+    // Invariant indépendant du viewport : les compteurs se terminent AVANT la zone de défilement,
+    // donc avant l'en-tête collant qui vit à l'intérieur de celle-ci.
+    expect(stats.bottom).toBeLessThanOrEqual(scroll.top + 0.5);
+
+    // Si l'en-tête est affiché (viewport large), il commence lui aussi après les compteurs.
+    const headerEl = host.querySelector('.column-grid-header') as HTMLElement;
+    if (headerEl.offsetParent !== null) {
+      expect(stats.bottom).toBeLessThanOrEqual(headerEl.getBoundingClientRect().top + 0.5);
+    }
+  });
+
+  it('les trois pastilles affichent les bons compteurs', () => {
+    const host: HTMLElement = fixture.nativeElement;
+    const chips = Array.from(host.querySelectorAll('.col-stats .stat')) as HTMLElement[];
+    expect(chips.length).toBe(3);
+    expect(chips[0].textContent).toContain('40');  // total
+    expect(chips[1].textContent).toContain('20');  // visibles
+    expect(chips[2].textContent).toContain('20');  // masquées
+    // Chaque pastille a une surface réelle (rien d'écrasé / de tronqué à zéro).
+    chips.forEach(c => expect(c.getBoundingClientRect().height).toBeGreaterThan(0));
   });
 });

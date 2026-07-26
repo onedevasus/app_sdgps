@@ -699,8 +699,10 @@ class SsdgpsSortConfigResetView(APIView):
 # Colonnes triables du tableau de la liste des ORGANISATIONS (allowlist de validation serveur).
 ORG_SORT_FIELDS = {
     'code', 'name', 'type_display', 'legal_id', 'address', 'phone', 'email', 'website',
-    'is_active', 'member_count', 'created_by_email', 'modified_by_email', 'is_test_data',
-    'created_at', 'updated_at',
+    'is_active', 'member_count', 'is_test_data',
+    # Colonnes d'audit standard (cf. CLAUDE.md) ; `modified_by_email` conservé pour compatibilité.
+    'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+    'created_by_email', 'modified_by_email', 'updated_by_email', 'deleted_by_email',
 }
 
 
@@ -995,22 +997,30 @@ TABLE_COLUMN_FIELDS = {
     # Liste des ORGANISATIONS (features/dashboard/organization-list).
     'organizations': {
         'code', 'name', 'type_display', 'legal_id', 'address', 'phone', 'email', 'website',
-        'is_active', 'member_count', 'created_by_email', 'modified_by_email', 'is_test_data',
-        'created_at', 'updated_at',
+        'is_active', 'member_count', 'is_test_data',
+        # Colonnes d'audit standard (cf. CLAUDE.md). `modified_by_email` est conservé pour
+        # compatibilité, `updated_by_email` est le nom unifié.
+        'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+        'created_by_email', 'modified_by_email', 'updated_by_email', 'deleted_by_email',
     },
     # Listes des ORGANISMES niveau 1 / niveau 2 (features/admin/organismes/organisme-list).
     'organisme_niveau1': {
-        'code', 'nom', 'sigle', 'nbr_niveaux2', 'is_active', 'created_at', 'created_by_email',
-        'updated_at', 'updated_by_email', 'deleted_at', 'deleted_by_email',
+        'code', 'nom', 'sigle', 'nbr_niveaux2', 'is_active',
+        'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+        'created_by_email', 'updated_by_email', 'deleted_by_email',
     },
     'organisme_niveau2': {
-        'code', 'nom', 'niveau1_nom', 'ville', 'sigle', 'is_active', 'created_at',
-        'created_by_email', 'updated_at', 'updated_by_email', 'deleted_at', 'deleted_by_email',
+        'code', 'nom', 'niveau1_nom', 'ville', 'sigle', 'is_active',
+        'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+        'created_by_email', 'updated_by_email', 'deleted_by_email',
     },
     # Liste des UTILISATEURS (features/admin/users/user-list).
     'users': {
         'first_name', 'email', 'role', 'organization_name', 'is_active', 'last_connection_at',
-        'must_change_password', 'date_joined', 'password_changed_at', 'is_deleted', 'is_superuser',
+        'must_change_password', 'date_joined', 'password_changed_at', 'is_superuser',
+        # Colonnes d'audit standard (cf. CLAUDE.md).
+        'created_at', 'updated_at', 'is_deleted', 'deleted_at',
+        'created_by_email', 'updated_by_email', 'deleted_by_email',
     },
     # Liste des PROJETS (features/projects/project-list).
     'projects': {
