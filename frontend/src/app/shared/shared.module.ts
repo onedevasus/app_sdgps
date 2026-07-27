@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { FieldInfoComponent } from './components/field-info/field-info.component';
 import { MultiLevelSortComponent } from './components/multi-level-sort/multi-level-sort.component';
 import { TableHeaderTooltipDirective } from './directives/table-header-tooltip.directive';
+import { ColumnFilterComponent } from './components/column-filter/column-filter.component';
 import { ColumnConfigComponent } from './components/column-config/column-config.component';
 
 @NgModule({
@@ -11,6 +12,7 @@ import { ColumnConfigComponent } from './components/column-config/column-config.
     FieldInfoComponent,
     MultiLevelSortComponent,
     ColumnConfigComponent,
+    ColumnFilterComponent,
     TableHeaderTooltipDirective
   ],
   imports: [
@@ -21,6 +23,7 @@ import { ColumnConfigComponent } from './components/column-config/column-config.
     FieldInfoComponent,
     MultiLevelSortComponent,
     ColumnConfigComponent,
+    ColumnFilterComponent,
     TableHeaderTooltipDirective
   ]
 })

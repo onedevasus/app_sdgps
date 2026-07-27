@@ -14,6 +14,7 @@ import { SortableField, sortLevelOf, sortDirOf } from '../../../shared/component
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { ColumnFilterMap, withColumnFilter, rowMatchesColumnFilters, activeFilterCount } from '../../../shared/components/column-filter/column-filter.util';
 import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 
 interface ColumnConfig {
@@ -362,6 +363,21 @@ export class PieceManagementPageComponent implements OnInit {
   // ============================================
   // Filtrage, tri, pagination (affichage)
   // ============================================
+  // --- FILTRES DE COLONNE (façon Excel, composant partagé `<app-column-filter>`) ---
+  /** Valeurs retenues par colonne ; une colonne absente n'est pas filtrée. */
+  columnFilters: ColumnFilterMap = {};
+  /** Texte affiché d'une cellule : le filtre porte sur la valeur VUE (référence stable). */
+  cellText = (row: any, field: string): string => this.getCellValue(row, field);
+
+  onColumnFilterChange(field: string, values: string[] | null): void {
+    this.columnFilters = withColumnFilter(this.columnFilters, field, values);
+  }
+
+  /** Masque une colonne (depuis le menu de filtre) — auto-save comme la modale des colonnes. */
+  hideColumnField(field: string): void {
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
+
   get filteredItems(): Piece[] {
     let result = this.items;
     if (this.displayMode === 'selected') result = result.filter(p => this.selectedIds.has(p.id));
@@ -376,6 +392,11 @@ export class PieceManagementPageComponent implements OnInit {
         const val = this.getFieldRaw(p, ff);
         return val != null && String(val).toLowerCase().includes(fv);
       });
+    }
+
+    // Filtres de colonne (façon Excel).
+    if (activeFilterCount(this.columnFilters)) {
+      result = result.filter(p => rowMatchesColumnFilters(p, this.columnFilters, this.cellText));
     }
     if (this.manualOrder) {
       const idx = new Map(this.manualOrder.map((id, i) => [id, i]));

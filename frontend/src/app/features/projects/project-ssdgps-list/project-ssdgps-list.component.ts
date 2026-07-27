@@ -9,6 +9,7 @@ import { SsdgpsSortConfigService, SsdgpsSortLevel } from '../../../core/services
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { ColumnFilterMap, withColumnFilter, rowMatchesColumnFilters, activeFilterCount } from '../../../shared/components/column-filter/column-filter.util';
 import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 import {
   Projet, Ssdgps, proprieteLabel, NATURE_SSDGPS_OPTIONS, TYPE_SSDGPS_OPTIONS,
@@ -258,6 +259,21 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
     return hay.includes(q);
   }
 
+  // --- FILTRES DE COLONNE (façon Excel, composant partagé `<app-column-filter>`) ---
+  /** Valeurs retenues par colonne ; une colonne absente n'est pas filtrée. */
+  columnFilters: ColumnFilterMap = {};
+  /** Texte affiché d'une cellule : le filtre porte sur la valeur VUE (référence stable). */
+  cellText = (row: any, field: string): string => this.getCellValue(row, field);
+
+  onColumnFilterChange(field: string, values: string[] | null): void {
+    this.columnFilters = withColumnFilter(this.columnFilters, field, values);
+  }
+
+  /** Masque une colonne (depuis le menu de filtre) — auto-save comme la modale des colonnes. */
+  hideColumnField(field: string): void {
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
+
   get filteredItems(): Ssdgps[] {
     const q = this.searchText.trim().toLowerCase();
     let rows = this.items.filter((s) => {
@@ -269,6 +285,8 @@ export class ProjectSsdgpsListComponent implements OnInit, OnDestroy {
         const v = this.getCellValue(s, this.activeFieldFilter).toLowerCase();
         if (!v.includes(this.fieldFilterValue.toLowerCase())) return false;
       }
+      // Filtres de colonne (façon Excel).
+      if (!rowMatchesColumnFilters(s, this.columnFilters, this.cellText)) return false;
       return true;
     });
     if (this.manualOrder) {

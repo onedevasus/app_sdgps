@@ -19,6 +19,7 @@ import { SortableField, compareByLevels, sortLevelOf, sortDirOf } from '../../..
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn, StoredColumnPref } from '../../../shared/components/column-config/column-config.util';
+import { ColumnFilterMap, withColumnFilter, rowMatchesColumnFilters, activeFilterCount } from '../../../shared/components/column-filter/column-filter.util';
 import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 
 type Level = 'propriete' | 'affaire' | 'ssdgps' | 'session';
@@ -731,6 +732,21 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
   }
 
   // --- Recherche, filtre, tri & sélection ---
+  // --- FILTRES DE COLONNE (façon Excel, composant partagé `<app-column-filter>`) ---
+  /** Valeurs retenues par colonne ; une colonne absente n'est pas filtrée. */
+  columnFilters: ColumnFilterMap = {};
+  /** Texte affiché d'une cellule : le filtre porte sur la valeur VUE (référence stable). */
+  cellText = (row: any, field: string): string => this.getCellValue(row, field);
+
+  onColumnFilterChange(field: string, values: string[] | null): void {
+    this.columnFilters = withColumnFilter(this.columnFilters, field, values);
+  }
+
+  /** Masque une colonne (depuis le menu de filtre) — auto-save comme la modale des colonnes. */
+  hideColumnField(field: string): void {
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
+
   get filteredItems(): any[] {
     let result = this.items;
     if (this.displayMode === 'selected') {
@@ -748,6 +764,11 @@ export class ProjectExplorerComponent implements OnInit, OnDestroy {
         return val != null && String(val).toLowerCase().includes(fv);
       });
     }
+    // Filtres de colonne (façon Excel).
+    if (activeFilterCount(this.columnFilters)) {
+      result = result.filter(it => rowMatchesColumnFilters(it, this.columnFilters, this.cellText));
+    }
+
     if (this.manualOrder) {
       const idx = new Map(this.manualOrder.map((id, i) => [id, i]));
       result = [...result].sort((a, b) => {

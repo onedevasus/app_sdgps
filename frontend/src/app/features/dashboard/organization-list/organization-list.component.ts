@@ -8,6 +8,7 @@ import { OrgSortConfigService, OrgSortLevel } from '../../../core/services/org-s
 import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
 import { auditColumns, isAuditColumn, AUDIT_COLUMN_DESCRIPTIONS, AUDIT_COLUMN_LABELS, AUDIT_COLUMN_ORDER } from '../../../shared/components/column-config/audit-columns';
+import { ColumnFilterMap, withColumnFilter, rowMatchesColumnFilters, activeFilterCount } from '../../../shared/components/column-filter/column-filter.util';
 import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 import { Organization } from '../../../core/models/organization.model';
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
@@ -808,8 +809,39 @@ export class OrganizationListComponent implements OnInit {
     this.applyFiltersAndSort();
   }
 
+  // --- FILTRES DE COLONNE (façon Excel, composant partagé `<app-column-filter>`) ---
+  /** Valeurs retenues par colonne ; une colonne absente n'est pas filtrée. */
+  columnFilters: ColumnFilterMap = {};
+
+  /** Texte affiché d'une cellule — doit refléter le rendu du tableau (référence stable). */
+  cellText = (row: any, field: string): string => {
+    if (field === 'type_display') return this.formatTypeDisplay(row.type, row.type_display);
+    if (field === 'is_active') return this.getStatusText(row.is_active);
+    if (field === 'is_deleted') return row.is_deleted ? 'Oui' : 'Non';
+    if (field === 'created_at' || field === 'updated_at' || field === 'deleted_at') {
+      return this.formatDate(row[field]);
+    }
+    const v = row[field];
+    return v != null && v !== '' ? String(v) : '-';
+  };
+
+  onColumnFilterChange(field: string, values: string[] | null): void {
+    this.columnFilters = withColumnFilter(this.columnFilters, field, values);
+    this.applyFiltersAndSort();
+  }
+
+  /** Masque une colonne (depuis le menu de filtre) — auto-save comme la modale des colonnes. */
+  hideColumnField(field: string): void {
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
+
   private applyFiltersAndSort(): void {
     let result = [...this.organizations];
+
+    // Filtres de colonne (ET entre colonnes, OU entre valeurs d'une même colonne).
+    if (activeFilterCount(this.columnFilters)) {
+      result = result.filter(org => rowMatchesColumnFilters(org, this.columnFilters, this.cellText));
+    }
 
     // Filtre par mode d'affichage
     if (this.displayMode === 'selected') {

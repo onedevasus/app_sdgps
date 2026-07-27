@@ -114,6 +114,9 @@ export class TableHeaderTooltipDirective implements OnDestroy {
 
   private show(): void {
     if (this.tip || !this.tipLabel) return;
+    // Un menu de filtre de colonne est ouvert : l'info-bulle ne doit JAMAIS s'afficher
+    // par-dessus (ni se rouvrir quand l'opérateur survole ce menu).
+    if (document.querySelector('.col-filter-menu')) return;
     const tip = document.createElement('div');
     tip.className = 'app-th-tooltip';
     tip.setAttribute('role', 'tooltip');

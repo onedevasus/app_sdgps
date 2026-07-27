@@ -199,6 +199,15 @@
               appTableHeaderTooltip [tipLabel]="col.label" [tipDescription]="getFieldDescription(col.field)" [tipType]="col.type" [tipSortLevel]="sortLevelOf(col.field)" [tipSortDir]="sortDirOf(col.field)"
             >
               <span>{{ col.label }}</span>
+              <app-column-filter
+                [field]="col.field" [label]="col.label" [type]="col.type"
+                [rows]="organizations" [format]="cellText"
+                [selected]="columnFilters[col.field] || null"
+                (selectedChange)="onColumnFilterChange(col.field, $event)"
+                (openSort)="openSortConfig()"
+                (hideColumn)="hideColumnField(col.field)"
+                (openColumnConfig)="openColumnConfig()">
+              </app-column-filter>
               <!-- Marqueur de tri MULTI-NIVEAUX (rang + sens) si le champ y participe. -->
               <span class="sort-badge" *ngIf="sortLevelOf(col.field)">
                 <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>

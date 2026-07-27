@@ -181,6 +181,15 @@
                   (contextmenu)="onColumnHeaderRightClick($event, col)"
                   appTableHeaderTooltip [tipLabel]="col.label" [tipDescription]="getFieldDescription(col.field)" [tipType]="col.type" [tipSortLevel]="sortLevelOf(col.field)" [tipSortDir]="sortDirOf(col.field)">
                 <span>{{ col.label }}</span>
+                <app-column-filter
+                  [field]="col.field" [label]="col.label" [type]="col.type"
+                  [rows]="projets" [format]="cellText"
+                  [selected]="columnFilters[col.field] || null"
+                  (selectedChange)="onColumnFilterChange(col.field, $event)"
+                  (openSort)="sorter.open()"
+                  (hideColumn)="hideColumnField(col.field)"
+                  (openColumnConfig)="openColumnConfig()">
+                </app-column-filter>
                 <span class="sort-badge" *ngIf="sortLevelOf(col.field)">
                   <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>
                   <i class="fas" [class.fa-arrow-up-short-wide]="sortDirOf(col.field) === 'asc'"
