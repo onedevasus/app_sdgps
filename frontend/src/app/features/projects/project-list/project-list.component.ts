@@ -15,6 +15,7 @@ import { SortableField, compareByLevels, sortLevelOf, sortDirOf } from '../../..
 import { MultiLevelSortComponent } from '../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { ColumnConfigComponent } from '../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../shared/components/column-config/column-config.util';
+import { ColumnFilterMap, withColumnFilter, rowMatchesColumnFilters, activeFilterCount } from '../../../shared/components/column-filter/column-filter.util';
 import { TableColumnsConfigService } from '../../../core/services/table-columns-config.service';
 
 interface ColumnConfig {
@@ -298,6 +299,17 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   // Filtrage, tri, pagination
   // ============================================
 
+  // --- FILTRES DE COLONNE (façon Excel, composant partagé `<app-column-filter>`) ---
+  /** Valeurs retenues par colonne ; une colonne absente n'est pas filtrée. */
+  columnFilters: ColumnFilterMap = {};
+  /** Texte affiché d'une cellule : le filtre porte sur la valeur VUE (référence stable). */
+  cellText = (row: any, field: string): string => this.getCellValue(row, field);
+
+  onColumnFilterChange(field: string, values: string[] | null): void {
+    this.columnFilters = withColumnFilter(this.columnFilters, field, values);
+    this.applyFiltersAndSort();
+  }
+
   applyFiltersAndSort(): void {
     let result = [...this.projets];
 
@@ -321,6 +333,11 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         const val = (p as any)[ff];
         return val != null && String(val).toLowerCase().includes(fv);
       });
+    }
+
+    // Filtres de colonne (ET entre colonnes, OU entre valeurs d'une même colonne).
+    if (activeFilterCount(this.columnFilters)) {
+      result = result.filter(p => rowMatchesColumnFilters(p, this.columnFilters, this.cellText));
     }
 
     if (this.manualOrder) {
@@ -554,6 +571,11 @@ export class ProjectListComponent implements OnInit, OnDestroy {
 
   /** Ouvre la modale d'organisation des colonnes (composant partagé). */
   openColumnConfig(): void { this.columnCfg?.open(); }
+
+  /** Masque une colonne (depuis le menu de filtre) — auto-save comme la modale des colonnes. */
+  hideColumnField(field: string): void {
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
 
   private loadColumnsConfig(): void {
     this.columnsConfigService.get(this.COLUMNS_KEY).subscribe(prefs => {

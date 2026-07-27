@@ -116,6 +116,21 @@ describe('TableHeaderTooltipDirective', () => {
     expect(tip()).toBeNull();
   }));
 
+  it('ne s’affiche pas tant qu’un menu de filtre de colonne est ouvert', fakeAsync(() => {
+    // Le menu de filtre vit dans <body> : l'info-bulle ne doit ni le recouvrir ni se rouvrir
+    // quand l'opérateur survole ce menu (régression corrigée).
+    const menu = document.createElement('div');
+    menu.className = 'col-filter-menu';
+    document.body.appendChild(menu);
+    hover();
+    expect(tip()).toBeNull();
+
+    menu.remove();
+    th.dispatchEvent(new MouseEvent('mouseleave'));
+    hover();
+    expect(tip()).not.toBeNull();
+  }));
+
   it('supprime l’info-bulle à la destruction du composant', fakeAsync(() => {
     hover();
     expect(tip()).not.toBeNull();

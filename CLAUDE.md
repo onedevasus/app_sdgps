@@ -166,6 +166,22 @@ assistants de codage IA comme aux contributeurs humains (cf. `AGENTS.md`).
   impose de committer après chaque fonctionnalité/correction. Format des messages :
   `type(scope): description` (ex. `feat(users): add ROLE_SUPER_ADMIN filter`). Les commits
   `wip: auto-save` de l'historique proviennent de cet outillage.
+
+- **Fusion vers `develop` / `main` : JAMAIS sans PR (règle stricte).** Ne **jamais** fusionner une
+  branche dans `develop` ou `main` en local (pas de `git merge` depuis ces branches, même quand un
+  fast-forward est possible). Le passage par une **pull request** est obligatoire :
+  1. pousser la branche de travail (`git push origin <branche>`) ;
+  2. créer la PR : `gh pr create --base develop --head <branche>` (ou `--base main`) ;
+  3. **vérifier l'absence de conflit** : `gh pr view <n> --json mergeable,mergeStateStatus` →
+     exiger `mergeable: "MERGEABLE"`. Si `CONFLICTING`, résoudre **dans la branche de travail**
+     (rebase/merge depuis la cible), pousser, puis re-vérifier — ne jamais forcer la fusion ;
+  4. **attendre la CI** (`gh pr checks <n> --watch`) : `test-backend` **et** `test-frontend` doivent
+     être au vert. `mergeStateStatus: UNSTABLE` = checks en cours ou en échec → ne pas fusionner ;
+  5. fusionner seulement ensuite (`gh pr merge <n> --merge`), puis resynchroniser le local
+     (`git fetch --prune` + `git merge --ff-only origin/develop` sur la branche cible) et **revenir
+     sur la branche de travail**.
+  Cette règle prime sur toute demande de « fusionner dans develop » : proposer/créer la PR plutôt
+  que de fusionner directement en local.
 - Le `.env` (backend) contient les clés SendGrid, les identifiants d'amorçage du super-admin
   et les flags `ENVIRONMENT` / `SHOW_TEST_DATA`. Il est gitignoré mais présent en local.
 - Les composants Angular utilisent **SCSS** par défaut (schematics de `angular.json`).

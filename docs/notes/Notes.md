@@ -2,20 +2,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Sommaire
 
 - [Notes — Application SDGPS](#notes-application-sdgps)
@@ -85,7 +71,8 @@
     - Finaliser l'interface graphique UI/UX
       - revision des colonnes des entites
         - ajout colonne nbr pieces dans sous entitees du projet
-        - suppression colonne "type de donnees" dans tablea liste des organisations
+        - suppression colonne "type de donnees" dans tablea liste des organisations (fait)
+      - ajout fonctionnalite de filtrage des tableaux dans l'entete des colonnes.  (fait)
       - Sigle organisme 1er niveau dans tableau liste organismes 2eme niveau
       - style etd esignd e tous les scroll verticaux et horizontaux de l'app.
       - suppression de l'heure dans la date de bornage des affaires + date des sessions du ssdgps.
@@ -246,7 +233,8 @@ git log --oneline --grep="wip: auto-save" --max-count=20
 
 force le redemarrage/relance des deux serveurs frontend et backend (vrai serveur backend via docker) en arriere plan (ne pas afficher de fenetres terminal dans windows) en utilisant l'environnement de development depuis la confi des environnements. relance backend sur port 8085 et frontend sur le port 4205. ne jamais stopper les autres process deja dans les autres ports par exemples : 8080/ 8081 ... ou bien 4200/4201 ...
 
-relance le serveur frontend de l'environnemnt development sur port 4205. relance egalement le serveur backend de l'environnemnt development sur port 8085.
+relance le serveur frontend de l'environnemnt development sur port 4205.
+relance egalement le serveur backend de l'environnemnt development sur port 8085.
 
 ## Redaction du CPS de l'app
 

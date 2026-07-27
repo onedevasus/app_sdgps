@@ -699,7 +699,7 @@ class SsdgpsSortConfigResetView(APIView):
 # Colonnes triables du tableau de la liste des ORGANISATIONS (allowlist de validation serveur).
 ORG_SORT_FIELDS = {
     'code', 'name', 'type_display', 'legal_id', 'address', 'phone', 'email', 'website',
-    'is_active', 'member_count', 'is_test_data',
+    'is_active', 'member_count',
     # Colonnes d'audit standard (cf. CLAUDE.md) ; `modified_by_email` conservé pour compatibilité.
     'created_at', 'updated_at', 'is_deleted', 'deleted_at',
     'created_by_email', 'modified_by_email', 'updated_by_email', 'deleted_by_email',
@@ -997,7 +997,7 @@ TABLE_COLUMN_FIELDS = {
     # Liste des ORGANISATIONS (features/dashboard/organization-list).
     'organizations': {
         'code', 'name', 'type_display', 'legal_id', 'address', 'phone', 'email', 'website',
-        'is_active', 'member_count', 'is_test_data',
+        'is_active', 'member_count',
         # Colonnes d'audit standard (cf. CLAUDE.md). `modified_by_email` est conservé pour
         # compatibilité, `updated_by_email` est le nom unifié.
         'created_at', 'updated_at', 'is_deleted', 'deleted_at',

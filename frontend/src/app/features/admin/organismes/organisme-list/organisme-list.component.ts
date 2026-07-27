@@ -9,6 +9,7 @@ import { OrganismeNiveau1 } from '../../../../core/models/organisme.model';
 import { MultiLevelSortComponent } from '../../../../shared/components/multi-level-sort/multi-level-sort.component';
 import { ColumnConfigComponent } from '../../../../shared/components/column-config/column-config.component';
 import { applyColumnsConfig, toColumnPrefs, ManagedColumn } from '../../../../shared/components/column-config/column-config.util';
+import { ColumnFilterMap, withColumnFilter, rowMatchesColumnFilters, activeFilterCount } from '../../../../shared/components/column-filter/column-filter.util';
 import { TableColumnsConfigService } from '../../../../core/services/table-columns-config.service';
 import { auditColumns, AUDIT_COLUMN_DESCRIPTIONS, AUDIT_COLUMN_LABELS, AUDIT_COLUMN_ORDER } from '../../../../shared/components/column-config/audit-columns';
 
@@ -285,8 +286,36 @@ export class OrganismeListComponent implements OnInit {
   }
 
   // ------------------------------------------------------------------ filtres/tri
+  // --- FILTRES DE COLONNE (façon Excel, composant partagé `<app-column-filter>`) ---
+  /** Valeurs retenues par colonne ; une colonne absente n'est pas filtrée. */
+  columnFilters: ColumnFilterMap = {};
+
+  /** Texte affiché d'une cellule — doit refléter le rendu du tableau (référence stable). */
+  cellText = (row: any, field: string): string => {
+    const col = this.columns.find(c => c.field === field);
+    if (field === 'is_active') return this.getStatusText(row.is_active);
+    if (col?.type === 'date') return this.formatDate(row[field]);
+    const v = row[field];
+    return v != null && v !== '' ? String(v) : '-';
+  };
+
+  onColumnFilterChange(field: string, values: string[] | null): void {
+    this.columnFilters = withColumnFilter(this.columnFilters, field, values);
+    this.applyFilters();
+  }
+
+  /** Masque une colonne (depuis le menu de filtre) — auto-save comme la modale des colonnes. */
+  hideColumnField(field: string): void {
+    this.onColumnsChange(this.columns.map(c => (c.field === field ? { ...c, visible: false } : { ...c })));
+  }
+
   applyFilters(): void {
     let data = [...this.rows];
+
+    // Filtres de colonne (ET entre colonnes, OU entre valeurs d'une même colonne).
+    if (activeFilterCount(this.columnFilters)) {
+      data = data.filter(r => rowMatchesColumnFilters(r, this.columnFilters, this.cellText));
+    }
 
     if (this.displayMode === 'selected') data = data.filter(r => this.selectedIds.has(r.id));
 

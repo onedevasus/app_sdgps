@@ -199,6 +199,15 @@
               appTableHeaderTooltip [tipLabel]="col.label" [tipDescription]="getFieldDescription(col.field)" [tipType]="col.type" [tipSortLevel]="sortLevelOf(col.field)" [tipSortDir]="sortDirOf(col.field)"
             >
               <span>{{ col.label }}</span>
+              <app-column-filter
+                [field]="col.field" [label]="col.label" [type]="col.type"
+                [rows]="organizations" [format]="cellText"
+                [selected]="columnFilters[col.field] || null"
+                (selectedChange)="onColumnFilterChange(col.field, $event)"
+                (openSort)="openSortConfig()"
+                (hideColumn)="hideColumnField(col.field)"
+                (openColumnConfig)="openColumnConfig()">
+              </app-column-filter>
               <!-- Marqueur de tri MULTI-NIVEAUX (rang + sens) si le champ y participe. -->
               <span class="sort-badge" *ngIf="sortLevelOf(col.field)">
                 <span class="sort-rank">{{ sortLevelOf(col.field) }}</span>
@@ -242,11 +251,6 @@
                 {{ getStatusText(org.is_active) }}
               </span>
 
-              <!-- Type de données (test/réel) avec badge -->
-              <span *ngIf="col.field === 'is_test_data'" [class]="getTestDataBadgeClass(org.is_test_data)">
-                {{ getTestDataText(org.is_test_data) }}
-              </span>
-
               <!-- Suppression logique avec badge (colonne d'audit standard) -->
               <span *ngIf="col.field === 'is_deleted'" class="badge"
                     [class.badge-success]="!org.is_deleted" [class.badge-secondary]="org.is_deleted">
@@ -259,7 +263,7 @@
               </span>
 
               <!-- Autres champs -->
-              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_test_data' && col.field !== 'is_deleted' && col.field !== 'created_at' && col.field !== 'updated_at' && col.field !== 'deleted_at'">
+              <span *ngIf="col.field !== 'type_display' && col.field !== 'is_active' && col.field !== 'is_deleted' && col.field !== 'created_at' && col.field !== 'updated_at' && col.field !== 'deleted_at'">
                 {{ org[col.field] || '-' }}
               </span>
             </td>
@@ -1043,25 +1047,6 @@
                 </i>
               </label>
               <div class="detail-value">{{ organizationToView.modified_by_email }}</div>
-            </div>
-          </div>
-
-          <!-- Type de données (test/réel) -->
-          <div class="detail-row" *ngIf="organizationToView.is_test_data !== undefined">
-            <div class="detail-field full-width">
-              <label>
-                <i class="fas fa-database"></i>
-                Type de données
-                <i 
-                  class="fas fa-info-circle field-info-icon" 
-                  [title]="getFieldDescription('is_test_data') || 'Indique si cette organisation est une donnée de test (True) ou réelle (False). En production, les données de test sont automatiquement masquées.'">
-                </i>
-              </label>
-              <div class="detail-value">
-                <span [class]="getTestDataBadgeClass(organizationToView.is_test_data)">
-                  {{ getTestDataText(organizationToView.is_test_data) }}
-                </span>
-              </div>
             </div>
           </div>
         </div>
